@@ -192,7 +192,7 @@
   }
 
   async function main() {
-    metaEl.textContent = `Repo: ${username}/${repo} · Branch: ${branch}`;
+    metaEl.textContent = `Repo: ${}/${repo} · Branch: ${branch}`;
 
     try {
       const res = await fetch(apiTree, {
