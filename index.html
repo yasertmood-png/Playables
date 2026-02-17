@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Playables Library</title>
+  <title>Playables</title>
   <style>
     body{font-family:Arial, sans-serif; background:#0f1115; color:#e8e8e8; margin:0; padding:28px;}
     h1{margin:0 0 14px 0; font-size:22px;}
-    #meta{opacity:.8; font-size:13px; margin-bottom:18px;}
     a{color:#66d9ff; text-decoration:none;}
     a:hover{text-decoration:underline;}
     .card{background:#151a22; border:1px solid #232a36; border-radius:10px; padding:14px; margin:12px 0;}
@@ -27,72 +26,50 @@
   </style>
 </head>
 <body>
-  <h1>🎮 Playables Library</h1>
-  <div id="meta" class="muted">Loading…</div>
+  <h1>🎮 Playables</h1>
 
   <div class="card">
     <div class="controls">
       <button id="expandAll">Expand all</button>
       <button id="collapseAll">Collapse all</button>
-      <input id="search" placeholder="Search files/folders…" />
+      <input id="search" placeholder="Search…" />
     </div>
   </div>
 
-  <div id="tree" class="card">Loading repository files…</div>
+  <div id="tree" class="card">Loading…</div>
 
 <script>
 (() => {
-  const username = "yasertmood-png";
-  const repo = "Playables";
-  const branch = "main"; // change if needed
-
-  // Which files to exclude
-  const EXCLUDE = new Set(["README.md", "index.html"]);
-
-  // Which file types to show as "playables"
-  // Add more extensions if you want.
-  const ALLOWED_EXT = [".html"];
-
-  const metaEl = document.getElementById("meta");
+  // Hide repo/user completely from UI; everything is inferred.
   const treeEl = document.getElementById("tree");
   const searchEl = document.getElementById("search");
 
-  const pagesBase = `https://${username}.github.io/${repo}/`;
-  const apiTree = `https://api.github.com/repos/${username}/${repo}/git/trees/${branch}?recursive=1`;
+  // Exclusions
+  const EXCLUDE_BASENAMES = new Set(["README.md", "index.html"]);
+
+  // What to list as “playables”
+  const ALLOWED_EXT = [".html"]; // add ".htm" if needed
+
+  // --- Infer owner/repo from GitHub Pages URL ---
+  // Works for: https://USERNAME.github.io/REPO/...
+  function inferFromPagesURL() {
+    const host = window.location.hostname;          // username.github.io
+    const pathParts = window.location.pathname.split("/").filter(Boolean); // [REPO, ...]
+    const isGithubPages = host.endsWith(".github.io") && host.split(".").length >= 3;
+
+    if (!isGithubPages || pathParts.length === 0) return null;
+
+    const owner = host.split(".github.io")[0];      // USERNAME
+    const repo = pathParts[0];                      // REPO
+    return { owner, repo };
+  }
 
   function isAllowedPlayable(path) {
     const lower = path.toLowerCase();
     return ALLOWED_EXT.some(ext => lower.endsWith(ext));
   }
 
-  function buildNestedTree(paths) {
-    // Tree node format:
-    // { type:"dir", children: Map(name -> node) } or { type:"file", path }
-    const root = { type: "dir", children: new Map() };
-
-    for (const p of paths) {
-      const parts = p.split("/").filter(Boolean);
-      let cur = root;
-
-      for (let i = 0; i < parts.length; i++) {
-        const name = parts[i];
-        const isLast = i === parts.length - 1;
-
-        if (isLast) {
-          cur.children.set(name, { type: "file", path: p });
-        } else {
-          if (!cur.children.has(name)) {
-            cur.children.set(name, { type: "dir", children: new Map() });
-          }
-          cur = cur.children.get(name);
-        }
-      }
-    }
-    return root;
-  }
-
   function sortChildren(map) {
-    // Folders first, then files; alphabetical
     return [...map.entries()].sort((a, b) => {
       const A = a[1], B = b[1];
       if (A.type !== B.type) return A.type === "dir" ? -1 : 1;
@@ -100,7 +77,25 @@
     });
   }
 
-  function renderNode(node, name = "", depth = 0) {
+  function buildNestedTree(paths) {
+    const root = { type: "dir", children: new Map() };
+    for (const p of paths) {
+      const parts = p.split("/").filter(Boolean);
+      let cur = root;
+      for (let i = 0; i < parts.length; i++) {
+        const name = parts[i];
+        const isLast = i === parts.length - 1;
+        if (isLast) cur.children.set(name, { type: "file", path: p });
+        else {
+          if (!cur.children.has(name)) cur.children.set(name, { type: "dir", children: new Map() });
+          cur = cur.children.get(name);
+        }
+      }
+    }
+    return root;
+  }
+
+  function renderNode(node, name = "", depth = 0, pagesBase = "") {
     if (node.type === "file") {
       const fileName = name;
       const url = pagesBase + node.path;
@@ -116,24 +111,20 @@
       return div;
     }
 
-    // directory
     const details = document.createElement("details");
     details.dataset.folder = (name || "/").toLowerCase();
-
-    // Top-level open by default? (optional)
     if (depth === 0) details.open = true;
 
     const summary = document.createElement("summary");
     summary.className = "folder";
-    summary.textContent = name || `${repo}/`;
-
+    summary.textContent = name || "All Playables";
     details.appendChild(summary);
 
     const wrapper = document.createElement("div");
     wrapper.style.marginLeft = "10px";
 
     for (const [childName, childNode] of sortChildren(node.children)) {
-      wrapper.appendChild(renderNode(childNode, childName, depth + 1));
+      wrapper.appendChild(renderNode(childNode, childName, depth + 1, pagesBase));
     }
 
     details.appendChild(wrapper);
@@ -150,23 +141,18 @@
     const allFolders = [...document.querySelectorAll("#tree details")];
 
     if (!q) {
-      // reset
       allFiles.forEach(el => el.style.display = "");
       allFolders.forEach(el => el.style.display = "");
       return;
     }
 
-    // Hide everything first
     allFiles.forEach(el => el.style.display = "none");
     allFolders.forEach(el => el.style.display = "none");
 
-    // Show matching files and their parent folders
     for (const fileEl of allFiles) {
       const path = fileEl.dataset.path || "";
       if (path.includes(q)) {
         fileEl.style.display = "";
-
-        // show parent folders + open them
         let parent = fileEl.parentElement;
         while (parent) {
           if (parent.tagName && parent.tagName.toLowerCase() === "details") {
@@ -178,63 +164,84 @@
       }
     }
 
-    // Also show folders that match query (even if no file matches)
     for (const folderEl of allFolders) {
       const folderKey = folderEl.dataset.folder || "";
       if (folderKey.includes(q)) {
         folderEl.style.display = "";
         folderEl.open = true;
-        // show all descendants
         folderEl.querySelectorAll(".file").forEach(el => el.style.display = "");
         folderEl.querySelectorAll("details").forEach(el => { el.style.display = ""; el.open = true; });
       }
     }
   }
 
+  async function getDefaultBranch(owner, repo) {
+    const url = `https://api.github.com/repos/${owner}/${repo}`;
+    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" }});
+    if (!res.ok) throw new Error(`Repo API error: ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    return data.default_branch || "main";
+  }
+
+  async function getRecursiveTree(owner, repo, branch) {
+    const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
+    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" }});
+    if (!res.ok) throw new Error(`Tree API error: ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    return Array.isArray(data.tree) ? data.tree : [];
+  }
+
   async function main() {
-    metaEl.textContent = `Repo: ${}/${repo} · Branch: ${branch}`;
+    const inferred = inferFromPagesURL();
+
+    if (!inferred) {
+      treeEl.innerHTML = `
+        <div class="error">This page can’t infer the repo from the URL.</div>
+        <div class="muted" style="margin-top:8px;">
+          This script expects a GitHub Pages URL like: <span class="muted">https://USERNAME.github.io/REPO/</span>
+          <br>Tip: open this page from your GitHub Pages site, not from github.com.
+        </div>`;
+      return;
+    }
+
+    const { owner, repo } = inferred;
+    const pagesBase = `https://${owner}.github.io/${repo}/`;
 
     try {
-      const res = await fetch(apiTree, {
-        headers: { "Accept": "application/vnd.github+json" }
-      });
+      const branch = await getDefaultBranch(owner, repo);
+      const items = await getRecursiveTree(owner, repo, branch);
 
-      if (!res.ok) {
-        throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      const items = Array.isArray(data.tree) ? data.tree : [];
-
-      // Keep only "blob" files, exclude README/index, keep allowed ext
       const playablePaths = items
         .filter(x => x.type === "blob" && typeof x.path === "string")
         .map(x => x.path)
-        .filter(p => !EXCLUDE.has(p.split("/").pop()))
+        .filter(p => !EXCLUDE_BASENAMES.has(p.split("/").pop()))
         .filter(p => isAllowedPlayable(p));
 
       if (playablePaths.length === 0) {
-        treeEl.innerHTML = `<div class="muted">No playables found. Upload .html files to the repo.</div>`;
+        treeEl.innerHTML = `<div class="muted">No playables found. Upload .html files (or folders containing them).</div>`;
         return;
       }
 
-      // Build nested structure and render
       const nested = buildNestedTree(playablePaths);
       treeEl.innerHTML = "";
-      treeEl.appendChild(renderNode(nested, "", 0));
+      treeEl.appendChild(renderNode(nested, "", 0, pagesBase));
 
-      // Controls
       document.getElementById("expandAll").addEventListener("click", () => setAllDetails(true));
       document.getElementById("collapseAll").addEventListener("click", () => setAllDetails(false));
-
       searchEl.addEventListener("input", (e) => applySearch(e.target.value));
 
     } catch (err) {
-      treeEl.innerHTML = `<div class="error">Failed to load files: ${err.message}</div>
-                          <div class="muted" style="margin-top:8px;">
-                            If your repo is private, the GitHub API won’t allow this without authentication.
-                            Make sure the repo is public.
-                          </div>`;
+      treeEl.innerHTML = `
+        <div class="error">Failed to load files.</div>
+        <div class="muted" style="margin-top:8px;">
+          ${String(err.message || err)}
+          <br><br>
+          Common causes:
+          <ul>
+            <li>Repo is private (GitHub API won’t allow listing without auth).</li>
+            <li>GitHub API rate limit (try again later).</li>
+          </ul>
+        </div>`;
     }
   }
 
