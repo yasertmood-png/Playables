@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>My Playables</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background:#111;
+      color:#fff;
+      padding:40px;
+    }
+    h1 { margin-bottom:20px; }
+    a {
+      display:block;
+      padding:12px;
+      margin:8px 0;
+      background:#222;
+      color:#00d8ff;
+      text-decoration:none;
+      border-radius:6px;
+    }
+    a:hover { background:#333; }
+  </style>
+</head>
+
+<body>
+  <h1>🎮 Playables Library</h1>
+  <div id="list">Loading files...</div>
+
+<script>
+const username = "yasertmood-png";
+const repo = "Playables";
+
+const apiURL = `https://api.github.com/repos/${username}/${repo}/contents`;
+
+fetch(apiURL)
+  .then(res => res.json())
+  .then(files => {
+    const container = document.getElementById("list");
+    container.innerHTML = "";
+
+    files.forEach(file => {
+      // show only HTML files and ignore index & README
+      if (file.name.endsWith(".html") &&
+          file.name !== "index.html" &&
+          file.name !== "README.md") {
+
+        const link = document.createElement("a");
+        link.href = `https://${username}.github.io/${repo}/${file.name}`;
+        link.textContent = file.name.replace(".html", "");
+        link.target = "_blank";
+
+        container.appendChild(link);
+      }
+    });
+
+    if(container.innerHTML === "")
+      container.innerHTML = "No playables uploaded yet.";
+  });
+</script>
+
+</body>
+</html>
