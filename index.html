@@ -1,168 +1,345 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Playables</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Playables</title>
 
-<style>
-body{
-  font-family:Arial, sans-serif;
-  background:#0f1115;
-  color:#e8e8e8;
-  margin:0;
-  padding:28px;
-}
-h1{margin-bottom:10px;}
+  <style>
+    body{
+      font-family: Arial, sans-serif;
+      background:#0f1115;
+      color:#e8e8e8;
+      margin:0;
+      padding:28px;
+    }
+    h1{margin:0 0 12px 0; font-size:22px;}
 
-.card{
-  background:#151a22;
-  border:1px solid #232a36;
-  border-radius:10px;
-  padding:14px;
-  margin:12px 0;
-}
+    .card{
+      background:#151a22;
+      border:1px solid #232a36;
+      border-radius:10px;
+      padding:14px;
+      margin:12px 0;
+    }
 
-details{margin-left:10px;}
-summary{
-  cursor:pointer;
-  padding:6px;
-  border-radius:8px;
-  font-weight:bold;
-}
-summary:hover{background:#1c2230;}
+    .controls{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
 
-.controls{display:flex; gap:10px; flex-wrap:wrap;}
-button{
-  background:#1c2230;
-  color:#fff;
-  border:1px solid #2a3345;
-  padding:8px 12px;
-  border-radius:8px;
-  cursor:pointer;
-}
-button:hover{background:#242c3c;}
+    .btn{
+      background:#1c2230;
+      color:#fff;
+      border:1px solid #2a3345;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn:hover{background:#242c3c;}
 
-input{
-  background:#0f1115;
-  color:#fff;
-  border:1px solid #2a3345;
-  padding:8px 12px;
-  border-radius:8px;
-}
+    input{
+      background:#0f1115;
+      color:#fff;
+      border:1px solid #2a3345;
+      padding:8px 12px;
+      border-radius:8px;
+      min-width:240px;
+    }
 
-.file{margin:6px 0 6px 18px;}
+    details{margin-left:10px;}
+    summary{
+      cursor:pointer;
+      padding:6px 8px;
+      border-radius:8px;
+      font-weight:700;
+      user-select:none;
+    }
+    summary:hover{background:#1c2230;}
 
-.file button{
-  background:#2ecc71;
-  border:none;
-  padding:10px 16px;
-  border-radius:8px;
-  cursor:pointer;
-  font-weight:bold;
-}
-.file button:hover{background:#28b463;}
-</style>
+    .file{
+      margin:6px 0 6px 18px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .run{
+      background:#2ecc71;
+      border:none;
+      padding:10px 16px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:800;
+      color:#08110a;
+    }
+    .run:hover{background:#28b463;}
+
+    .download{
+      background:#3498db;
+      border:none;
+      padding:10px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:800;
+      color:#07131d;
+    }
+    .download:hover{background:#2f86c1;}
+
+    .muted{opacity:.75;}
+    .error{color:#ffb4b4;}
+  </style>
 </head>
 
 <body>
+  <h1>🎮 Playables</h1>
 
-<h1>🎮 Playables</h1>
-
-<div class="card">
-  <div class="controls">
-    <button id="expandAll">Expand all</button>
-    <button id="collapseAll">Collapse all</button>
-    <input id="search" placeholder="Search folders…" />
+  <div class="card">
+    <div class="controls">
+      <button id="expandAll" class="btn">Expand all</button>
+      <button id="collapseAll" class="btn">Collapse all</button>
+      <input id="search" placeholder="Search folders / files…" />
+      <span id="status" class="muted"></span>
+    </div>
   </div>
-</div>
 
-<div id="tree" class="card">Loading repository files…</div>
+  <div id="tree" class="card">Loading repository files…</div>
 
 <script>
-const EXCLUDE = ["README.md","index.html"];
-const ALLOWED_EXT = [".html"];
+(() => {
+  // Exclude these basenames anywhere in the repo:
+  const EXCLUDE_BASENAMES = new Set(["README.md", "index.html"]);
 
-function inferRepo(){
-  const host = location.hostname.split(".github.io")[0];
-  const repo = location.pathname.split("/")[1];
-  return {owner:host, repo};
-}
+  // List only these file extensions as runnable playables:
+  const ALLOWED_EXT = [".html"]; // add ".htm" if you want
 
-function buildTree(paths){
-  const root={children:{}};
-  paths.forEach(p=>{
-    const parts=p.split("/");
-    let cur=root;
-    parts.forEach((part,i)=>{
-      if(i===parts.length-1){
-        cur.children[part]={file:true,path:p};
-      }else{
-        cur.children[part]=cur.children[part]||{children:{}};
-        cur=cur.children[part];
-      }
-    });
-  });
-  return root;
-}
+  const treeEl = document.getElementById("tree");
+  const statusEl = document.getElementById("status");
+  const searchEl = document.getElementById("search");
 
-function renderNode(node,name,base){
-  if(node.file){
-    const div=document.createElement("div");
-    div.className="file";
-    const url=base+node.path;
-    div.innerHTML=`<button onclick="window.open('${url}','_blank')">▶ Run</button>`;
-    return div;
+  function inferFromPagesURL() {
+    // Expected URL: https://USERNAME.github.io/REPO/...
+    const host = location.hostname; // USERNAME.github.io
+    const parts = location.pathname.split("/").filter(Boolean); // [REPO, ...]
+    if (!host.endsWith(".github.io") || parts.length === 0) return null;
+    const owner = host.slice(0, -".github.io".length);
+    const repo = parts[0];
+    return { owner, repo };
   }
 
-  const details=document.createElement("details");
-  if(!name) details.open=true;
+  function isAllowedPlayable(path) {
+    const lower = path.toLowerCase();
+    return ALLOWED_EXT.some(ext => lower.endsWith(ext));
+  }
 
-  const summary=document.createElement("summary");
-  summary.textContent=name || "All Playables";
-  details.appendChild(summary);
+  async function getDefaultBranch(owner, repo) {
+    const url = `https://api.github.com/repos/${owner}/${repo}`;
+    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" }});
+    if (!res.ok) throw new Error(`Repo API error: ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    return data.default_branch || "main";
+  }
 
-  Object.entries(node.children).sort().forEach(([n,child])=>{
-    details.appendChild(renderNode(child,n,base));
-  });
+  async function getRecursiveTree(owner, repo, branch) {
+    const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
+    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" }});
+    if (!res.ok) throw new Error(`Tree API error: ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    return Array.isArray(data.tree) ? data.tree : [];
+  }
 
-  return details;
-}
+  function buildNestedTree(paths) {
+    const root = { type: "dir", children: new Map() };
+    for (const p of paths) {
+      const segs = p.split("/").filter(Boolean);
+      let cur = root;
+      for (let i = 0; i < segs.length; i++) {
+        const name = segs[i];
+        const last = i === segs.length - 1;
+        if (last) {
+          cur.children.set(name, { type: "file", path: p });
+        } else {
+          if (!cur.children.has(name)) cur.children.set(name, { type: "dir", children: new Map() });
+          cur = cur.children.get(name);
+        }
+      }
+    }
+    return root;
+  }
 
-async function load(){
-  const {owner,repo}=inferRepo();
-  const apiRepo=`https://api.github.com/repos/${owner}/${repo}`;
-  const repoInfo=await fetch(apiRepo).then(r=>r.json());
-  const branch=repoInfo.default_branch;
+  function sortChildren(map) {
+    return [...map.entries()].sort((a,b) => {
+      const A = a[1], B = b[1];
+      if (A.type !== B.type) return A.type === "dir" ? -1 : 1;
+      return a[0].localeCompare(b[0], undefined, { sensitivity: "base" });
+    });
+  }
 
-  const apiTree=`https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
-  const data=await fetch(apiTree).then(r=>r.json());
+  function renderNode(node, name, depth, pagesBase) {
+    if (node.type === "file") {
+      const fileDiv = document.createElement("div");
+      fileDiv.className = "file";
+      fileDiv.dataset.path = node.path.toLowerCase();
 
-  const files=data.tree
-    .filter(x=>x.type==="blob")
-    .map(x=>x.path)
-    .filter(p=>!EXCLUDE.includes(p.split("/").pop()))
-    .filter(p=>ALLOWED_EXT.some(ext=>p.toLowerCase().endsWith(ext)));
+      const url = pagesBase + node.path;
+      const filename = node.path.split("/").pop() || "playable.html";
 
-  const base=`https://${owner}.github.io/${repo}/`;
-  const tree=buildTree(files);
+      // Download: uses an <a download> click so it saves the file.
+      const downloadBtn = document.createElement("button");
+      downloadBtn.className = "download";
+      downloadBtn.textContent = "⬇ Download";
+      downloadBtn.addEventListener("click", () => {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename; // hint filename
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      });
 
-  const container=document.getElementById("tree");
-  container.innerHTML="";
-  container.appendChild(renderNode(tree,"",base));
-}
+      // Run: opens in a new tab/window
+      const runBtn = document.createElement("button");
+      runBtn.className = "run";
+      runBtn.textContent = "▶ Run";
+      runBtn.addEventListener("click", () => {
+        window.open(url, "_blank", "noopener");
+      });
 
-document.getElementById("expandAll").onclick=()=>document.querySelectorAll("details").forEach(d=>d.open=true);
-document.getElementById("collapseAll").onclick=()=>document.querySelectorAll("details").forEach(d=>d.open=false);
+      fileDiv.appendChild(downloadBtn);
+      fileDiv.appendChild(runBtn);
 
-document.getElementById("search").addEventListener("input",e=>{
-  const q=e.target.value.toLowerCase();
-  document.querySelectorAll("details").forEach(d=>{
-    d.style.display=d.innerText.toLowerCase().includes(q)?"":"none";
-  });
-});
+      return fileDiv;
+    }
 
-load();
+    const details = document.createElement("details");
+    details.dataset.folder = (name || "/").toLowerCase();
+    if (depth === 0) details.open = true;
+
+    const summary = document.createElement("summary");
+    summary.textContent = name || "All Playables";
+    details.appendChild(summary);
+
+    const wrap = document.createElement("div");
+    wrap.style.marginLeft = "10px";
+
+    for (const [childName, childNode] of sortChildren(node.children)) {
+      wrap.appendChild(renderNode(childNode, childName, depth + 1, pagesBase));
+    }
+
+    details.appendChild(wrap);
+    return details;
+  }
+
+  function setAllDetails(open) {
+    document.querySelectorAll("#tree details").forEach(d => d.open = open);
+  }
+
+  function applySearch(q) {
+    q = q.trim().toLowerCase();
+
+    const allFiles = [...document.querySelectorAll("#tree .file")];
+    const allFolders = [...document.querySelectorAll("#tree details")];
+
+    if (!q) {
+      allFiles.forEach(el => el.style.display = "");
+      allFolders.forEach(el => el.style.display = "");
+      return;
+    }
+
+    allFiles.forEach(el => el.style.display = "none");
+    allFolders.forEach(el => el.style.display = "none");
+
+    // show matching files and their parent folders
+    for (const fileEl of allFiles) {
+      const path = fileEl.dataset.path || "";
+      if (path.includes(q)) {
+        fileEl.style.display = "";
+        let parent = fileEl.parentElement;
+        while (parent) {
+          if (parent.tagName && parent.tagName.toLowerCase() === "details") {
+            parent.style.display = "";
+            parent.open = true;
+          }
+          parent = parent.parentElement;
+        }
+      }
+    }
+
+    // show folders that match, plus descendants
+    for (const folderEl of allFolders) {
+      const key = folderEl.dataset.folder || "";
+      if (key.includes(q)) {
+        folderEl.style.display = "";
+        folderEl.open = true;
+        folderEl.querySelectorAll(".file").forEach(el => el.style.display = "");
+        folderEl.querySelectorAll("details").forEach(el => { el.style.display = ""; el.open = true; });
+      }
+    }
+  }
+
+  async function main() {
+    const inferred = inferFromPagesURL();
+    if (!inferred) {
+      treeEl.innerHTML = `
+        <div class="error">Open this page from your GitHub Pages site (USERNAME.github.io/REPO/).</div>
+        <div class="muted" style="margin-top:8px;">If you opened it on github.com (code view), scripts may not run.</div>
+      `;
+      return;
+    }
+
+    const { owner, repo } = inferred;
+    const pagesBase = `https://${owner}.github.io/${repo}/`;
+
+    try {
+      statusEl.textContent = "Loading…";
+      const branch = await getDefaultBranch(owner, repo);
+      const items = await getRecursiveTree(owner, repo, branch);
+
+      const playablePaths = items
+        .filter(x => x.type === "blob" && typeof x.path === "string")
+        .map(x => x.path)
+        .filter(p => !EXCLUDE_BASENAMES.has(p.split("/").pop()))
+        .filter(p => isAllowedPlayable(p));
+
+      if (playablePaths.length === 0) {
+        statusEl.textContent = "";
+        treeEl.innerHTML = `<div class="muted">No playables found. Upload .html files (or folders containing them).</div>`;
+        return;
+      }
+
+      const nested = buildNestedTree(playablePaths);
+      treeEl.innerHTML = "";
+      treeEl.appendChild(renderNode(nested, "", 0, pagesBase));
+
+      statusEl.textContent = `${playablePaths.length} playable(s)`;
+
+      document.getElementById("expandAll").addEventListener("click", () => setAllDetails(true));
+      document.getElementById("collapseAll").addEventListener("click", () => setAllDetails(false));
+      searchEl.addEventListener("input", (e) => applySearch(e.target.value));
+
+    } catch (err) {
+      statusEl.textContent = "";
+      treeEl.innerHTML = `
+        <div class="error">Failed to load file list.</div>
+        <div class="muted" style="margin-top:8px;">
+          ${String(err.message || err)}
+          <br><br>
+          Common causes:
+          <ul>
+            <li>Repo is private (GitHub API won’t list files without auth).</li>
+            <li>GitHub API rate limit (try again later).</li>
+          </ul>
+        </div>
+      `;
+    }
+  }
+
+  main();
+})();
 </script>
 
 </body>
