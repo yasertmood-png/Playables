@@ -268,6 +268,25 @@
     #tutorialHand.pulsing {
       animation: tutorialHandPulse 0.85s ease-in-out infinite;
     }
+    #muteBtn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      width: clamp(32px, 8vmin, 48px);
+      height: clamp(32px, 8vmin, 48px);
+      border: 0;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.45);
+      color: #fff;
+      font-size: clamp(16px, 4vmin, 24px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 9;
+      padding: 0;
+    }
+
     @keyframes tutorialHandPulse {
       0%, 100% { transform: translate(-50%, 0%) scale(1); }
       50% { transform: translate(-50%, 0%) scale(1.18); }
@@ -281,6 +300,7 @@
   <button id="ctaInstall" type="button" aria-label="Download">Download</button>
   <button id="dealButton" type="button" aria-label="Deal">Deal</button>
   <img id="tutorialHand" alt="">
+  <button id="muteBtn" type="button" aria-label="Mute">&#128264;</button>
   <div id="fallbackUI" aria-live="polite">
     <div class="fallbackCard">
       <div id="fallbackText">Graphics not available. Tap Retry.</div>
@@ -1377,8 +1397,34 @@
     };
 
     // ---- Sound helper ----
-    function playSound(dataUri) {
-      try { var a = new Audio(dataUri); a.play(); } catch(e) {}
+    var SFX = {
+      merge: new Audio(ASSETS.sndMerge),
+      pickup: new Audio(ASSETS.sndPickup),
+      drag: new Audio(ASSETS.sndDrag),
+    };
+    var audioMuted = false;
+
+    // Unlock audio on first gesture (capture phase fires before canvas handler)
+    var _audioCtx = null;
+    document.addEventListener('pointerdown', function () {
+      if (_audioCtx) return;
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      _audioCtx.resume();
+    }, { once: true, capture: true });
+
+    function playSound(audio) {
+      if (audioMuted) return;
+      try { audio.currentTime = 0; audio.play(); } catch(e) {}
+    }
+
+    // Mute/unmute button
+    var muteBtn = document.getElementById('muteBtn');
+    if (muteBtn) {
+      muteBtn.addEventListener('pointerdown', function (e) {
+        e.stopPropagation();
+        audioMuted = !audioMuted;
+        muteBtn.textContent = audioMuted ? '\u{1F507}' : '\u{1F508}';
+      });
     }
 
     // ============================================================
@@ -1524,7 +1570,7 @@
     // Pre-defined coin layout (indexed by slot 0Ã¢â‚¬â€œ14, each is array of coin numbers)
     const DefaultCoinLayout = [
       [], [], [], [], [],
-      [3, 3, 3, 3, 4, 4, 4, 4], [3, 3, 3,5,5,5,7,7,7], [4, 4, 4, 4,6,6,6], [], [],
+      [3, 3, 3, 3, 4, 4, 4, 4], [3, 3, 3,5,5,5], [4, 4, 4, 4], [], [],
       [2, 2, 2, 2, 2, 1, 1, 1], [1, 1, 1], [2, 2, 2, 1, 1, 1, 1], [3, 3, 3, 3], [3, 3, 3, 3],
     ];
 
@@ -2072,7 +2118,7 @@
       const topCoins = getTopSameColorCoins(slot);
       if (topCoins.length === 0) return;
 
-      playSound(ASSETS.sndPickup);
+      playSound(SFX.pickup);
 
       // Remove from slot
       slot.coins.splice(slot.coins.length - topCoins.length, topCoins.length);
@@ -2107,7 +2153,7 @@
 
       if (toTransfer.length === 0) return false;
 
-      playSound(ASSETS.sndDrag);
+      playSound(SFX.drag);
 
       // Delay-based transfer: each next coin starts after a fixed stagger.
       var completedTransfers = 0;
@@ -2165,7 +2211,7 @@
       // Max level Ã¢â‚¬â€ no merge
       if (num >= 7) return;
 
-      playSound(ASSETS.sndMerge);
+      playSound(SFX.merge);
 
       isAnimating = true;
 
@@ -2592,7 +2638,37 @@
       if (!webglAvailable) return;
       renderer.render(scene, camera);
     }
-    document.fonts.ready.then(function () { startGame(); });
+    // Wait for all resources before starting
+    (function waitForReady() {
+      var promises = [];
+
+      // Fonts
+      promises.push(document.fonts.ready);
+
+      // Audio
+      [SFX.merge, SFX.pickup, SFX.drag].forEach(function (a) {
+        if (a.readyState < 4) {
+          promises.push(new Promise(function (resolve) {
+            a.addEventListener('canplaythrough', resolve, { once: true });
+            a.addEventListener('error', resolve, { once: true });
+          }));
+        }
+      });
+
+      // Images (game icon, CTA button bg, tutorial hand)
+      var imgSrcs = [UI_GAME_ICON, UI_BUTTON_IMAGE, ASSETS.hand];
+      imgSrcs.forEach(function (src) {
+        if (!src) return;
+        promises.push(new Promise(function (resolve) {
+          var img = new Image();
+          img.onload = resolve;
+          img.onerror = resolve;
+          img.src = src;
+        }));
+      });
+
+      Promise.all(promises).then(function () { startGame(); });
+    })();
 
   </script>
 </body>
