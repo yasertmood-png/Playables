@@ -2483,7 +2483,7 @@
       if (!webglAvailable) return;
       renderer.render(scene, camera);
     }
-    startGame();
+    document.fonts.ready.then(function () { startGame(); });
 
   </script>
 </body>
