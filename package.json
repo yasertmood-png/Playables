@@ -1,0 +1,7 @@
+{
+  "name": "playables",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/gen-playables.mjs"
+  }
+}

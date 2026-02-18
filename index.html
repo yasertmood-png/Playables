@@ -92,6 +92,7 @@
 
     .muted{opacity:.75;}
     .error{color:#ffb4b4;}
+    code{background:#0f1115; padding:2px 6px; border-radius:6px; border:1px solid #2a3345;}
   </style>
 </head>
 
@@ -112,44 +113,21 @@
 <script>
 (() => {
   // Exclude these basenames anywhere in the repo:
-  const EXCLUDE_BASENAMES = new Set(["README.md", "index.html"]);
+  const EXCLUDE_BASENAMES = new Set(["README.md", "index.html", "playables.json"]);
 
   // List only these file extensions as runnable playables:
   const ALLOWED_EXT = [".html"]; // add ".htm" if you want
+
+  // Auto-generated at build time:
+  const MANIFEST_URL = "./playables.json";
 
   const treeEl = document.getElementById("tree");
   const statusEl = document.getElementById("status");
   const searchEl = document.getElementById("search");
 
-  function inferFromPagesURL() {
-    // Expected URL: https://USERNAME.github.io/REPO/...
-    const host = location.hostname; // USERNAME.github.io
-    const parts = location.pathname.split("/").filter(Boolean); // [REPO, ...]
-    if (!host.endsWith(".github.io") || parts.length === 0) return null;
-    const owner = host.slice(0, -".github.io".length);
-    const repo = parts[0];
-    return { owner, repo };
-  }
-
   function isAllowedPlayable(path) {
     const lower = path.toLowerCase();
     return ALLOWED_EXT.some(ext => lower.endsWith(ext));
-  }
-
-  async function getDefaultBranch(owner, repo) {
-    const url = `https://api.github.com/repos/${owner}/${repo}`;
-    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" }});
-    if (!res.ok) throw new Error(`Repo API error: ${res.status} ${res.statusText}`);
-    const data = await res.json();
-    return data.default_branch || "main";
-  }
-
-  async function getRecursiveTree(owner, repo, branch) {
-    const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
-    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" }});
-    if (!res.ok) throw new Error(`Tree API error: ${res.status} ${res.statusText}`);
-    const data = await res.json();
-    return Array.isArray(data.tree) ? data.tree : [];
   }
 
   function buildNestedTree(paths) {
@@ -281,33 +259,33 @@
     }
   }
 
-  async function main() {
-    const inferred = inferFromPagesURL();
-    if (!inferred) {
-      treeEl.innerHTML = `
-        <div class="error">Open this page from your GitHub Pages site (USERNAME.github.io/REPO/).</div>
-        <div class="muted" style="margin-top:8px;">If you opened it on github.com (code view), scripts may not run.</div>
-      `;
-      return;
-    }
+  async function loadManifest() {
+    const res = await fetch(MANIFEST_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Could not load ${MANIFEST_URL} (HTTP ${res.status})`);
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error(`${MANIFEST_URL} must be a JSON array of file paths`);
+    return data;
+  }
 
-    const { owner, repo } = inferred;
-    const pagesBase = `https://${owner}.github.io/${repo}/`;
+  async function main() {
+    // Works on Cloudflare Pages, custom domains, etc.
+    const pagesBase = `${location.origin}/`;
 
     try {
       statusEl.textContent = "Loading…";
-      const branch = await getDefaultBranch(owner, repo);
-      const items = await getRecursiveTree(owner, repo, branch);
 
-      const playablePaths = items
-        .filter(x => x.type === "blob" && typeof x.path === "string")
-        .map(x => x.path)
-        .filter(p => !EXCLUDE_BASENAMES.has(p.split("/").pop()))
+      const listed = await loadManifest();
+
+      // normalize and filter
+      const playablePaths = listed
+        .filter(p => typeof p === "string")
+        .map(p => p.replace(/^\/+/, "")) // trim leading slashes
+        .filter(p => !EXCLUDE_BASENAMES.has((p.split("/").pop() || "").trim()))
         .filter(p => isAllowedPlayable(p));
 
       if (playablePaths.length === 0) {
         statusEl.textContent = "";
-        treeEl.innerHTML = `<div class="muted">No playables found. Upload .html files (or folders containing them).</div>`;
+        treeEl.innerHTML = `<div class="muted">No playables found. Ensure <code>playables.json</code> lists your playable <code>.html</code> files.</div>`;
         return;
       }
 
@@ -328,10 +306,11 @@
         <div class="muted" style="margin-top:8px;">
           ${String(err.message || err)}
           <br><br>
-          Common causes:
+          Fix:
           <ul>
-            <li>Repo is private (GitHub API won’t list files without auth).</li>
-            <li>GitHub API rate limit (try again later).</li>
+            <li>Make sure <code>playables.json</code> exists in the repo root.</li>
+            <li>It must be a JSON array of paths to your playable <code>.html</code> files.</li>
+            <li>If you generate it in build, confirm your Cloudflare build command runs that generator.</li>
           </ul>
         </div>
       `;
