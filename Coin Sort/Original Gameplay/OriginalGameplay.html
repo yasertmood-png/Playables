@@ -1438,6 +1438,15 @@
     const CoinStackStartZ = -0.67;
     const CoinStackStartY = 0.55;
 
+    // Coin X offset by distance from center column (fixes 3D perspective alignment)
+    // Index 0 = center, 1 = one away, 2 = two away, etc.
+    // Left side gets negated automatically
+    const CoinXOffsetByDistance = [
+      0,       // center column
+      -0.019,   // 1 column from center
+      -0.05,    // 2 columns from center
+    ];
+
     // Coin text settings (adjustable)
     const CoinTextSize = 40;      // font size in canvas pixels
     const CoinTextOutline = 4;       // black outline thickness in canvas pixels
@@ -1454,7 +1463,8 @@
     const CoinHoldDuration = 100;    // coin up/down duration in ms
     const CoinTransferDuration = 250;    // transfer duration for all transfers in ms
     const CoinTransferStartDelay = 100;     // delay between starting each transferred coin (ms)
-    const CoinMergeDuration = 75;    // merge animation duration in ms
+    const CoinMergeDuration = 120;    // merge animation duration in ms
+    const CoinMergeStepDuration = 120;    // merge animation duration in ms
     const CoinHoldEasing = TWEEN.Easing.Cubic.Out;
     const CoinTransferEasing = TWEEN.Easing.Cubic.InOut;
     const CoinTransferUniformMotion = true; // force same transfer style across all slot pairs
@@ -1468,11 +1478,15 @@
     const CoinMergeResult = 2;      // how many coins of next level after merging 10
 
     // Merge fog explosion effect
-    const MergeFogParticleCount = 14;     // number of fog puffs
-    const MergeFogDuration = 400;    // ms for the fog to expand and fade
-    const MergeFogRadius = 0.9;    // how far particles spread outward
-    const MergeFogSize = 0.7;    // starting size of each fog puff
+    const MergeFogParticleCount = 10;     // number of fog puffs
+    const MergeFogDuration = 600;    // ms for the fog to expand and fade
+    const MergeFogRadius = 1.4;    // how far particles spread outward
+    const MergeFogSize = 0.5;    // starting size of each fog puff
     const MergeFogColor = 0xffffff; // fog particle color
+    const MergeFogStartDelayMin = 10;    // ms
+    const MergeFogStartDelayMax = 120;  // ms
+    const MergeFogDurationJitter = 60; // +/- ms
+
 
     // Deal button configuration
     const IsDealOpen = false;   // master toggle for deal button
@@ -1784,8 +1798,8 @@
 
         for (let i = 0; i < coinNumbers.length; i++) {
           const coin = createCoin(coinNumbers[i]);
-          const z = slot.z + i * CoinSpacing;
-          coin.position.set(slot.x, CoinStackStartY, z + CoinStackStartZ);
+          const pos = getCoinPosition(slot, i);
+          coin.position.set(pos.x, pos.y, pos.z);
           scene.add(coin);
           slot.coins.push(coin);
         }
@@ -1912,8 +1926,11 @@
 
     // Get the world position for a coin at a given index inside a slot
     function getCoinPosition(slot, index) {
+      var centerCol = (GRID_COLS - 1) / 2;
+      var dist = slot.col - centerCol;
+      var xOffset = (CoinXOffsetByDistance[Math.abs(dist)] || 0) * (dist < 0 ? -1 : 1);
       return {
-        x: slot.x,
+        x: slot.x + xOffset,
         y: CoinStackStartY,
         z: slot.z + CoinStackStartZ + index * CoinSpacing,
       };
@@ -2064,21 +2081,18 @@
         }
         var coin = coins[idx];
         var target = coins[idx - 1]; // the coin behind it
-        var foldDuration = CoinMergeDuration * 0.6;
-
         // Move into the coin behind and scale down Ã¢â‚¬â€ fast ease
-        new TWEEN.Tween(coin.position)
-          .to({ x: target.position.x, y: target.position.y, z: target.position.z }, foldDuration)
-          .easing(TWEEN.Easing.Cubic.Out)
-          .start();
+        //new TWEEN.Tween(coin.position)
+        //  .to({ x: target.position.x, y: target.position.y, z: target.position.z }, foldDuration)
+        //  .easing(TWEEN.Easing.Cubic.Out)
+         // .start();
         new TWEEN.Tween(coin.scale)
-          .to({ x: 0.01, y: 0.01, z: 0.01 }, foldDuration)
-          .easing(TWEEN.Easing.Cubic.Out)
+          .to({ x: 0, y: 0, z: 0 }, CoinMergeStepDuration)
+          .easing(TWEEN.Easing.Cubic.In)
           .start();
 
         // Start next fold step after a short delay for cascade effect
-        var stepDelay = Math.max(16, CoinMergeDuration * 0.35);
-        setTimeout(function () { foldStep(i + 1); }, stepDelay);
+        setTimeout(function () { foldStep(i + 1); }, CoinMergeStepDuration*0.3);
       }
 
       foldStep(0);
@@ -2086,6 +2100,7 @@
 
     // ---- Merge Fog Explosion ----
     var fogTexture = null;
+    var fogParticlePool = [];
     function getFogTexture() {
       if (fogTexture) return fogTexture;
       var size = 64;
@@ -2093,13 +2108,64 @@
       canvas2d.width = size; canvas2d.height = size;
       var ctx = canvas2d.getContext('2d');
       var grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-      grad.addColorStop(0, 'rgba(255,255,255,1)');
-      grad.addColorStop(0.4, 'rgba(255,255,255,0.6)');
-      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      grad.addColorStop(0.0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.75, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.85, 'rgba(255,255,255,0)');
+      grad.addColorStop(1.0, 'rgba(255,255,255,0)');
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, size, size);
       fogTexture = new THREE.CanvasTexture(canvas2d);
+      fogTexture.minFilter = THREE.NearestFilter;
+      fogTexture.magFilter = THREE.NearestFilter;
+      fogTexture.generateMipmaps = false;
       return fogTexture;
+    }
+
+    function createFogParticle(tex) {
+      var mat = new THREE.SpriteMaterial({
+        map: tex,
+        color: new THREE.Color(0xffffff),
+        transparent: true,
+        alphaTest: 0.5,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.NormalBlending,
+      });
+      var sprite = new THREE.Sprite(mat);
+      sprite.visible = false;
+      return {
+        sprite: sprite,
+        material: mat,
+        inUse: false,
+        token: 0,
+        releaseTimer: null,
+      };
+    }
+
+    function acquireFogParticle(tex) {
+      var entry = fogParticlePool.length > 0 ? fogParticlePool.pop() : createFogParticle(tex);
+      if (entry.releaseTimer) {
+        clearTimeout(entry.releaseTimer);
+        entry.releaseTimer = null;
+      }
+      entry.inUse = true;
+      entry.token++;
+      entry.sprite.visible = true;
+      return entry;
+    }
+
+    function releaseFogParticle(entry, token) {
+      if (!entry || !entry.inUse) return;
+      if (token !== undefined && token !== entry.token) return;
+      if (entry.releaseTimer) {
+        clearTimeout(entry.releaseTimer);
+        entry.releaseTimer = null;
+      }
+      if (entry.sprite.parent) scene.remove(entry.sprite);
+      entry.sprite.visible = false;
+      entry.material.opacity = 0;
+      entry.inUse = false;
+      fogParticlePool.push(entry);
     }
 
     function spawnMergeFog(cx, cy, cz, color) {
@@ -2107,15 +2173,17 @@
       var fogColor = new THREE.Color(color !== undefined ? color : MergeFogColor);
 
       for (var i = 0; i < MergeFogParticleCount; i++) {
-        var mat = new THREE.SpriteMaterial({
-          map: tex,
-          color: fogColor,
-          transparent: true,
-          opacity: 1,
-          depthWrite: false,
-          blending: THREE.NormalBlending,
-        });
-        var sprite = new THREE.Sprite(mat);
+        var delay = MergeFogStartDelayMin + Math.random() * (MergeFogStartDelayMax - MergeFogStartDelayMin);
+        var life = MergeFogDuration + (Math.random() * 2 - 1) * MergeFogDurationJitter;
+        life = Math.max(80, life);
+
+        var entry = acquireFogParticle(tex);
+        var mat = entry.material;
+        var sprite = entry.sprite;
+        var token = entry.token;
+
+        mat.color.copy(fogColor);
+        mat.opacity = 1;
         sprite.scale.set(MergeFogSize, MergeFogSize, 1);
         sprite.position.set(cx, cy, cz);
         scene.add(sprite);
@@ -2128,23 +2196,36 @@
         var endScale = MergeFogSize * (1.5 + Math.random());
 
         new TWEEN.Tween(sprite.position)
-          .to({ x: tx, y: ty, z: tz }, MergeFogDuration)
-          .easing(TWEEN.Easing.Quadratic.Out)
-          .start();
+  .to({ x: tx, y: ty, z: tz }, life)
+  .delay(delay)
+  .easing(TWEEN.Easing.Quadratic.Out)
+  .start();
 
         new TWEEN.Tween(sprite.scale)
-          .to({ x: endScale, y: endScale }, MergeFogDuration)
-          .easing(TWEEN.Easing.Quadratic.Out)
-          .start();
+  .to({ x: endScale, y: endScale }, life)
+  .delay(delay)
+  .easing(TWEEN.Easing.Quadratic.Out)
+  .start();
 
-        (function (m, s) {
+        // Safety cleanup in case tween update loop is interrupted.
+        entry.releaseTimer = setTimeout(function (e, t) {
+          return function () {
+            releaseFogParticle(e, t);
+          };
+        }(entry, token), Math.ceil(delay + life + 50));
+
+        (function (m, e, t, d, l) {
           new TWEEN.Tween({ opacity: 0.7 })
-            .to({ opacity: 0 }, MergeFogDuration)
+            .to({ opacity: 0 }, l)
+            .delay(d)
             .easing(TWEEN.Easing.Quadratic.In)
-            .onUpdate(function (obj) { m.opacity = obj.opacity; })
-            .onComplete(function () { scene.remove(s); m.dispose(); })
+            .onUpdate(function (obj) {
+              if (e.token !== t) return;
+              m.opacity = obj.opacity;
+            })
+            .onComplete(function () { releaseFogParticle(e, t); })
             .start();
-        })(mat, sprite);
+        })(mat, entry, token, delay, life);
       }
     }
 
