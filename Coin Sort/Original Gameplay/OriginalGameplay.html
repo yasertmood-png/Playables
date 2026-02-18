@@ -1426,25 +1426,25 @@
     };
 
     // Coin size (scale on each axis)
-    const CoinSize = { x: 0.0017, y: 0.00148, z: 0.0017 };
+    const CoinSize = { x: 0.0017, y: 0.00145, z: 0.0017 };
 
     // Coin rotation in the slot (degrees, converted to radians on use)
     const CoinRotation = { x: 90, y: 0, z: 0 };
 
     // Coin spacing between coins in a slot (vertical gap)
-    const CoinSpacing = 0.157;
+    const CoinSpacing = 0.16;
 
     // Coin stacking start Y (height of first coin above the table)
-    const CoinStackStartZ = -0.67;
-    const CoinStackStartY = 0.55;
+    const CoinStackStartZ = -0.70;
+    const CoinStackStartY = 0.46;
 
     // Coin X offset by distance from center column (fixes 3D perspective alignment)
     // Index 0 = center, 1 = one away, 2 = two away, etc.
     // Left side gets negated automatically
     const CoinXOffsetByDistance = [
       0,       // center column
-      -0.019,   // 1 column from center
-      -0.05,    // 2 columns from center
+      -0.017,   // 1 column from center
+      -0.035,    // 2 columns from center
     ];
 
     // Coin text settings (adjustable)
