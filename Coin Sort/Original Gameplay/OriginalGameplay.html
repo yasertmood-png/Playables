@@ -284,8 +284,27 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      z-index: 9;
+      z-index: 999;
       padding: 0;
+    }
+
+    #storeOverlay {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+      border: 0;
+      padding: 0;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #storeOverlay.visible {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     @keyframes tutorialHandPulse {
@@ -301,6 +320,7 @@
   <button id="ctaInstall" type="button" aria-label="Download">Download</button>
   <button id="dealButton" type="button" aria-label="Deal">Deal</button>
   <img id="tutorialHand" alt="">
+  <button id="storeOverlay" type="button" aria-label="Download"></button>
   <button id="muteBtn" type="button" aria-label="Mute">&#128264;</button>
   <div id="fallbackUI" aria-live="polite">
     <div class="fallbackCard">
@@ -1117,11 +1137,21 @@
       document.fonts.ready.then(function () { updateCtaTextSize(); });
     }
 
+    var storeOverlay = document.getElementById('storeOverlay');
+    if (storeOverlay) {
+      storeOverlay.addEventListener('pointerdown', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openStore();
+      });
+    }
+
     function showInstallCta() {
       if (!ctaInstallButton) return;
       updateCtaTextSize();
       ctaInstallButton.classList.add('visible');
       ctaInstallButton.classList.remove('pulsing');
+      if (storeOverlay) storeOverlay.classList.add('visible');
       if (ctaPulseTimeoutId !== null) clearTimeout(ctaPulseTimeoutId);
       ctaPulseTimeoutId = setTimeout(function () {
         ctaInstallButton.classList.add('pulsing');
@@ -1217,13 +1247,6 @@
       });
     }
 
-    document.addEventListener('pointerdown', function (event) {
-      if (!ctaInstallButton || !ctaInstallButton.classList.contains('visible')) return;
-      if (dealButton && dealButton.contains(event.target)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      openStore();
-    }, true);
 
     function muteAllMedia() {
       const media = document.querySelectorAll('audio,video');
