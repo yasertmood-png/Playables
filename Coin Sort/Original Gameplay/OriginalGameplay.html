@@ -1817,7 +1817,7 @@
       var targetSlotIdx = tutorialSubStep === 0 ? step[0] : step[1];
       var slot = slots[targetSlotIdx];
       if (!slot) return;
-      var vec = new THREE.Vector3(slot.x+0.1, 0.1, slot.z+0.5);
+      var vec = new THREE.Vector3(slot.x+0.1, 0.1, slot.z+1.2);
       vec.project(camera);
       var screenX = (vec.x + 1) / 2 * canvas.clientWidth;
       var screenY = (1 - vec.y) / 2 * canvas.clientHeight;
