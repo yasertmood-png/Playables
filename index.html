@@ -180,59 +180,66 @@
   }
 
   function renderNode(node, name, depth, pagesBase) {
-    if (node.type === "file") {
-      const fileDiv = document.createElement("div");
-      fileDiv.className = "file";
-      fileDiv.dataset.path = node.path.toLowerCase();
+  if (node.type === "file") {
+    const fileDiv = document.createElement("div");
+    fileDiv.className = "file";
+    fileDiv.dataset.path = node.path.toLowerCase();
 
-      const url = pagesBase + node.path;
-      const filename = node.path.split("/").pop() || "playable.html";
+    const url = pagesBase + node.path;
+    const filename = node.path.split("/").pop() || "playable.html";
 
-      // Download: uses an <a download> click so it saves the file.
-      const downloadBtn = document.createElement("button");
-      downloadBtn.className = "download";
-      downloadBtn.textContent = "⬇ Download";
-      downloadBtn.addEventListener("click", () => {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename; // hint filename
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      });
+    // File name display
+    const fileNameDiv = document.createElement("div");
+    fileNameDiv.className = "file-name";
+    fileNameDiv.textContent = filename;
 
-      // Run: opens in a new tab/window
-      const runBtn = document.createElement("button");
-      runBtn.className = "run";
-      runBtn.textContent = "▶ Run";
-      runBtn.addEventListener("click", () => {
-        window.open(url, "_blank", "noopener");
-      });
+    // Download: uses an <a download> click so it saves the file.
+    const downloadBtn = document.createElement("button");
+    downloadBtn.className = "download";
+    downloadBtn.textContent = "⬇ Download";
+    downloadBtn.addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename; // hint filename
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
 
-      fileDiv.appendChild(downloadBtn);
-      fileDiv.appendChild(runBtn);
+    // Run: opens in a new tab/window
+    const runBtn = document.createElement("button");
+    runBtn.className = "run";
+    runBtn.textContent = "▶ Run";
+    runBtn.addEventListener("click", () => {
+      window.open(url, "_blank", "noopener");
+    });
 
-      return fileDiv;
-    }
+    // Append file name, download, and run buttons
+    fileDiv.appendChild(fileNameDiv);
+    fileDiv.appendChild(downloadBtn);
+    fileDiv.appendChild(runBtn);
 
-    const details = document.createElement("details");
-    details.dataset.folder = (name || "/").toLowerCase();
-    if (depth === 0) details.open = true;
-
-    const summary = document.createElement("summary");
-    summary.textContent = name || "All Playables";
-    details.appendChild(summary);
-
-    const wrap = document.createElement("div");
-    wrap.style.marginLeft = "10px";
-
-    for (const [childName, childNode] of sortChildren(node.children)) {
-      wrap.appendChild(renderNode(childNode, childName, depth + 1, pagesBase));
-    }
-
-    details.appendChild(wrap);
-    return details;
+    return fileDiv;
   }
+
+  const details = document.createElement("details");
+  details.dataset.folder = (name || "/").toLowerCase();
+  if (depth === 0) details.open = true;
+
+  const summary = document.createElement("summary");
+  summary.textContent = name || "All Playables";
+  details.appendChild(summary);
+
+  const wrap = document.createElement("div");
+  wrap.style.marginLeft = "10px";
+
+  for (const [childName, childNode] of sortChildren(node.children)) {
+    wrap.appendChild(renderNode(childNode, childName, depth + 1, pagesBase));
+  }
+
+  details.appendChild(wrap);
+  return details;
+}
 
   function setAllDetails(open) {
     document.querySelectorAll("#tree details").forEach(d => d.open = open);
