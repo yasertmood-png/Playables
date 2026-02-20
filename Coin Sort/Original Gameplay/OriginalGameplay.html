@@ -1183,6 +1183,10 @@
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         _audioCtx.resume();
       }
+      // Clear muted flags left by muteAllMedia (e.g. ad was hidden before first tap)
+      for (var i = 0; i < _allAudio.length; i++) {
+        _allAudio[i].muted = false;
+      }
       if (bgMusic && !audioMuted) {
         try { bgMusic.play(); } catch(e) {}
       }
@@ -1282,11 +1286,11 @@
     }
 
     function resumeAudio() {
-      if (audioMuted) return; // respect user's mute choice
+      if (audioMuted || !adFirstInteraction) return;
       for (let i = 0; i < _allAudio.length; i++) {
         _allAudio[i].muted = false;
       }
-      if (bgMusic && bgMusic.paused && adStarted) {
+      if (bgMusic && bgMusic.paused) {
         try { bgMusic.play(); } catch(e) {}
       }
     }
