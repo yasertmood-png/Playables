@@ -1216,7 +1216,10 @@
         if (state && state !== 'loading') finish();
       };
 
-      const timeoutId = setTimeout(finish, 1200);
+      const timeoutId = setTimeout(function () {
+        var state = typeof mraidApi.getState === 'function' ? mraidApi.getState() : 'loading';
+        if (state !== 'loading') finish();
+      }, 1200);
       const mraidState = typeof mraidApi.getState === 'function' ? mraidApi.getState() : 'default';
       if (mraidState !== 'loading') {
         finish();
