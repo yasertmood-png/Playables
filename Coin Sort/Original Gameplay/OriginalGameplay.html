@@ -1171,12 +1171,21 @@
       }, CTA_PULSE_START_DELAY_MS);
     }
 
+    var _audioCtx = null;
     function markFirstInteraction() {
       if (adFirstInteraction) return;
       adFirstInteraction = true;
       adTimerStartMs = performance.now();
       window.__adTimerStarted = true;
       ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
+      // Unlock audio
+      if (!_audioCtx) {
+        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        _audioCtx.resume();
+      }
+      if (bgMusic && !audioMuted) {
+        try { bgMusic.play(); } catch(e) {}
+      }
     }
 
     function getAdElapsedMs() {
@@ -1259,16 +1268,32 @@
     }
 
 
+    var _allAudio = [];
     function muteAllMedia() {
       const media = document.querySelectorAll('audio,video');
       for (let i = 0; i < media.length; i++) {
         media[i].muted = true;
         if (!media[i].paused) media[i].pause();
       }
+      for (let i = 0; i < _allAudio.length; i++) {
+        _allAudio[i].muted = true;
+        if (!_allAudio[i].paused) _allAudio[i].pause();
+      }
+    }
+
+    function resumeAudio() {
+      if (audioMuted) return; // respect user's mute choice
+      for (let i = 0; i < _allAudio.length; i++) {
+        _allAudio[i].muted = false;
+      }
+      if (bgMusic && bgMusic.paused && adStarted) {
+        try { bgMusic.play(); } catch(e) {}
+      }
     }
 
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) muteAllMedia();
+      else resumeAudio();
     });
     window.addEventListener('pagehide', muteAllMedia);
 
@@ -1277,6 +1302,7 @@
         if (typeof window.mraid.addEventListener === 'function') {
           window.mraid.addEventListener('viewableChange', function (viewable) {
             if (!viewable) muteAllMedia();
+            else resumeAudio();
           });
         }
       });
@@ -1370,17 +1396,16 @@
     };
     var audioMuted = false;
 
+    _allAudio.push(SFX.merge, SFX.pickup, SFX.drag, SFX.place);
+
     // ---- Background music ----
     var bgMusic = new Audio(ASSETS.sndBGMusic);
     bgMusic.loop = true;
+    _allAudio.push(bgMusic);
 
-    // Unlock audio on first gesture (capture phase fires before canvas handler)
-    var _audioCtx = null;
+    // First interaction on any click (capture phase fires before all other handlers)
     document.addEventListener('pointerdown', function () {
-      if (_audioCtx) return;
-      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      _audioCtx.resume();
-      try { bgMusic.play(); } catch(e) {}
+      markFirstInteraction();
     }, { once: true, capture: true });
 
     function playSound(audio) {
@@ -1474,7 +1499,7 @@
     const CoinSpacing = 0.16;
 
     // Coin stacking start Y (height of first coin above the table)
-    const CoinStackStartZ = -0.70;
+    const CoinStackStartZ = -0.7;
     const CoinStackStartY = 0.46;
 
     // Dynamic coin X offset: projects slot center through camera to coin Y plane
