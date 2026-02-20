@@ -288,6 +288,18 @@
       padding: 0;
     }
 
+    #blackScreen {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 9999;
+      transition: opacity 0.4s ease;
+    }
+    #blackScreen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
     #storeOverlay {
       position: fixed;
       inset: 0;
@@ -322,6 +334,7 @@
   <img id="tutorialHand" alt="">
   <button id="storeOverlay" type="button" aria-label="Download"></button>
   <button id="muteBtn" type="button" aria-label="Mute">&#128266;</button>
+  <div id="blackScreen"></div>
   <div id="fallbackUI" aria-live="polite">
     <div class="fallbackCard">
       <div id="fallbackText">Graphics not available. Tap Retry.</div>
@@ -1173,10 +1186,8 @@
 
     function whenMraidReady(callback) {
       const mraidApi = window.mraid;
-      if (!mraidApi || typeof callback !== 'function') {
-        if (typeof callback === 'function') callback();
-        return;
-      }
+      if (typeof callback !== 'function') return;
+      if (!mraidApi) return; // MRAID not available – do not start
 
       let finished = false;
       const finish = function () {
@@ -1833,6 +1844,8 @@
       if (IsDealOpen) updateDealButtonState();
       animate();
       startTutorial();
+      var blackScreen = document.getElementById('blackScreen');
+      if (blackScreen) blackScreen.classList.add('hidden');
     }
 
     const tutorialHandEl = document.getElementById('tutorialHand');
@@ -1847,13 +1860,16 @@
       var targetSlotIdx = tutorialSubStep === 0 ? step[0] : step[1];
       var slot = slots[targetSlotIdx];
       if (!slot) return;
-      var vec = new THREE.Vector3(slot.x+0.1, 0.1, slot.z+1.2);
+      var vec = new THREE.Vector3(slot.x, 0.1, slot.z);
       vec.project(camera);
       var screenX = (vec.x + 1) / 2 * canvas.clientWidth;
       var screenY = (1 - vec.y) / 2 * canvas.clientHeight;
-      tutorialHandEl.style.left = screenX + 'px';
-      var handHeight = tutorialHandEl.offsetHeight || 60;
-      tutorialHandEl.style.top = (screenY - handHeight - 4) + 'px';
+      // Viewport-relative offsets – tweak these to move the hand (positive = right/down)
+      var vmin = Math.min(canvas.clientWidth, canvas.clientHeight) / 100;
+      var offsetX = 2 * vmin;   // % of vmin – shift left/right
+      var offsetY = 5 * vmin;   // % of vmin – shift up/down
+      tutorialHandEl.style.left = (screenX + offsetX) + 'px';
+      tutorialHandEl.style.top = (screenY + offsetY) + 'px';
     }
 
     function startTutorial() {
@@ -2357,12 +2373,16 @@
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       applyOrientationCamera();
+      camera.updateMatrixWorld(true);
       updateCtaTextSize();
       if (!webglAvailable) return;
       renderer.setSize(w, h);
       updateTutorialHandPosition();
     }
     window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', function () {
+      setTimeout(onResize, 150);
+    });
 
     function getEligibleDealSlots() {
       return slots.filter(function (s) {
@@ -2550,7 +2570,9 @@
         }));
       });
 
-      Promise.all(promises).then(function () { startGame(); });
+      Promise.all(promises).then(function () {
+        whenMraidReady(function () { startGame(); });
+      });
     })();
 
   </script>
