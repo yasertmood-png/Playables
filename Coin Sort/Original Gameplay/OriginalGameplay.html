@@ -1178,18 +1178,12 @@
       adTimerStartMs = performance.now();
       window.__adTimerStarted = true;
       ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
-      // Unlock audio
+      // Unlock AudioContext
       if (!_audioCtx) {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         _audioCtx.resume();
       }
-      // Clear muted flags left by muteAllMedia (e.g. ad was hidden before first tap)
-      for (var i = 0; i < _allAudio.length; i++) {
-        _allAudio[i].muted = false;
-      }
-      if (bgMusic && !audioMuted) {
-        try { bgMusic.play(); } catch(e) {}
-      }
+      updateAudio();
     }
 
     function getAdElapsedMs() {
@@ -1272,41 +1266,40 @@
     }
 
 
-    var _allAudio = [];
-    function muteAllMedia() {
-      const media = document.querySelectorAll('audio,video');
-      for (let i = 0; i < media.length; i++) {
-        media[i].muted = true;
-        if (!media[i].paused) media[i].pause();
-      }
-      for (let i = 0; i < _allAudio.length; i++) {
-        _allAudio[i].muted = true;
-        if (!_allAudio[i].paused) _allAudio[i].pause();
-      }
-    }
+    var audioMuted = false;
+    var isFocused = true;
 
-    function resumeAudio() {
-      if (audioMuted || !adFirstInteraction) return;
-      for (let i = 0; i < _allAudio.length; i++) {
-        _allAudio[i].muted = false;
-      }
-      if (bgMusic && bgMusic.paused) {
-        try { bgMusic.play(); } catch(e) {}
+    // Single function that decides: should audio play or not?
+    function updateAudio() {
+      var shouldPlay = isFocused && !audioMuted && adFirstInteraction;
+      if (shouldPlay) {
+        if (bgMusic) bgMusic.muted = false;
+        if (bgMusic && bgMusic.paused) {
+          try { bgMusic.play(); } catch(e) {}
+        }
+      } else {
+        if (bgMusic && !bgMusic.paused) {
+          bgMusic.pause();
+        }
+        if (bgMusic) bgMusic.muted = true;
       }
     }
 
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) muteAllMedia();
-      else resumeAudio();
+      isFocused = !document.hidden;
+      updateAudio();
     });
-    window.addEventListener('pagehide', muteAllMedia);
+    window.addEventListener('pagehide', function () {
+      isFocused = false;
+      updateAudio();
+    });
 
     if (window.mraid) {
       whenMraidReady(function () {
         if (typeof window.mraid.addEventListener === 'function') {
           window.mraid.addEventListener('viewableChange', function (viewable) {
-            if (!viewable) muteAllMedia();
-            else resumeAudio();
+            isFocused = !!viewable;
+            updateAudio();
           });
         }
       });
@@ -1398,14 +1391,10 @@
       drag: new Audio(ASSETS.sndDrag),
       place: new Audio(ASSETS.sndPlace),
     };
-    var audioMuted = false;
-
-    _allAudio.push(SFX.merge, SFX.pickup, SFX.drag, SFX.place);
 
     // ---- Background music ----
     var bgMusic = new Audio(ASSETS.sndBGMusic);
     bgMusic.loop = true;
-    _allAudio.push(bgMusic);
 
     // First interaction on any click (capture phase fires before all other handlers)
     document.addEventListener('pointerdown', function () {
@@ -1413,7 +1402,7 @@
     }, { once: true, capture: true });
 
     function playSound(audio) {
-      if (audioMuted) return;
+      if (audioMuted || !isFocused) return;
       try { audio.currentTime = 0; audio.play(); } catch(e) {}
     }
 
@@ -1424,7 +1413,7 @@
         e.stopPropagation();
         audioMuted = !audioMuted;
         muteBtn.textContent = audioMuted ? '\u{1F507}' : '\u{1F50A}';
-        bgMusic.muted = audioMuted;
+        updateAudio();
       });
     }
 
