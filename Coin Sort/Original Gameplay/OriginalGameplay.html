@@ -321,7 +321,7 @@
   <button id="dealButton" type="button" aria-label="Deal">Deal</button>
   <img id="tutorialHand" alt="">
   <button id="storeOverlay" type="button" aria-label="Download"></button>
-  <button id="muteBtn" type="button" aria-label="Mute">&#128264;</button>
+  <button id="muteBtn" type="button" aria-label="Mute">&#128266;</button>
   <div id="fallbackUI" aria-live="polite">
     <div class="fallbackCard">
       <div id="fallbackText">Graphics not available. Tap Retry.</div>
@@ -1377,7 +1377,7 @@
       muteBtn.addEventListener('pointerdown', function (e) {
         e.stopPropagation();
         audioMuted = !audioMuted;
-        muteBtn.textContent = audioMuted ? '\u{1F507}' : '\u{1F508}';
+        muteBtn.textContent = audioMuted ? '\u{1F507}' : '\u{1F50A}';
       });
     }
 
