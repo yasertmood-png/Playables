@@ -1203,9 +1203,14 @@
       ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
       // Unlock AudioContext (iOS requires resume from user gesture)
       if (_audioCtx && _audioCtx.state === 'suspended') {
-        _audioCtx.resume();
+        _audioCtx.resume().then(function () {
+          updateAudio();
+        }).catch(function () {
+          updateAudio();
+        });
+      } else {
+        updateAudio();
       }
-      updateAudio();
     }
 
     function getAdElapsedMs() {
@@ -1293,21 +1298,66 @@
 
     var audioMuted = false;
     var isFocused = true;
+    var _bgStartRequested = false;
+    var _bgStartRetryId = null;
+    var _bgStartRetryDelayMs = 100;
+
+    function audioShouldPlay() {
+      return isFocused && !audioMuted && adFirstInteraction;
+    }
+
+    function stopBgRetry() {
+      if (_bgStartRetryId !== null) {
+        clearTimeout(_bgStartRetryId);
+        _bgStartRetryId = null;
+      }
+    }
+
+    function scheduleBgRetry() {
+      if (_bgStartRetryId !== null) return;
+      _bgStartRetryId = setTimeout(function () {
+        _bgStartRetryId = null;
+        tryStartBgMusic();
+      }, _bgStartRetryDelayMs);
+    }
+
+    function tryStartBgMusic() {
+      if (!_bgStartRequested) return;
+      if (!audioShouldPlay()) return;
+      if (_bgSource) return;
+      if (!_audioCtx) return;
+      if (_audioCtx.state !== 'running') {
+        scheduleBgRetry();
+        return;
+      }
+      if (!_audioBuffers.bgMusic) {
+        scheduleBgRetry();
+        return;
+      }
+      try {
+        _bgSource = _audioCtx.createBufferSource();
+        _bgSource.buffer = _audioBuffers.bgMusic;
+        _bgSource.loop = true;
+        _bgSource.connect(_audioCtx.destination);
+        _bgSource.start(0);
+      } catch (e) {
+        scheduleBgRetry();
+      }
+    }
+
+    function requestBgStart() {
+      _bgStartRequested = true;
+      tryStartBgMusic();
+    }
 
     // Single function that decides: should audio play or not?
     function updateAudio() {
-      var shouldPlay = isFocused && !audioMuted && adFirstInteraction;
+      var shouldPlay = audioShouldPlay();
       if (shouldPlay) {
-        if (!_bgSource && _audioCtx && _audioBuffers.bgMusic) {
-          try {
-            _bgSource = _audioCtx.createBufferSource();
-            _bgSource.buffer = _audioBuffers.bgMusic;
-            _bgSource.loop = true;
-            _bgSource.connect(_audioCtx.destination);
-            _bgSource.start(0);
-          } catch(e) {}
-        }
+        requestBgStart();
       } else {
+        _bgStartRequested = false;
+        stopBgRetry();
         if (_bgSource) {
           try { _bgSource.stop(0); } catch(e) {}
           try { _bgSource.disconnect(); } catch(e) {}
@@ -1422,7 +1472,10 @@
       decodeB64Audio(ASSETS.sndPickup).then(function (b) { _audioBuffers.pickup = b; });
       decodeB64Audio(ASSETS.sndDrag).then(function (b) { _audioBuffers.drag = b; });
       decodeB64Audio(ASSETS.sndPlace).then(function (b) { _audioBuffers.place = b; });
-      decodeB64Audio(ASSETS.sndBGMusic).then(function (b) { _audioBuffers.bgMusic = b; });
+      decodeB64Audio(ASSETS.sndBGMusic).then(function (b) {
+        _audioBuffers.bgMusic = b;
+        updateAudio();
+      });
     })();
 
     // ---- Sound helper (Web Audio API) ----
