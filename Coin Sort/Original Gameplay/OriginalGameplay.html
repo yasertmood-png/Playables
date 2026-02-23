@@ -1113,7 +1113,7 @@
   </script>
   <script>
 
-    let adFirstInteraction = true;
+    let adFirstInteraction = false;
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
@@ -1296,7 +1296,7 @@
 
     // Single function that decides: should audio play or not?
     function updateAudio() {
-      var shouldPlay = isFocused && !audioMuted && adFirstInteraction;
+      var shouldPlay = isFocused && !audioMuted && true;
       if (shouldPlay) {
         if (!_bgSource && _audioCtx && _audioBuffers.bgMusic) {
           try {
