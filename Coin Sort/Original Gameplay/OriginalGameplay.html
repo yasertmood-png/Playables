@@ -1293,12 +1293,28 @@
 
     var audioMuted = false;
     var isFocused = true;
+    var _bgStartDelayMs = 500;
+    var _bgDelayTimer = null;
+    var _bgDelayPassed = false;
+
+    function ensureBgDelayReady() {
+      if (_bgDelayPassed) return true;
+      if (_bgDelayTimer !== null) return false;
+      _bgDelayTimer = setTimeout(function () {
+        _bgDelayTimer = null;
+        _bgDelayPassed = true;
+        updateAudio();
+      }, _bgStartDelayMs);
+      return false;
+    }
 
     // Single function that decides: should audio play or not?
     function updateAudio() {
-      var shouldPlay = isFocused && !audioMuted && true;
+      var shouldPlay = isFocused && !audioMuted && adFirstInteraction;
       if (shouldPlay) {
-        if (!_bgSource && _audioCtx && _audioBuffers.bgMusic) {
+        if (!ensureBgDelayReady()) return;
+        if (_bgSource) return;
+        if (_audioCtx && _audioBuffers.bgMusic) {
           try {
             _bgGain = _audioCtx.createGain();
             _bgGain.gain.value = 1;
@@ -1310,9 +1326,6 @@
             _bgSource.start(0);
           } catch(e) {}
         }
-        if (_bgGain) _bgGain.gain.value = 1;
-      } else {
-        if (_bgGain) _bgGain.gain.value = 0;
       }
     }
 
@@ -1422,7 +1435,10 @@
       decodeB64Audio(ASSETS.sndPickup).then(function (b) { _audioBuffers.pickup = b; });
       decodeB64Audio(ASSETS.sndDrag).then(function (b) { _audioBuffers.drag = b; });
       decodeB64Audio(ASSETS.sndPlace).then(function (b) { _audioBuffers.place = b; });
-      decodeB64Audio(ASSETS.sndBGMusic).then(function (b) { _audioBuffers.bgMusic = b; });
+      decodeB64Audio(ASSETS.sndBGMusic).then(function (b) {
+        _audioBuffers.bgMusic = b;
+        updateAudio();
+      });
     })();
 
     // ---- Sound helper (Web Audio API) ----
