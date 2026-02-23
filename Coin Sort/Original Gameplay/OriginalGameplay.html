@@ -1192,8 +1192,29 @@
 
     // Audio buffers (filled after decode)
     var _audioBuffers = { merge: null, pickup: null, drag: null, place: null, bgMusic: null };
+    var _bgDecodePromise = null;
 
     // Audio is decoded after ASSETS are defined (see preloadAudio below)
+    function ensureBgMusicDecoded(forceRetry) {
+      if (!forceRetry && _audioBuffers.bgMusic) return Promise.resolve(_audioBuffers.bgMusic);
+      if (_bgDecodePromise) {
+        if (!forceRetry) return _bgDecodePromise;
+        return _bgDecodePromise.then(function (b) {
+          return b || ensureBgMusicDecoded(false);
+        });
+      }
+      _bgDecodePromise = decodeB64Audio(ASSETS.sndBGMusic)
+        .then(function (b) {
+          _audioBuffers.bgMusic = b;
+          if (b) updateAudio();
+          return b;
+        })
+        .catch(function () { return null; })
+        .finally(function () {
+          _bgDecodePromise = null;
+        });
+      return _bgDecodePromise;
+    }
 
     function markFirstInteraction() {
       if (!adFirstInteraction) {
@@ -1203,8 +1224,10 @@
         ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
       }
 
-      // Always re-attempt resume from user gesture on mobile and sync audio state
-      // once the context is actually running.
+      // Retry bg decode from a real user gesture, then sync audio.
+      ensureBgMusicDecoded(true);
+
+      // Unlock AudioContext (mobile browsers may require repeated resume attempts).
       if (_audioCtx && typeof _audioCtx.resume === 'function' && _audioCtx.state !== 'running') {
         try {
           var resumeResult = _audioCtx.resume();
@@ -1307,22 +1330,29 @@
     var audioMuted = false;
     var isFocused = true;
 
+    function startBgMusicIfPossible() {
+      if (_bgSource || !_audioCtx || !_audioBuffers.bgMusic) return;
+      if (_audioCtx.state !== 'running') return;
+      try {
+        if (!_bgGain) {
+          _bgGain = _audioCtx.createGain();
+          _bgGain.gain.value = 1;
+          _bgGain.connect(_audioCtx.destination);
+        }
+        var source = _audioCtx.createBufferSource();
+        source.buffer = _audioBuffers.bgMusic;
+        source.loop = true;
+        source.connect(_bgGain);
+        source.start(0);
+        _bgSource = source;
+      } catch(e) {}
+    }
+
     // Single function that decides: should audio play or not?
     function updateAudio() {
       var shouldPlay = isFocused && !audioMuted && adFirstInteraction;
       if (shouldPlay) {
-        if (!_bgSource && _audioCtx && _audioBuffers.bgMusic) {
-          try {
-            _bgGain = _audioCtx.createGain();
-            _bgGain.gain.value = 1;
-            _bgGain.connect(_audioCtx.destination);
-            _bgSource = _audioCtx.createBufferSource();
-            _bgSource.buffer = _audioBuffers.bgMusic;
-            _bgSource.loop = true;
-            _bgSource.connect(_bgGain);
-            _bgSource.start(0);
-          } catch(e) {}
-        }
+        startBgMusicIfPossible();
         if (_bgGain) _bgGain.gain.value = 1;
       } else {
         if (_bgGain) _bgGain.gain.value = 0;
@@ -1337,6 +1367,11 @@
       isFocused = false;
       updateAudio();
     });
+    if (_audioCtx && typeof _audioCtx.addEventListener === 'function') {
+      _audioCtx.addEventListener('statechange', function () {
+        updateAudio();
+      });
+    }
 
     if (window.mraid) {
       whenMraidReady(function () {
@@ -1435,11 +1470,7 @@
       decodeB64Audio(ASSETS.sndPickup).then(function (b) { _audioBuffers.pickup = b; });
       decodeB64Audio(ASSETS.sndDrag).then(function (b) { _audioBuffers.drag = b; });
       decodeB64Audio(ASSETS.sndPlace).then(function (b) { _audioBuffers.place = b; });
-      decodeB64Audio(ASSETS.sndBGMusic).then(function (b) {
-        _audioBuffers.bgMusic = b;
-        // If first tap already happened, start BGM immediately when decode completes.
-        updateAudio();
-      });
+      ensureBgMusicDecoded(false);
     })();
 
     // ---- Sound helper (Web Audio API) ----
@@ -1453,6 +1484,9 @@
     document.addEventListener('pointerdown', function () {
       markFirstInteraction();
     }, { once: true, capture: true });
+    document.addEventListener('touchstart', function () {
+      markFirstInteraction();
+    }, { once: true, capture: true, passive: true });
 
     function playSound(key) {
       if (audioMuted || !isFocused || !_audioCtx) return;
