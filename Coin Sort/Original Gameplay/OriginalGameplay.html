@@ -1202,17 +1202,23 @@
         window.__adTimerStarted = true;
         ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
       }
-      // iOS/WebView: resume can complete asynchronously after the gesture.
-      // Retry audio start after resume and on later interactions.
-      if (_audioCtx && _audioCtx.state === 'suspended') {
-        _audioCtx.resume().then(function () {
+
+      // Always re-attempt resume from user gesture on mobile and sync audio state
+      // once the context is actually running.
+      if (_audioCtx && typeof _audioCtx.resume === 'function' && _audioCtx.state !== 'running') {
+        try {
+          var resumeResult = _audioCtx.resume();
+          if (resumeResult && typeof resumeResult.then === 'function') {
+            resumeResult.then(function () { updateAudio(); }).catch(function () { updateAudio(); });
+          } else {
+            updateAudio();
+          }
+        } catch (e) {
           updateAudio();
-        }).catch(function () {
-          updateAudio();
-        });
-        return;
+        }
+      } else {
+        updateAudio();
       }
-      updateAudio();
     }
 
     function getAdElapsedMs() {
@@ -1305,7 +1311,6 @@
     function updateAudio() {
       var shouldPlay = isFocused && !audioMuted && adFirstInteraction;
       if (shouldPlay) {
-        if (_audioCtx && _audioCtx.state !== 'running') return;
         if (!_bgSource && _audioCtx && _audioBuffers.bgMusic) {
           try {
             _bgGain = _audioCtx.createGain();
@@ -1432,6 +1437,7 @@
       decodeB64Audio(ASSETS.sndPlace).then(function (b) { _audioBuffers.place = b; });
       decodeB64Audio(ASSETS.sndBGMusic).then(function (b) {
         _audioBuffers.bgMusic = b;
+        // If first tap already happened, start BGM immediately when decode completes.
         updateAudio();
       });
     })();
