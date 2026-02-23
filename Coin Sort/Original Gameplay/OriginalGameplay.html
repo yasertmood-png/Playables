@@ -298,36 +298,9 @@
       z-index: 9999;
       transition: opacity 0.4s ease;
     }
-    #loadingText {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #fff;
-      font: 700 clamp(18px, 4vmin, 30px)/1 'Baloo2';
-      letter-spacing: 0.04em;
-      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
-      animation: loadingPulse 1.2s ease-in-out infinite;
-      pointer-events: none;
-    }
-    #loadingText .dots {
-      display: inline-block;
-      width: 0;
-      overflow: hidden;
-      vertical-align: bottom;
-      animation: loadingDots 1.2s steps(4, end) infinite;
-    }
     #blackScreen.hidden {
       opacity: 0;
       pointer-events: none;
-    }
-    @keyframes loadingPulse {
-      0%, 100% { opacity: 0.62; }
-      50% { opacity: 1; }
-    }
-    @keyframes loadingDots {
-      0% { width: 0; }
-      100% { width: 1.2em; }
     }
 
     #storeOverlay {
@@ -364,9 +337,7 @@
   <img id="tutorialHand" alt="">
   <button id="storeOverlay" type="button" aria-label="Download"></button>
   <button id="muteBtn" type="button" aria-label="Mute">&#128266;</button>
-  <div id="blackScreen">
-    <div id="loadingText">Loading<span class="dots">...</span></div>
-  </div>
+  <div id="blackScreen"></div>
   <div id="fallbackUI" aria-live="polite">
     <div class="fallbackCard">
       <div id="fallbackText">Graphics not available. Tap Retry.</div>
@@ -1145,7 +1116,6 @@
     let adFirstInteraction = false;
     let adTimerStartMs = null;
     let adStarted = false;
-    let assetsReadyForInput = false;
     let webglAvailable = true;
     const CTA_SHOW_DELAY_MS = 15000;
     const CTA_PULSE_START_DELAY_MS = 260;
@@ -1205,37 +1175,144 @@
     }
 
     var _audioCtx = null;
-    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    var _audioPrimed = false;
+
+    function ensureAudioContext() {
+      if (_audioCtx) return _audioCtx;
+      try {
+        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) {
+        _audioCtx = null;
+      }
+      if (_audioCtx && typeof _audioCtx.onstatechange !== 'function') {
+        _audioCtx.onstatechange = function () {
+          updateAudio();
+        };
+      } else if (_audioCtx) {
+        _audioCtx.onstatechange = function () {
+          updateAudio();
+        };
+      }
+      return _audioCtx;
+    }
+
+    // Try to create early; some environments only allow this later in a user gesture.
+    ensureAudioContext();
+
+    function primeAudioOutput() {
+      var ctx = ensureAudioContext();
+      if (!ctx || _audioPrimed) return;
+      try {
+        var silentBuffer = ctx.createBuffer(1, 1, 22050);
+        var source = ctx.createBufferSource();
+        source.buffer = silentBuffer;
+        source.connect(ctx.destination);
+        source.start(0);
+        if (typeof source.stop === 'function') source.stop(0);
+        _audioPrimed = true;
+      } catch (e) {}
+    }
 
     // Decode a base64 data URI into an AudioBuffer
     function decodeB64Audio(dataUri) {
-      if (!_audioCtx || !dataUri) return Promise.resolve(null);
-      try {
-        var b64 = dataUri.split(',')[1];
-        var raw = atob(b64);
-        var buf = new ArrayBuffer(raw.length);
-        var arr = new Uint8Array(buf);
-        for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-        return _audioCtx.decodeAudioData(buf).catch(function () { return null; });
-      } catch(e) { return Promise.resolve(null); }
+      return new Promise(function (resolve) {
+        var ctx = ensureAudioContext();
+        if (!ctx || !dataUri) {
+          resolve(null);
+          return;
+        }
+        try {
+          var b64 = dataUri.split(',')[1];
+          if (!b64) {
+            resolve(null);
+            return;
+          }
+          var raw = atob(b64);
+          var buf = new ArrayBuffer(raw.length);
+          var arr = new Uint8Array(buf);
+          for (var i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+
+          var settled = false;
+          function done(decoded) {
+            if (settled) return;
+            settled = true;
+            resolve(decoded || null);
+          }
+
+          // Safari can be callback-based; modern browsers return a Promise.
+          var decodeResult = ctx.decodeAudioData(
+            buf.slice(0),
+            function (decoded) { done(decoded); },
+            function () { done(null); }
+          );
+
+          if (decodeResult && typeof decodeResult.then === 'function') {
+            decodeResult.then(function (decoded) {
+              done(decoded);
+            }).catch(function () {
+              done(null);
+            });
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      });
     }
 
     // Audio buffers (filled after decode)
     var _audioBuffers = { merge: null, pickup: null, drag: null, place: null, bgMusic: null };
+    var _audioDecodePromises = { merge: null, pickup: null, drag: null, place: null, bgMusic: null };
 
     // Audio is decoded after ASSETS are defined (see preloadAudio below)
 
-    function markFirstInteraction() {
-      if (adFirstInteraction) return;
-      adFirstInteraction = true;
-      adTimerStartMs = performance.now();
-      window.__adTimerStarted = true;
-      ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
-      // Unlock AudioContext (iOS requires resume from user gesture)
-      if (_audioCtx && _audioCtx.state === 'suspended') {
-        _audioCtx.resume();
+    function ensureAudioDecoded(key, dataUri) {
+      if (_audioBuffers[key]) return Promise.resolve(_audioBuffers[key]);
+      if (_audioDecodePromises[key]) return _audioDecodePromises[key];
+      _audioDecodePromises[key] = decodeB64Audio(dataUri).then(function (buffer) {
+        _audioBuffers[key] = buffer;
+        if (key === 'bgMusic') updateAudio();
+        return buffer;
+      }).catch(function () {
+        return null;
+      }).then(function (buffer) {
+        _audioDecodePromises[key] = null;
+        return buffer;
+      });
+      return _audioDecodePromises[key];
+    }
+
+    function unlockAudioFromGesture() {
+      var ctx = ensureAudioContext();
+      preloadAudioAssets(); // Retry decode if context was unavailable earlier
+      if (!ctx) {
+        updateAudio();
+        return;
       }
+
+      var resumePromise = Promise.resolve();
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        try {
+          resumePromise = ctx.resume();
+        } catch (e) {}
+      }
+
+      Promise.resolve(resumePromise).catch(function () {}).then(function () {
+        primeAudioOutput();
+        updateAudio();
+      });
+
+      // Also evaluate immediately for cases where context is already running.
       updateAudio();
+    }
+
+    function markFirstInteraction() {
+      if (!adFirstInteraction) {
+        adFirstInteraction = true;
+        adTimerStartMs = performance.now();
+        window.__adTimerStarted = true;
+        ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
+      }
+      unlockAudioFromGesture();
     }
 
     function getAdElapsedMs() {
@@ -1327,17 +1404,28 @@
     // Single function that decides: should audio play or not?
     function updateAudio() {
       var shouldPlay = isFocused && !audioMuted && adFirstInteraction;
+      var ctx = ensureAudioContext();
+
+      if (shouldPlay && ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        Promise.resolve(ctx.resume()).catch(function () {}).then(function () {
+          updateAudio();
+        });
+      }
+
       if (shouldPlay) {
-        if (!_bgSource && _audioCtx && _audioBuffers.bgMusic) {
+        if (!_bgSource && ctx && ctx.state === 'running' && _audioBuffers.bgMusic) {
           try {
-            _bgGain = _audioCtx.createGain();
+            _bgGain = ctx.createGain();
             _bgGain.gain.value = 1;
-            _bgGain.connect(_audioCtx.destination);
-            _bgSource = _audioCtx.createBufferSource();
+            _bgGain.connect(ctx.destination);
+            _bgSource = ctx.createBufferSource();
             _bgSource.buffer = _audioBuffers.bgMusic;
             _bgSource.loop = true;
             _bgSource.connect(_bgGain);
             _bgSource.start(0);
+            _bgSource.onended = function () {
+              _bgSource = null;
+            };
           } catch(e) {}
         }
         if (_bgGain) _bgGain.gain.value = 1;
@@ -1351,6 +1439,18 @@
       updateAudio();
     });
     window.addEventListener('pagehide', function () {
+      isFocused = false;
+      updateAudio();
+    });
+    window.addEventListener('pageshow', function () {
+      isFocused = !document.hidden;
+      updateAudio();
+    });
+    window.addEventListener('focus', function () {
+      isFocused = true;
+      updateAudio();
+    });
+    window.addEventListener('blur', function () {
       isFocused = false;
       updateAudio();
     });
@@ -1447,17 +1547,14 @@
     };
 
     // Decode all audio now that ASSETS are defined
-    var audioPreloadPromise = Promise.resolve();
-    (function preloadAudio() {
-      var audioTasks = [
-        decodeB64Audio(ASSETS.sndMerge).then(function (b) { _audioBuffers.merge = b; }),
-        decodeB64Audio(ASSETS.sndPickup).then(function (b) { _audioBuffers.pickup = b; }),
-        decodeB64Audio(ASSETS.sndDrag).then(function (b) { _audioBuffers.drag = b; }),
-        decodeB64Audio(ASSETS.sndPlace).then(function (b) { _audioBuffers.place = b; }),
-        decodeB64Audio(ASSETS.sndBGMusic).then(function (b) { _audioBuffers.bgMusic = b; })
-      ];
-      audioPreloadPromise = Promise.all(audioTasks).then(function () { return true; });
-    })();
+    function preloadAudioAssets() {
+      ensureAudioDecoded('merge', ASSETS.sndMerge);
+      ensureAudioDecoded('pickup', ASSETS.sndPickup);
+      ensureAudioDecoded('drag', ASSETS.sndDrag);
+      ensureAudioDecoded('place', ASSETS.sndPlace);
+      ensureAudioDecoded('bgMusic', ASSETS.sndBGMusic);
+    }
+    preloadAudioAssets();
 
     // ---- Sound helper (Web Audio API) ----
     var SFX = { merge: 'merge', pickup: 'pickup', drag: 'drag', place: 'place' };
@@ -1466,27 +1563,25 @@
     var _bgSource = null;
     var _bgGain = null;
 
-    // Block all pointer input until assets are fully ready.
-    document.addEventListener('pointerdown', function (event) {
-      if (assetsReadyForInput) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    }, true);
-
-    // First interaction tracking on pointer input.
+    // First interaction on any click (capture phase fires before all other handlers)
     document.addEventListener('pointerdown', function () {
-      if (!assetsReadyForInput) return;
       markFirstInteraction();
-    }, { capture: true });
+    }, { once: true, capture: true });
 
     function playSound(key) {
-      if (audioMuted || !isFocused || !_audioCtx) return;
+      if (audioMuted || !isFocused) return;
+      var ctx = ensureAudioContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        try { ctx.resume(); } catch (e) {}
+      }
       var buffer = _audioBuffers[key];
       if (!buffer) return;
+      if (ctx.state !== 'running') return;
       try {
-        var source = _audioCtx.createBufferSource();
+        var source = ctx.createBufferSource();
         source.buffer = buffer;
-        source.connect(_audioCtx.destination);
+        source.connect(ctx.destination);
         source.start(0);
       } catch(e) {}
     }
@@ -2642,27 +2737,12 @@
       var promises = [];
 
       // Fonts
-      if (document.fonts && document.fonts.ready) {
-        promises.push(document.fonts.ready);
-      }
+      promises.push(document.fonts.ready);
 
-      // Audio decode preload
-      promises.push(audioPreloadPromise);
+      // Audio is decoded via Web Audio API independently – no blocking needed
 
-      // Images used by startup/UI/core textures
-      var imgSrcs = [
-        UI_GAME_ICON,
-        UI_BUTTON_IMAGE,
-        ASSETS.hand,
-        ASSETS.table,
-        ASSETS.empty,
-        ASSETS.free,
-        ASSETS.closed,
-        ASSETS.rentClosed,
-        ASSETS.rentOpened,
-        ASSETS.buyable,
-        ASSETS.cloud
-      ];
+      // Images (game icon, CTA button bg, tutorial hand)
+      var imgSrcs = [UI_GAME_ICON, UI_BUTTON_IMAGE, ASSETS.hand];
       imgSrcs.forEach(function (src) {
         if (!src) return;
         promises.push(new Promise(function (resolve) {
@@ -2674,10 +2754,7 @@
       });
 
       Promise.all(promises).then(function () {
-        whenMraidReady(function () {
-          assetsReadyForInput = true;
-          startGame();
-        });
+        whenMraidReady(function () { startGame(); });
       });
     })();
 
