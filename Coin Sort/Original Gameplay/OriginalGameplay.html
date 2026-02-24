@@ -1293,7 +1293,7 @@
 
     var audioMuted = false;
     var isFocused = true;
-    var bgMusicFirstPlayDelayMs = 400;
+    var bgMusicFirstPlayDelay = 0.4;
 
     // Single function that decides: should audio play or not?
     function updateAudio() {
@@ -1308,8 +1308,7 @@
             _bgSource.buffer = _audioBuffers.bgMusic;
             _bgSource.loop = true;
             _bgSource.connect(_bgGain);
-            var bgDelaySec =  bgMusicFirstPlayDelayMs / 1000;
-            _bgSource.start(_audioCtx.currentTime + bgDelaySec);
+            _bgSource.start(_audioCtx.currentTime + bgMusicFirstPlayDelay);
           } catch(e) {}
         }
         if (_bgGain) _bgGain.gain.value = 1;
