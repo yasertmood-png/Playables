@@ -1300,7 +1300,7 @@
     function updateAudio() {
       var shouldPlay = isFocused && !audioMuted && adFirstInteraction;
       if (shouldPlay) {
-        if (!_bgSource && _audioCtx && _audioBuffers.bgMusic) {
+        if (!_bgSource && _audioCtx && _audioBuffers.bgMusic && _audioCtx.state === 'running') {
           try {
             _bgGain = _audioCtx.createGain();
             _bgGain.gain.value = 1;
@@ -1424,7 +1424,7 @@
       decodeB64Audio(ASSETS.sndPickup).then(function (b) { _audioBuffers.pickup = b; });
       decodeB64Audio(ASSETS.sndDrag).then(function (b) { _audioBuffers.drag = b; });
       decodeB64Audio(ASSETS.sndPlace).then(function (b) { _audioBuffers.place = b; });
-      decodeB64Audio(ASSETS.sndBGMusic).then(function (b) { _audioBuffers.bgMusic = b; });
+      decodeB64Audio(ASSETS.sndBGMusic).then(function (b) { _audioBuffers.bgMusic = b; updateAudio(); });
     })();
 
     // ---- Sound helper (Web Audio API) ----
@@ -1435,12 +1435,16 @@
     var _bgGain = null;
 
     // First interaction on any click (capture phase fires before all other handlers)
+    // touchstart is listed first for iOS Safari, which requires it (not pointerdown) to unlock AudioContext
+    document.addEventListener('touchstart', function () {
+      markFirstInteraction();
+    }, { once: true, capture: true });
     document.addEventListener('pointerdown', function () {
       markFirstInteraction();
     }, { once: true, capture: true });
 
     function playSound(key) {
-      if (audioMuted || !isFocused || !_audioCtx) return;
+      if (audioMuted || !isFocused || !_audioCtx || _audioCtx.state !== 'running') return;
       var buffer = _audioBuffers[key];
       if (!buffer) return;
       try {
