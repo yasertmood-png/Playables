@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(du:*)",
+      "Bash(find:*)",
+      "Read(//c/MoodGames/Playable Ads/Playables/Coin Sort/PocketSort/**)",
+      "Bash(python3:*)"
+    ]
+  }
+}

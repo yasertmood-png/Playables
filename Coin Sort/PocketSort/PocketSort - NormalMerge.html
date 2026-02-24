@@ -1716,6 +1716,8 @@
       return hit ? hit.x - slot.x : 0;
     }
 
+
+
     // Interaction settings
     const CoinHoldHeight = 1.0;    // Y position when coins are held up
     const CoinHoldDuration = 100;    // coin up/down duration in ms
@@ -1738,7 +1740,7 @@
     // Merge fog explosion effect
     const MergeFogParticleCount = 12;     // number of fog puffs
     const MergeFogDuration = 700;    // ms for the fog to expand and fade
-    const MergeFogRadius = 1;    // how far particles spread outward
+    const MergeFogRadius = 1.4;    // how far particles spread outward
     const MergeFogSize = 0.5;    // starting size of each fog puff
     const MergeFogColor = 0xffffff; // fog particle color
     const MergeFogStartDelayMin = 10;    // ms
@@ -1771,18 +1773,6 @@
       SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed,
       SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
     ];
-
-    // ---- Closed Slot Merge System ----
-    // Maps each closed slot index to the coin type it accepts.
-    // When a slot fills with 10 of that coin type, they fly here → fill bar → explosion → 5 coins of next type.
-    const ClosedSlotMergeTargets = [
-      { slotIdx: 7, coinType: 3 },
-      { slotIdx: 8, coinType: 4 },
-    ];
-    const ClosedSlotOpenResultCount = 5;  // coins spawned when slot opens
-    const FillBarY        = 0.31;         // world Y of fill bar (above slot at 0.2)
-    const FillBarOpacity  = 0.75;
-    const FillBarStepDuration = 200;      // ms for fill bar tween per step
 
     // ---- Tutorial Configuration ----
     // Each entry is [pickupSlotIndex, dropSlotIndex].
@@ -2101,40 +2091,6 @@
       scene.add(edgeMesh);
       s.edgeMesh = edgeMesh;
     }
-
-    // ---- Closed slot fill bars ----
-    // One colored fill bar overlay per ClosedSlotMergeTarget entry.
-    // Geometry pivot is at the front edge so scaleY from 0→1 fills from front to back.
-    var closedSlotFillBars = {};
-    (function() {
-      var fbH = SlotSize[SlotType.Closed].height;
-      var fbW = SlotSize[SlotType.Closed].width;
-      for (var _i = 0; _i < ClosedSlotMergeTargets.length; _i++) {
-        var cstData = ClosedSlotMergeTargets[_i];
-        var cstSlot = slots[cstData.slotIdx];
-        if (!cstSlot) continue;
-        var fbGeo = new THREE.PlaneGeometry(fbW, fbH);
-        fbGeo.translate(0, fbH / 2, 0);  // pivot at front/bottom edge
-        var fbMat = new THREE.MeshBasicMaterial({
-          color: new THREE.Color(CoinColors[cstData.coinType] || 0xffffff),
-          transparent: true,
-          opacity: FillBarOpacity,
-          depthWrite: false,
-          side: THREE.FrontSide,
-        });
-        var fbMesh = new THREE.Mesh(fbGeo, fbMat);
-        fbMesh.rotation.x = -Math.PI / 2;
-        fbMesh.position.set(cstSlot.x, FillBarY, cstSlot.z + fbH / 2);
-        fbMesh.scale.set(1, 0, 1);  // scaleY=0 = invisible until coins arrive
-        fbMesh.renderOrder = 2;
-        scene.add(fbMesh);
-        closedSlotFillBars[cstData.slotIdx] = {
-          mesh: fbMesh,
-          coinCount: 0,
-          totalCoins: cstSlot.capacity,
-        };
-      }
-    })();
 
     var coinBaseGeo = null;
     try { coinBaseGeo = loadGLBFromBase64(ASSETS.coin, 0); } catch(e) {}
@@ -2505,136 +2461,32 @@
         if (slot.coins[i].userData.coinNumber !== num) return;
       }
 
-      // Max level - no merge
+      // Max level Ã¢â‚¬â€ no merge
       if (num >= 7) return;
 
-      // Look for a predefined closed slot that accepts this coin type
-      var cstTarget = null;
-      for (var _k = 0; _k < ClosedSlotMergeTargets.length; _k++) {
-        if (ClosedSlotMergeTargets[_k].coinType === num &&
-            slots[ClosedSlotMergeTargets[_k].slotIdx] &&
-            slots[ClosedSlotMergeTargets[_k].slotIdx].type === SlotType.Closed) {
-          cstTarget = ClosedSlotMergeTargets[_k];
-          break;
-        }
-      }
-
-      if (cstTarget) {
-        // New mechanic: coins fly to the closed slot, fill bar fills, then explosion
-        triggerClosedSlotMerge(slotIdx, cstTarget);
-      } else {
-        // Fallback: old fold-and-merge mechanic
-        playSound(SFX.merge);
-        isAnimating = true;
-        var coins = slot.coins.slice();
-        function foldStep(i) {
-          var idx = coins.length - 1 - i;
-          if (idx <= 0) {
-            finishMerge(slotIdx, num, coins);
-            return;
-          }
-          var coin = coins[idx];
-          new TWEEN.Tween(coin.scale)
-            .to({ x: 0, y: 0, z: 0 }, CoinMergeStepDuration)
-            .easing(TWEEN.Easing.Cubic.In)
-            .start();
-          setTimeout(function () { foldStep(i + 1); }, CoinMergeStepDuration * 0.3);
-        }
-        foldStep(0);
-      }
-    }
-
-    function triggerClosedSlotMerge(sourceSlotIdx, target) {
-      var sourceSlot = slots[sourceSlotIdx];
-      var closedSlot = slots[target.slotIdx];
-      var fillBarData = closedSlotFillBars[target.slotIdx];
-      if (!fillBarData) return;
-
       playSound(SFX.merge);
+
       isAnimating = true;
 
-      // Take all 10 coins from source slot (it becomes empty)
-      var coins = sourceSlot.coins.slice();
-      sourceSlot.coins = [];
+      var coins = slot.coins.slice();
 
-      var totalCoins = coins.length;
-      var absorbed = 0;
+      function foldStep(i) {
+        var idx = coins.length - 1 - i;
+        if (idx <= 0) {
+          finishMerge(slotIdx, num, coins);
+          return;
+        }
+        var coin = coins[idx];
+        var target = coins[idx - 1]; 
 
-      // Coins fly to the center of the closed slot
-      var targetPos = getCoinPosition(closedSlot, 4);
-
-      for (var _ci = 0; _ci < totalCoins; _ci++) {
-        (function(coin, delay) {
-          animateCoinArc(coin, targetPos.x, targetPos.y + 0.3, targetPos.z, function() {
-            // Coin arrives: shrink and disappear
-            new TWEEN.Tween(coin.scale)
-              .to({ x: 0, y: 0, z: 0 }, 80)
-              .easing(TWEEN.Easing.Cubic.In)
-              .onComplete(function() {
-                scene.remove(coin);
-                absorbed++;
-                // Advance fill bar
-                fillBarData.coinCount++;
-                var fillFraction = fillBarData.coinCount / fillBarData.totalCoins;
-                new TWEEN.Tween(fillBarData.mesh.scale)
-                  .to({ y: fillFraction }, FillBarStepDuration)
-                  .easing(TWEEN.Easing.Quadratic.Out)
-                  .start();
-                if (absorbed >= totalCoins) {
-                  // All coins absorbed - trigger explosion and open
-                  setTimeout(function() {
-                    openClosedSlot(target);
-                  }, FillBarStepDuration + 100);
-                }
-              })
-              .start();
-          }, delay);
-        })(coins[_ci], _ci * CoinTransferStartDelay);
-      }
-    }
-
-    function openClosedSlot(target) {
-      var closedSlot = slots[target.slotIdx];
-      var fillBarData = closedSlotFillBars[target.slotIdx];
-
-      // Explosion fog at slot center
-      var centerPos = getCoinPosition(closedSlot, 4);
-      spawnMergeFog(centerPos.x, centerPos.y + 0.5, centerPos.z, CoinColors[target.coinType] || MergeFogColor);
-
-      // Remove fill bar overlay
-      if (fillBarData) {
-        scene.remove(fillBarData.mesh);
-        delete closedSlotFillBars[target.slotIdx];
+        new TWEEN.Tween(coin.scale)
+          .to({ x: 0, y: 0, z: 0 }, CoinMergeStepDuration)
+          .easing(TWEEN.Easing.Cubic.In)
+          .start();
+        setTimeout(function () { foldStep(i + 1); }, CoinMergeStepDuration*0.3);
       }
 
-      // Switch slot from Closed to Free
-      closedSlot.type = SlotType.Empty;
-      closedSlot.mesh.material.map = slotTextures[SlotType.Empty];
-      closedSlot.mesh.material.needsUpdate = true;
-
-      // Spawn ClosedSlotOpenResultCount coins of the next coin type
-      var newCoinType = Math.min(target.coinType + 1, 7);
-      var fogDelay = MergeFogDuration * 0.35;
-      for (var _ni = 0; _ni < ClosedSlotOpenResultCount; _ni++) {
-        (function(coinIdx) {
-          setTimeout(function() {
-            var coin = createCoin(newCoinType);
-            var pos = getCoinPosition(closedSlot, coinIdx);
-            coin.position.set(pos.x, pos.y + 1.0, pos.z);
-            coin.scale.set(0.01, 0.01, 0.01);
-            scene.add(coin);
-            closedSlot.coins.push(coin);
-            new TWEEN.Tween(coin.scale)
-              .to({ x: 1, y: 1, z: 1 }, CoinMergeDuration)
-              .easing(TWEEN.Easing.Back.Out)
-              .start();
-            new TWEEN.Tween(coin.position)
-              .to({ x: pos.x, y: pos.y, z: pos.z }, CoinMergeDuration)
-              .easing(TWEEN.Easing.Exponential.Out)
-              .start();
-          }, fogDelay + coinIdx * CoinMergeStepDuration * 0.3);
-        })(_ni);
-      }
+      foldStep(0);
     }
 
     var fogTexture = null;
