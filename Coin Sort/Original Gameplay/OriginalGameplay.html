@@ -1202,10 +1202,11 @@
       window.__adTimerStarted = true;
       ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
       // Unlock AudioContext (iOS requires resume from user gesture)
-      if (_audioCtx && _audioCtx.state === 'suspended') {
-        _audioCtx.resume();
+      if (_audioCtx && _audioCtx.state !== 'running') {
+    _audioCtx.resume().catch(() => {}).finally(updateAudio);
+        } else {
+    updateAudio();
       }
-      updateAudio();
     }
 
     function getAdElapsedMs() {
