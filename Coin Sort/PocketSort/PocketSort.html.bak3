@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -469,16 +469,10 @@
         </div>
       </div>
       <div class="dbg-section">
-        <strong>Lock Icon</strong>
-        <div class="dbg-axis"><label>Off X</label><input type="range" id="lockOffX" min="-2" max="2" step="0.01" value="0"><span class="dbg-val" id="lockOffXVal">0.00</span></div>
-        <div class="dbg-axis"><label>Off Y</label><input type="range" id="lockOffY" min="0.1" max="2" step="0.01" value="0.22"><span class="dbg-val" id="lockOffYVal">0.22</span></div>
-        <div class="dbg-axis"><label>Off Z</label><input type="range" id="lockOffZ" min="-2" max="2" step="0.01" value="0"><span class="dbg-val" id="lockOffZVal">0.00</span></div>
-        <div class="dbg-axis"><label>Scale X</label><input type="range" id="lockScaleX" min="0.1" max="3" step="0.01" value="1"><span class="dbg-val" id="lockScaleXVal">1.00</span></div>
-        <div class="dbg-axis"><label>Scale Y</label><input type="range" id="lockScaleY" min="0.1" max="3" step="0.01" value="1"><span class="dbg-val" id="lockScaleYVal">1.00</span></div>
-      </div>
-      <div class="dbg-section">
-        <strong>Fill Preview (slot 0)</strong>
-        <div class="dbg-axis"><label>Fill</label><input type="range" id="pvFill" min="0" max="1" step="0.01" value="1"><span class="dbg-val" id="pvFillVal">1.00</span></div>
+        <strong>Lock Icon Offset</strong>
+        <div class="dbg-axis"><label>X</label><input type="range" id="lockOffX" min="-2" max="2" step="0.01" value="0"><span class="dbg-val" id="lockOffXVal">0.00</span></div>
+        <div class="dbg-axis"><label>Y</label><input type="range" id="lockOffY" min="0.1" max="2" step="0.01" value="0.22"><span class="dbg-val" id="lockOffYVal">0.22</span></div>
+        <div class="dbg-axis"><label>Z</label><input type="range" id="lockOffZ" min="-2" max="2" step="0.01" value="0"><span class="dbg-val" id="lockOffZVal">0.00</span></div>
       </div>
     </div>
   </div>
@@ -1793,9 +1787,7 @@
     const FillBarY            = 0.21;      // world Y of fill bar (slot is at 0.2, +0.01 above)
     const FillBarOpacity      = 0.75;
     const FillBarStepDuration = 200;      // ms for fill bar tween per step
-    var   LockIconOffset      = { x: 0, y: 0.22, z: -0.09 }; // lock icon offset (debug-adjustable)
-    var   LockIconScale       = { x: 0.57, y: 0.26 };           // lock icon scale X/Y (debug-adjustable)
-    const ClosedSlotPreviewEnabled = true; // show preview on slot 0 to tune look; set false when done
+    var   LockIconOffset      = { x: 0, y: 0.22, z: 0 }; // lock icon offset (debug-adjustable)
 
     // ---- Tutorial Configuration ----
     // Each entry is [pickupSlotIndex, dropSlotIndex].
@@ -1983,26 +1975,11 @@
         updateAllCoinMaterials();
       });
 
-      // ---- Lock Icon sliders: offset (X/Y/Z) + scale (X/Y) ----
-      function _applyLockTransform(entry) {
-        if (!entry || !entry.lockMesh) return;
-        entry.lockMesh.position.set(
-          entry.slot.x + LockIconOffset.x,
-          LockIconOffset.y,
-          entry.slot.z + LockIconOffset.z
-        );
-        entry.lockMesh.scale.set(LockIconScale.x, LockIconScale.y, 1);
-      }
-      function _applyAllLockTransforms() {
-        for (var _idx in closedSlotFillBars) _applyLockTransform(closedSlotFillBars[_idx]);
-        _applyLockTransform(closedSlotPreview);
-      }
+      // ---- Lock Icon Offset sliders ----
       var lockSliderDefs = [
-        { id: 'lockOffX',   axis: 'x', def: 0,    valId: 'lockOffXVal',   target: LockIconOffset },
-        { id: 'lockOffY',   axis: 'y', def: 0.22, valId: 'lockOffYVal',   target: LockIconOffset },
-        { id: 'lockOffZ',   axis: 'z', def: 0,    valId: 'lockOffZVal',   target: LockIconOffset },
-        { id: 'lockScaleX', axis: 'x', def: 1,    valId: 'lockScaleXVal', target: LockIconScale  },
-        { id: 'lockScaleY', axis: 'y', def: 1,    valId: 'lockScaleYVal', target: LockIconScale  },
+        { id: 'lockOffX', axis: 'x', def: 0,    valId: 'lockOffXVal' },
+        { id: 'lockOffY', axis: 'y', def: 0.22,  valId: 'lockOffYVal' },
+        { id: 'lockOffZ', axis: 'z', def: 0,    valId: 'lockOffZVal' },
       ];
       lockSliderDefs.forEach(function (s) {
         var el  = document.getElementById(s.id);
@@ -2013,25 +1990,20 @@
         el.addEventListener('input', function () {
           var v = parseFloat(this.value);
           if (isNaN(v)) return;
-          s.target[s.axis] = v;
+          LockIconOffset[s.axis] = v;
           if (val) val.textContent = v.toFixed(2);
-          _applyAllLockTransforms();
-        });
-      });
-
-      // ---- Fill preview slider (controls closedSlotPreview fill bar scale) ----
-      var elPvFill    = document.getElementById('pvFill');
-      var elPvFillVal = document.getElementById('pvFillVal');
-      if (elPvFill) {
-        elPvFill.addEventListener('input', function () {
-          var v = parseFloat(this.value);
-          if (isNaN(v)) return;
-          if (elPvFillVal) elPvFillVal.textContent = v.toFixed(2);
-          if (closedSlotPreview && closedSlotPreview.mesh) {
-            closedSlotPreview.mesh.scale.y = v;
+          // Reposition all active lock meshes relative to their slot
+          for (var idx in closedSlotFillBars) {
+            var fb = closedSlotFillBars[idx];
+            if (!fb.lockMesh) continue;
+            fb.lockMesh.position.set(
+              fb.slot.x + LockIconOffset.x,
+              LockIconOffset.y,
+              fb.slot.z + LockIconOffset.z
+            );
           }
         });
-      }
+      });
 
       toggle.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -2166,46 +2138,25 @@
     }
 
     // ---- Closed slot fill bars (closedSlotWhite) + lock icons (closedSlotLock) ----
-    // Both are hidden initially; they become visible when coins start flying to the closed slot.
-    // closedSlotWhite fills front-to-back (scaleY 0->1) as each coin arrives.
-    // closedSlotLock sits on top; offset and scale are debug-adjustable.
+    // closedSlotWhite fills from front to back as coins arrive (scaleY 0 -> 1).
+    // closedSlotLock sits on top of the white image; position is debug-adjustable via LockIconOffset.
     var closedSlotFillBars = {};
-    var closedSlotPreview  = null; // preview entry for slot 0 (set ClosedSlotPreviewEnabled=false to remove)
-    // Textures hoisted so both the fill bar loop and the preview block can share them
-    var _csWhiteTex = loadB64Texture(ASSETS.closedSlotWhite);
-    var _csLockTex  = loadB64Texture(ASSETS.closedSlotLock);
-
-    function _makeLockMesh(fbW, fbH, slot) {
-      var geo = new THREE.PlaneGeometry(fbW, fbH);
-      var mat = new THREE.MeshBasicMaterial({
-        map: _csLockTex,
-        transparent: true,
-        alphaTest: 0.01,
-        depthWrite: false,
-        side: THREE.FrontSide,
-      });
-      var m = new THREE.Mesh(geo, mat);
-      m.rotation.x = -Math.PI / 2;
-      m.position.set(slot.x + LockIconOffset.x, LockIconOffset.y, slot.z + LockIconOffset.z);
-      m.scale.set(LockIconScale.x, LockIconScale.y, 1);
-      m.renderOrder = 3;
-      return m;
-    }
-
     (function() {
       var fbH = SlotSize[SlotType.Closed].height;
       var fbW = SlotSize[SlotType.Closed].width;
+      var whiteTex = loadB64Texture(ASSETS.closedSlotWhite);
+      var lockTex  = loadB64Texture(ASSETS.closedSlotLock);
 
       for (var _i = 0; _i < ClosedSlotMergeTargets.length; _i++) {
         var cstData = ClosedSlotMergeTargets[_i];
         var cstSlot = slots[cstData.slotIdx];
         if (!cstSlot) continue;
 
-        // White fill bar: pivot at front edge so scaleY 0->1 fills front to back
+        // ---- White fill bar: pivot at front edge so scaleY 0->1 fills front to back ----
         var fbGeo = new THREE.PlaneGeometry(fbW, fbH);
         fbGeo.translate(0, fbH / 2, 0);
         var fbMat = new THREE.MeshBasicMaterial({
-          map: _csWhiteTex,
+          map: whiteTex,
           color: new THREE.Color(CoinColors[cstData.coinType] || 0xffffff),
           transparent: true,
           opacity: FillBarOpacity,
@@ -2215,13 +2166,27 @@
         var fbMesh = new THREE.Mesh(fbGeo, fbMat);
         fbMesh.rotation.x = -Math.PI / 2;
         fbMesh.position.set(cstSlot.x, FillBarY, cstSlot.z + fbH / 2);
-        fbMesh.scale.set(1, 0, 1);
-        fbMesh.visible = false; // shown when coins start transferring
+        fbMesh.scale.set(1, 0, 1);  // invisible until coins arrive
         fbMesh.renderOrder = 2;
         scene.add(fbMesh);
 
-        var lockMesh = _makeLockMesh(fbW, fbH, cstSlot);
-        lockMesh.visible = false; // shown when coins start transferring
+        // ---- Lock icon: same footprint as slot, positioned above white ----
+        var lockGeo = new THREE.PlaneGeometry(fbW, fbH);
+        var lockMat = new THREE.MeshBasicMaterial({
+          map: lockTex,
+          transparent: true,
+          alphaTest: 0.01,
+          depthWrite: false,
+          side: THREE.FrontSide,
+        });
+        var lockMesh = new THREE.Mesh(lockGeo, lockMat);
+        lockMesh.rotation.x = -Math.PI / 2;
+        lockMesh.position.set(
+          cstSlot.x + LockIconOffset.x,
+          LockIconOffset.y,
+          cstSlot.z + LockIconOffset.z
+        );
+        lockMesh.renderOrder = 3;
         scene.add(lockMesh);
 
         closedSlotFillBars[cstData.slotIdx] = {
@@ -2233,34 +2198,6 @@
         };
       }
     })();
-
-    // ---- Preview on slot 0: full-fill white + lock icon, always visible for tuning ----
-    if (ClosedSlotPreviewEnabled && slots[0]) {
-      var _pvSlot = slots[0];
-      var _pvH = SlotSize[SlotType.Closed].height;
-      var _pvW = SlotSize[SlotType.Closed].width;
-
-      var _pvFbGeo = new THREE.PlaneGeometry(_pvW, _pvH);
-      _pvFbGeo.translate(0, _pvH / 2, 0);
-      var _pvFbMesh = new THREE.Mesh(_pvFbGeo, new THREE.MeshBasicMaterial({
-        map: _csWhiteTex,
-        color: new THREE.Color(0xffffff),
-        transparent: true,
-        opacity: FillBarOpacity,
-        depthWrite: false,
-        side: THREE.FrontSide,
-      }));
-      _pvFbMesh.rotation.x = -Math.PI / 2;
-      _pvFbMesh.position.set(_pvSlot.x, FillBarY, _pvSlot.z + _pvH / 2);
-      _pvFbMesh.scale.set(1, 1, 1); // full fill so we see the complete image
-      _pvFbMesh.renderOrder = 2;
-      scene.add(_pvFbMesh);
-
-      var _pvLockMesh = _makeLockMesh(_pvW, _pvH, _pvSlot);
-      scene.add(_pvLockMesh);
-
-      closedSlotPreview = { mesh: _pvFbMesh, lockMesh: _pvLockMesh, slot: _pvSlot };
-    }
 
     var coinBaseGeo = null;
     try { coinBaseGeo = loadGLBFromBase64(ASSETS.coin, 0); } catch(e) {}
@@ -2669,10 +2606,6 @@
 
       playSound(SFX.merge);
       isAnimating = true;
-
-      // Reveal fill bar and lock icon now that coins are incoming
-      fillBarData.mesh.visible = true;
-      if (fillBarData.lockMesh) fillBarData.lockMesh.visible = true;
 
       // Take all 10 coins from source slot (it becomes empty)
       var coins = sourceSlot.coins.slice();

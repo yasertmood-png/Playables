@@ -4,7 +4,12 @@
       "Bash(du:*)",
       "Bash(find:*)",
       "Read(//c/MoodGames/Playable Ads/Playables/Coin Sort/PocketSort/**)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(ls:*)",
+      "Bash(python:*)",
+      "Bash(\"c:/MoodGames/Playable Ads/Playables/Coin:*)",
+      "Bash(echo:*)",
+      "Bash(node --check:*)"
     ]
   }
 }

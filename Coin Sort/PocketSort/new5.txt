@@ -1,0 +1,35 @@
+      // ---- Lock Icon sliders: offset (X/Y/Z) + scale (X/Y) ----
+      function _applyLockTransform(entry) {
+        if (\!entry || \!entry.lockMesh) return;
+        entry.lockMesh.position.set(
+          entry.slot.x + LockIconOffset.x,
+          LockIconOffset.y,
+          entry.slot.z + LockIconOffset.z
+        );
+        entry.lockMesh.scale.set(LockIconScale.x, LockIconScale.y, 1);
+      }
+      function _applyAllLockTransforms() {
+        for (var _idx in closedSlotFillBars) _applyLockTransform(closedSlotFillBars[_idx]);
+        _applyLockTransform(closedSlotPreview);
+      }
+      var lockSliderDefs = [
+        { id: 'lockOffX',   axis: 'x', def: 0,    valId: 'lockOffXVal',   target: LockIconOffset },
+        { id: 'lockOffY',   axis: 'y', def: 0.22, valId: 'lockOffYVal',   target: LockIconOffset },
+        { id: 'lockOffZ',   axis: 'z', def: 0,    valId: 'lockOffZVal',   target: LockIconOffset },
+        { id: 'lockScaleX', axis: 'x', def: 1,    valId: 'lockScaleXVal', target: LockIconScale  },
+        { id: 'lockScaleY', axis: 'y', def: 1,    valId: 'lockScaleYVal', target: LockIconScale  },
+      ];
+      lockSliderDefs.forEach(function (s) {
+        var el  = document.getElementById(s.id);
+        var val = document.getElementById(s.valId);
+        if (\!el) return;
+        el.value = s.def;
+        if (val) val.textContent = s.def.toFixed(2);
+        el.addEventListener('input', function () {
+          var v = parseFloat(this.value);
+          if (isNaN(v)) return;
+          s.target[s.axis] = v;
+          if (val) val.textContent = v.toFixed(2);
+          _applyAllLockTransforms();
+        });
+      });
