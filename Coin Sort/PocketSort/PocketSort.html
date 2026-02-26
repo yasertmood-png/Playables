@@ -102,7 +102,7 @@
       align-items: center;
       justify-content: center;
       padding: 24px;
-      background: linear-gradient(180deg, #082235, #063f6b);
+      background: linear-gradient(180deg, #696969, #7e8c96);
       z-index: 10
     }
 
@@ -445,7 +445,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
 
   <div id="debugPanel">
     <button id="debugToggle">&#9881; Dir Light</button>
-    <div id="debugContent" class="dbg-hidden">
+    <div id="debugContent">
       <div class="dbg-section">
         <strong>Position</strong>
         <div class="dbg-axis"><label>X</label><input type="range" id="dlPX" min="-100" max="100" step="0.1" value="-4.2"><span class="dbg-val" id="dlPXVal">-4.2</span></div>
@@ -1320,6 +1320,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       });
     }
 
+    // #region ─── AD FRAMEWORK · CTA · Click-through ─────────────────────────────────────────
     function updateCtaTextSize() {
       if (!ctaInstallButton) return;
       var h = ctaInstallButton.offsetHeight;
@@ -1474,6 +1475,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
     }
 
 
+    // #endregion
+
+    // #region ─── AUDIO ───────────────────────────────────────────────────────────────────────
     var audioMuted = true;
     var isFocused = true;
     // Single function that decides: should audio play or not?
@@ -1518,6 +1522,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       });
     }
 
+    // #endregion
+
+    // #region ─── 3D MODEL LOADING & EMBEDDED ASSETS ──────────────────────────────────────────
     function parseGLB(buffer) {
       const view = new DataView(buffer);
       const jsonLen = view.getUint32(12, true);
@@ -1672,6 +1679,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       });
     }
 
+    // #endregion
+
+    // #region ─── GLOBAL CONFIG ───────────────────────────────────────────────────────────────
     // ============================================================
     //  GLOBAL CONFIG
     // ============================================================
@@ -1692,7 +1702,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
 
     // Slot size per type (width, height in world units)
     const SlotSize = {
-      [SlotType.Empty]:      { width: 0.62, height: 1.7 },
+      [SlotType.Empty]:      { width: 0.62, height: 1.6 },
       [SlotType.Free]:       { width: 0.65, height: 1.8 },
       [SlotType.Closed]:     { width: 0.65, height: 1.72 },
       [SlotType.RentClosed]: { width: 0.65, height: 1.72 },
@@ -1712,7 +1722,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
 
     // Grid cell size (used for spacing/positioning — set to the largest slot dimensions)
     const SLOT_WIDTH = 0.65;
-    const SLOT_HEIGHT = 2;
+    const SLOT_HEIGHT = 1.9;
 
     // Spacing between slots (world units)
     const SlotHorizontallySpacing = 0.06;
@@ -1753,10 +1763,10 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
     const CoinSize = { x: 0.3, y: 0.3, z: 0.3 };
 
     // Coin rotation in the slot (degrees, converted to radians on use)
-    const CoinRotation = { x: 90, y: 0, z: 0 };
+    const CoinRotation = { x: 80, y: 0, z: 0 };
 
     // Coin spacing between coins in a slot (vertical gap)
-    const CoinSpacing = 0.16;
+    const CoinSpacing = 0.14;
 
     // Coin stacking start Y (height of first coin above the table)
     const CoinStackStartZ = -0.65;
@@ -1860,6 +1870,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
     ];
     const TutorialEnabled =  TutorialSteps.length > 0;
 
+    // #endregion
+
+    // #region ─── SCENE SETUP · Renderer · Camera · Lights ───────────────────────────────────
     // ============================================================
     //  THREE.JS SCENE SETUP
     // ============================================================
@@ -2100,9 +2113,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
     bgCanvas.height = 512;
     const bgCtx = bgCanvas.getContext('2d');
     const grad = bgCtx.createLinearGradient(0, 0, 0, 512);
-    grad.addColorStop(0, '#0085ae');
-    grad.addColorStop(0.5, '#32a0c1');
-    grad.addColorStop(1, '#0085ae');
+    grad.addColorStop(0, '#4F4F4F');
+    grad.addColorStop(0.5, '#5C5C5C');
+    grad.addColorStop(1, '#4F4F4F');
     bgCtx.fillStyle = grad;
     bgCtx.fillRect(0, 0, 2, 512);
     const bgTexture = new THREE.CanvasTexture(bgCanvas);
@@ -2120,7 +2133,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
     }
 
     const TABLE_ASPECT = 1400 / 1950;
-    const TABLE_HEIGHT = 6.8;
+    const TABLE_HEIGHT = 6.4;
     const TABLE_WIDTH = TABLE_HEIGHT * TABLE_ASPECT * 0.80;
 
     const tableTex = loadB64Texture(ASSETS.table);
@@ -2262,7 +2275,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
         fbGeo.translate(0, fbH / 2, 0);
         var fbMat = new THREE.MeshBasicMaterial({
           map: _csWhiteTex,
-          color: new THREE.Color(CoinColors[cstData.coinType] || 0xffffff),
+          color: new THREE.Color(0x3FE01D),
           transparent: true,
           opacity: FillBarOpacity,
           depthWrite: false,
@@ -2343,6 +2356,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       depthWrite: true,
     };
 
+    // #endregion
+
+    // #region ─── COINS ───────────────────────────────────────────────────────────────────────
     function createCoin(number) {
       const group = new THREE.Group();
 
@@ -2387,6 +2403,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       }
     }
 
+    // #endregion
+
+    // #region ─── GAME STATE & TUTORIAL ──────────────────────────────────────────────────────
     function startGame() {
       if (adStarted) return;
       adStarted = true;
@@ -2465,7 +2484,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       var targetIdx = tutorialSubStep === 0 ? step[0] : step[1];
       return slotIdx === targetIdx;
     }
+    // #endregion
 
+    // #region ─── COIN ANIMATION ──────────────────────────────────────────────────────────────
     let heldCoins = [];
     let heldFromSlot = null;
     let isAnimating = false;
@@ -2582,6 +2603,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
     const pointer = new THREE.Vector2();
     const slotMeshes = slots.map(s => s.mesh);
 
+    // #endregion
+
+    // #region ─── PLAYER INTERACTION ─────────────────────────────────────────────────────────
     function getClickedSlotIndex(event) {
       const rect = canvas.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -2671,6 +2695,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       heldFromSlot = null;
     }
 
+    // #endregion
+
+    // #region ─── MERGE LOGIC ─────────────────────────────────────────────────────────────────
     function checkMerge(slotIdx) {
       const slot = slots[slotIdx];
       if (slot.coins.length < 10) return;
@@ -2826,6 +2853,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       }
     }
 
+    // #endregion
+
+    // #region ─── VFX & PARTICLES ─────────────────────────────────────────────────────────────
     var fogTexture = null;
     var fogParticlePool = [];
     function getFogTexture() {
@@ -3102,6 +3132,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       }
     }
 
+    // #endregion
+
+    // #region ─── MERGE COMPLETION & INPUT EVENTS ─────────────────────────────────────────────
     function finishMerge(slotIdx, oldNumber, oldCoins) {
       const slot = slots[slotIdx];
 
@@ -3173,6 +3206,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       }
     });
 
+    // #endregion
+
+    // #region ─── DEAL SYSTEM & UTILITIES ────────────────────────────────────────────────────
     function onResize() {
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -3357,6 +3393,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       });
     }
 
+    // #endregion
+
+    // #region ─── RENDER LOOP ─────────────────────────────────────────────────────────────────
     // ============================================================
     //  RENDER LOOP
     // ============================================================
@@ -3395,6 +3434,8 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
         whenMraidReady(function () { startGame(); });
       });
     })();
+
+    // #endregion
 
   </script>
 </body>
