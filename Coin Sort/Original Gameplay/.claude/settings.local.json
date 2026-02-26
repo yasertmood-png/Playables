@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx html-minifier-terser --version)",
+      "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true,\"\"mangle\"\":{\"\"reserved\"\":[\"\"openStore\"\",\"\"openClickThrough\"\",\"\"getStoreUrl\"\",\"\"mraid\"\"]}}' --output \"OriginalGameplay.min.html\" \"OriginalGameplay.html\")"
     ]
   }
 }
