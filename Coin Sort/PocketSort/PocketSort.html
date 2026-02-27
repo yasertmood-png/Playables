@@ -281,13 +281,13 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
 
     @media (orientation:landscape) {
       #dealButton {
-      width: clamp(120px, 10vmin, 150px);
+      width: clamp(140px, 20vmin, 170px);
       height: clamp(50px, 10vmin, 80px);
       }
     }
     #tutorialHand {
       position: fixed;
-      width: clamp(48px, 12vmin, 80px);
+      width: clamp(48px, 12vmin, 80px); /* portrait size */
       height: auto;
       pointer-events: none;
       z-index: 8;
@@ -295,6 +295,9 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       transition: opacity 0.25s ease;
       transform: translate(-50%, 0%);
       transform-origin: center center;
+    }
+    @media (orientation: landscape) {
+      #tutorialHand { width: clamp(36px, 8vmin, 60px); } /* landscape size */
     }
     #tutorialHand.visible { opacity: 1; }
     #tutorialHand.pulsing {
@@ -1754,11 +1757,10 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
     // Extra breathing room added around the table when auto-fitting FOV (0 = tight, 0.1 = 10% border)
     const CameraFitPadding = 0.05;
 
-    // World-space Z distance past the table's front edge where the deal button is anchored.
-    // Increase to move the button further below the table on screen.
-    const DealButtonAnchorZ = 0.6;
-    // Pixel offset applied after projection. Positive = down, negative = up.
-    const DealButtonOffsetY = -50;
+    // Pixel distance below the board's bottom edge where the deal button sits, per orientation.
+    // 0 = flush with board end, positive = further below, negative = overlaps the board.
+    const DealButtonOffsetYPortrait  = 10;
+    const DealButtonOffsetYLandscape = -15;
 
     // Directional light position, target, intensity and color
     const DirLightPosition  = { x: 100,  y: 100,  z: 100  };
@@ -2774,7 +2776,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
       dealTutorialActive = true;
       var rect = dealButton.getBoundingClientRect();
       tutorialHandEl.style.left = (rect.left + rect.width * 0.5) + 'px';
-      tutorialHandEl.style.top  = rect.top + 'px';
+      tutorialHandEl.style.top  = (rect.top + 25) + 'px';
       tutorialHandEl.classList.add('visible', 'pulsing');
     }
 
@@ -3153,13 +3155,17 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
 
     // #region ─── DEAL SYSTEM & UTILITIES ────────────────────────────────────────────────────
 
-    // Projects a world-space point just below the table's front edge to screen Y
-    // and positions the deal button so it always sits under the table regardless of screen size.
+    // Positions the deal button at the board's bottom screen edge + a pixel offset.
     function updateDealButtonPosition() {
       if (!dealButton) return;
-      var anchor = new THREE.Vector3(0, 0, TABLE_HEIGHT / 2 + DealButtonAnchorZ);
-      anchor.project(camera);
-      var screenY = Math.round((1 - anchor.y) / 2 * window.innerHeight) + DealButtonOffsetY;
+      // Project the front edge of the table (bottom of board as seen on screen) to pixels
+      var boardEdge = new THREE.Vector3(0, 0, TABLE_HEIGHT / 2);
+      boardEdge.project(camera);
+      var boardBottomY = Math.round((1 - boardEdge.y) / 2 * window.innerHeight);
+      var isPortrait = window.innerWidth <= window.innerHeight;
+      var offset = isPortrait ? DealButtonOffsetYPortrait : DealButtonOffsetYLandscape;
+      var screenY = boardBottomY + offset;
+      if (!isFinite(screenY)) screenY = Math.round(window.innerHeight * 0.85);
       dealButton.style.top = screenY + 'px';
     }
 
