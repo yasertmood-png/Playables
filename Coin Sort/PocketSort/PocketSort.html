@@ -281,7 +281,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
 
     @media (orientation:landscape) {
       #dealButton {
-      width: clamp(140px, 20vmin, 170px);
+      width: clamp(130px, 20vmin, 170px);
       height: clamp(50px, 10vmin, 80px);
       }
     }
@@ -455,7 +455,7 @@ bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
 
   <div id="debugPanel">
     <button id="debugToggle">&#9881; Dir Light</button>
-    <div id="debugContent">
+    <div id="debugContent" class="dbg-hidden">
       <div class="dbg-section">
         <strong>Position</strong>
         <div class="dbg-axis"><label>X</label><input type="range" id="dlPX" min="-100" max="100" step="0.1" value="-4.2"><span class="dbg-val" id="dlPXVal">-4.2</span></div>
