@@ -1316,12 +1316,11 @@
         // becomes 'running', independent of when the Promise resolves.
         _audioCtx.resume().catch(function () {});
         requestAnimationFrame(function waitForRunning() {
-          if (_audioCtx.state === 'running') { updateAudio(); playSound('pickup'); }
+          if (_audioCtx.state === 'running') { updateAudio(); }
           else { requestAnimationFrame(waitForRunning); }
         });
       } else {
         updateAudio();
-        playSound('pickup');
       }
     }
 
@@ -1874,7 +1873,7 @@ const CoinHoldEasing = TWEEN.Easing.Cubic.Out;
     const IsDealOpen = true;   // master toggle for deal button
     const DealSlotNCount = 2;      // exclude N slots from deal targets (targetCount = eligible - this)
     const DealCoinMinRange = 1;      // minimum coin number for random generation
-    var DealCoinMaxRange = 4;        // maximum coin number for random generation (updated dynamically before each deal)
+    var DealCoinMaxRange = 2;        // maximum coin number for random generation (updated dynamically before each deal)
     const Difficulty = 0.0;    // coin number variation per slot (0=all same, 1=max variety)
     const CoinGroupDifficulty = 0.5;    // coins per slot fill ratio of half-empty (0=1 coin, 1=half empty)
     const DealTopCoinExtraCount = 1;    // extra coins added per slot when the dealt coin type is the highest on the table
@@ -2661,7 +2660,7 @@ const CoinHoldEasing = TWEEN.Easing.Cubic.Out;
       }
 
       // Second merge — enable the button and start tutorial
-      if (mergeCount === 2) {
+      if (mergeCount === 3) {
         dealButtonEnabled = true;
         updateDealButtonState();
         setTimeout(startDealTutorial, 800); // small delay so merge animation settles
