@@ -154,8 +154,8 @@
 
     #downloadIcon {
       position: fixed;
-      right: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
-      bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-top, 0px));
+      right: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-right, 0px));
+      bottom: calc(clamp(2px, 2vmin, 16px) + env(safe-area-inset-bottom, 0px));
       width: clamp(60px, 1vmin, 80px);
       height: clamp(60px, 1vmin, 80px);
       object-fit: contain;
@@ -3380,6 +3380,7 @@
     function getEligibleDealSlots(excludedIndices) {
       return slots.filter(function (s, idx) {
         if (s.type !== SlotType.Empty || s.coins.length >= s.capacity) return false;
+        if (transferringSlots.has(idx) || mergingSlots.has(idx)) return false;
         if (excludedIndices && excludedIndices.indexOf(idx) !== -1) return false;
         return true;
       });
@@ -3476,10 +3477,13 @@
 
     function executeDeal() {
       // Capture excluded slots BEFORE cancelling hold.
-      // Exclude: active hold source + any slot currently mid-transfer arc.
+      // Exclude: active hold source + any slot mid-transfer, mid-merge, or mid-open.
       var _dealExcluded = [];
       if (heldFromSlot !== null) _dealExcluded.push(heldFromSlot);
       transferringSlots.forEach(function (idx) {
+        if (_dealExcluded.indexOf(idx) === -1) _dealExcluded.push(idx);
+      });
+      mergingSlots.forEach(function (idx) {
         if (_dealExcluded.indexOf(idx) === -1) _dealExcluded.push(idx);
       });
 
