@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring Particle FX</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a12;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    cursor: pointer;
+  }
+  .hint {
+    color: rgba(180,180,255,0.35);
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-top: 18px;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hint">click or tap to trigger</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+const W = canvas.width  = Math.min(window.innerWidth, 600);
+const H = canvas.height = Math.min(window.innerHeight - 60, 600);
+const CX = W / 2, CY = H / 2;
+
+// ─────────────────────────────────────────────
+// Utility
+// ─────────────────────────────────────────────
+const rand = (a, b) => Math.random() * (b - a) + a;
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ─────────────────────────────────────────────
+// Ring burst (the main procedural ring, like CFXR Particle Procedural Ring)
+// ─────────────────────────────────────────────
+class Ring {
+  constructor(x, y, color) {
+    this.x = x; this.y = y;
+    this.color = color;
+    this.r  = rand(2, 8);           // start radius
+    this.tr = rand(80, 140);         // target radius
+    this.life = 0;
+    this.maxLife = rand(0.45, 0.75); // seconds
+    this.width = rand(4, 14);
+    this.delay = rand(0, 0.08);
+    this.started = false;
+  }
+  update(dt) {
+    if (this.delay > 0) { this.delay -= dt; return; }
+    this.started = true;
+    this.life = Math.min(this.life + dt, this.maxLife);
+  }
+  get t() { return this.started ? this.life / this.maxLife : 0; }
+  get alive() { return this.life < this.maxLife; }
+  draw() {
+    if (!this.started) return;
+    const t = this.t;
+    const easedT = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // ease in-out
+    const r = lerp(this.r, this.tr, easedT);
+    // alpha: fade in fast, fade out slowly
+    const alpha = t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = this.color;
+    ctx.globalAlpha = alpha * 0.9;
+    ctx.lineWidth = this.width * (1 - t * 0.6);
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 18;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    // inner bright ring
+    ctx.globalAlpha = alpha * 0.4;
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ─────────────────────────────────────────────
+// Spark particle (like cfxr electric sparks)
+// ─────────────────────────────────────────────
+class Spark {
+  constructor(x, y, color) {
+    const angle = rand(0, Math.PI * 2);
+    const speed = rand(60, 240);
+    this.x = x; this.y = y;
+    this.ox = x; this.oy = y;
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+    this.color = color;
+    this.life = 0;
+    this.maxLife = rand(0.25, 0.65);
+    this.size = rand(1.5, 4);
+    this.trail = [];
+    this.delay = rand(0, 0.12);
+  }
+  update(dt) {
+    if (this.delay > 0) { this.delay -= dt; return; }
+    this.life += dt;
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 10) this.trail.shift();
+    // gravity + drag
+    this.vy += 80 * dt;
+    this.vx *= 0.98;
+    this.vy *= 0.98;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+  }
+  get t() { return this.life / this.maxLife; }
+  get alive() { return this.life < this.maxLife; }
+  draw() {
+    if (this.delay > 0) return;
+    const t = this.t;
+    const alpha = Math.max(0, 1 - t);
+    if (this.trail.length < 2) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 8;
+    ctx.lineCap = 'round';
+    for (let i = 1; i < this.trail.length; i++) {
+      const a = alpha * (i / this.trail.length) * 0.8;
+      ctx.globalAlpha = a;
+      ctx.lineWidth = this.size * (i / this.trail.length);
+      ctx.beginPath();
+      ctx.moveTo(this.trail[i - 1].x, this.trail[i - 1].y);
+      ctx.lineTo(this.trail[i].x, this.trail[i].y);
+      ctx.stroke();
+    }
+    // head dot
+    ctx.globalAlpha = alpha;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ─────────────────────────────────────────────
+// Flare / glow burst (like cfxr proc glow)
+// ─────────────────────────────────────────────
+class Flare {
+  constructor(x, y, color) {
+    this.x = x; this.y = y;
+    this.color = color;
+    this.life = 0;
+    this.maxLife = rand(0.3, 0.5);
+    this.maxR = rand(40, 90);
+    this.delay = 0;
+  }
+  update(dt) { this.life = Math.min(this.life + dt, this.maxLife); }
+  get t() { return this.life / this.maxLife; }
+  get alive() { return this.life < this.maxLife; }
+  draw() {
+    const t = this.t;
+    const alpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+    const r = this.maxR * (t < 0.3 ? t / 0.3 : 1);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r);
+    grad.addColorStop(0,   this.color.replace(')', `,${alpha * 0.9})`).replace('rgb', 'rgba'));
+    grad.addColorStop(0.4, this.color.replace(')', `,${alpha * 0.4})`).replace('rgb', 'rgba'));
+    grad.addColorStop(1,   this.color.replace(')', ',0)').replace('rgb', 'rgba'));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// ─────────────────────────────────────────────
+// Color palettes per burst
+// ─────────────────────────────────────────────
+const PALETTES = [
+  { ring: 'rgb(100,200,255)',  spark: 'rgb(180,230,255)', flare: 'rgb(60,160,255)'  }, // electric blue
+  { ring: 'rgb(255,160,60)',   spark: 'rgb(255,220,120)', flare: 'rgb(255,100,30)'  }, // fire orange
+  { ring: 'rgb(180,100,255)', spark: 'rgb(220,180,255)', flare: 'rgb(130,60,255)'  }, // violet
+  { ring: 'rgb(100,255,160)',  spark: 'rgb(180,255,210)', flare: 'rgb(40,200,120)'  }, // emerald
+  { ring: 'rgb(255,80,120)',   spark: 'rgb(255,180,200)', flare: 'rgb(220,40,90)'   }, // pink
+];
+
+// ─────────────────────────────────────────────
+// Effect manager
+// ─────────────────────────────────────────────
+let particles = [];
+let paletteIndex = 0;
+
+function spawnEffect(x, y) {
+  const pal = PALETTES[paletteIndex % PALETTES.length];
+  paletteIndex++;
+
+  // 2–3 rings
+  const numRings = Math.floor(rand(2, 4));
+  for (let i = 0; i < numRings; i++) particles.push(new Ring(x, y, pal.ring));
+
+  // central flare
+  particles.push(new Flare(x, y, pal.flare));
+
+  // sparks
+  const numSparks = Math.floor(rand(10, 20));
+  for (let i = 0; i < numSparks; i++) particles.push(new Spark(x, y, pal.spark));
+}
+
+// ─────────────────────────────────────────────
+// Loop
+// ─────────────────────────────────────────────
+let last = 0;
+function loop(ts) {
+  const dt = Math.min((ts - last) / 1000, 0.05);
+  last = ts;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // subtle background pulse when particles active
+  if (particles.length > 0) {
+    ctx.fillStyle = 'rgba(10,10,18,0.35)';
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  particles = particles.filter(p => p.alive);
+  for (const p of particles) { p.update(dt); p.draw(); }
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(ts => { last = ts; requestAnimationFrame(loop); });
+
+// ─────────────────────────────────────────────
+// Input
+// ─────────────────────────────────────────────
+function onPointer(e) {
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.clientX ?? e.touches[0].clientX) - rect.left;
+  const cy = (e.clientY ?? e.touches[0].clientY) - rect.top;
+  spawnEffect(cx, cy);
+}
+
+canvas.addEventListener('click', onPointer);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); onPointer(e); }, { passive: false });
+
+// Auto-demo: trigger a burst at center on load
+setTimeout(() => spawnEffect(CX, CY), 300);
+setTimeout(() => spawnEffect(CX - 80, CY + 40), 900);
+setTimeout(() => spawnEffect(CX + 90, CY - 50), 1500);
+</script>
+</body>
+</html>
