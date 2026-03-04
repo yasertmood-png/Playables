@@ -1920,8 +1920,9 @@
     const DealLowSpaceFillFraction = 0.30;  // fraction of each slot's empty points to fill in low-space mode
     const DealAnimDuration = 400;    // ms per coin parabolic flight
     const DealCoinInterval = 75;      // ms between each coin throw (throw-and-go, does not wait for landing)
-    var IsSpecificCoinsDeal = true; // if true, coin numbers are drawn from DealNumbers list instead of random
-    var DealNumbers = [1, 2];     // coin numbers used when IsSpecificCoinsDeal is true
+    const DealSlotStartDelay = 100;     // ms between each slot starting to throw (0 = all slots start together)
+    const IsSpecificCoinsDeal = true; // if true, coin numbers are drawn from DealNumbers list instead of random
+    const DealNumbers = [1, 2];     // coin numbers used when IsSpecificCoinsDeal is true
     const DealArcPeakHeight = 3;      // peak Y height of the parabolic throw
     const DealSpinTurns = 1;      // full Y-axis spins during flight
 
@@ -3527,41 +3528,49 @@
 
       var origin = getDealButtonWorldPosition();
 
-      // Build per-slot coin lists
-      var slotQueue = [];
+      // ── Phase 1: Build per-slot coin mesh lists ───────────────────────────
+      // For each target slot: calculate how many coins and what types,
+      // create the meshes upfront and store them as a list ready to throw.
+      var slotCoinLists = []; // [{ slot, coins: [coinMesh, ...] }]
+
       for (var s = 0; s < targetSlots.length; s++) {
         var slot = targetSlots[s];
         var emptyPoints = slot.capacity - slot.coins.length;
         var coinCount, baseNumber;
         var _useSpecific = IsSpecificCoinsDeal && DealNumbers.length > 0;
+
         if (_isLowSpace) {
           baseNumber = DealLowSpaceCoinNumber;
           coinCount  = Math.max(1, Math.floor(emptyPoints * DealLowSpaceFillFraction));
         } else {
           var halfEmpty = Math.ceil(emptyPoints / 2);
           coinCount  = Math.max(1, Math.round(halfEmpty * CoinGroupDifficulty));
-          // Pick one base type per slot: from DealNumbers (cycling per slot) or random from table range
           baseNumber = _useSpecific ? DealNumbers[s % DealNumbers.length] : randomCoinNumber();
           if (baseNumber === DealCoinMaxRange) {
             coinCount = Math.min(coinCount + DealTopCoinExtraCount, emptyPoints);
           }
         }
-        // Apply Difficulty per coin: 0 = all same type (baseNumber), 1 = full variation
-        var coinNumbers = [];
+
+        var coinMeshes = [];
         for (var c = 0; c < coinCount; c++) {
-          coinNumbers.push(Math.random() < Difficulty
+          var number = Math.random() < Difficulty
             ? (_useSpecific ? DealNumbers[Math.floor(Math.random() * DealNumbers.length)] : randomCoinNumber())
-            : baseNumber);
+            : baseNumber;
+          var coin = createCoin(number);
+          coin.position.set(origin.x, origin.y, origin.z);
+          scene.add(coin);
+          coinMeshes.push(coin);
         }
-        if (coinNumbers.length > 0) slotQueue.push({ slot: slot, coins: coinNumbers });
+
+        if (coinMeshes.length > 0) slotCoinLists.push({ slot: slot, coins: coinMeshes });
       }
 
-      if (slotQueue.length === 0) return;
+      if (slotCoinLists.length === 0) return;
 
-      // Lock all target slots and collect their indices
+      // Lock all target slots
       var dealTargetIndices = [];
-      for (var _dti = 0; _dti < slotQueue.length; _dti++) {
-        var _tidx = slots.indexOf(slotQueue[_dti].slot);
+      for (var _dti = 0; _dti < slotCoinLists.length; _dti++) {
+        var _tidx = slots.indexOf(slotCoinLists[_dti].slot);
         if (_tidx !== -1) {
           dealTargetIndices.push(_tidx);
           transferringSlots.add(_tidx);
@@ -3569,7 +3578,7 @@
       }
 
       var totalCoins = 0;
-      for (var _tc = 0; _tc < slotQueue.length; _tc++) totalCoins += slotQueue[_tc].coins.length;
+      for (var _tc = 0; _tc < slotCoinLists.length; _tc++) totalCoins += slotCoinLists[_tc].coins.length;
       var completed = { count: 0, total: totalCoins };
 
       function _onAllLanded() {
@@ -3582,31 +3591,28 @@
         }
       }
 
-      // Dispatch slot by slot, throw-and-go: each coin is thrown after DealCoinInterval, no waiting for landing
-      (function dispatchSlot(si) {
-        if (si >= slotQueue.length) return;
-        var slotEntry = slotQueue[si];
-        (function dispatchCoin(ci) {
-          if (ci >= slotEntry.coins.length) {
-            dispatchSlot(si + 1);
-            return;
-          }
-          var number = slotEntry.coins[ci];
-          var coin = createCoin(number);
-          coin.position.set(origin.x, origin.y, origin.z);
-          scene.add(coin);
-          var targetIdx = slotEntry.slot.coins.length;
-          slotEntry.slot.coins.push(coin);
-          var pos = getCoinPosition(slotEntry.slot, targetIdx);
-          animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
-            playSound('drop');
-            completed.count++;
-            if (completed.count >= completed.total) _onAllLanded();
-          }, 0);
-          // Throw and go: schedule next coin without waiting for this one to land
-          setTimeout(function () { dispatchCoin(ci + 1); }, DealCoinInterval);
-        })(0);
-      })(0);
+      // ── Phase 2: Throw coins ──────────────────────────────────────────────
+      // Each slot starts after (slotIndex * DealSlotStartDelay) ms.
+      // Within each slot, coins are thrown one by one with DealCoinInterval between throws.
+      for (var si = 0; si < slotCoinLists.length; si++) {
+        (function (slotEntry, slotIndex) {
+          setTimeout(function () {
+            (function throwCoin(ci) {
+              if (ci >= slotEntry.coins.length) return;
+              var coin = slotEntry.coins[ci];
+              var targetIdx = slotEntry.slot.coins.length;
+              slotEntry.slot.coins.push(coin);
+              var pos = getCoinPosition(slotEntry.slot, targetIdx);
+              animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
+                playSound('drop');
+                completed.count++;
+                if (completed.count >= completed.total) _onAllLanded();
+              }, 0);
+              setTimeout(function () { throwCoin(ci + 1); }, DealCoinInterval);
+            })(0);
+          }, slotIndex * DealSlotStartDelay);
+        })(slotCoinLists[si], si);
+      }
     }
 
     if (dealButton) {
