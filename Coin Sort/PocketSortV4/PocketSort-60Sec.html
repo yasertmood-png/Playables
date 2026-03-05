@@ -1675,6 +1675,20 @@
       }, true);
     });
 
+    // Minimum ms between repeated plays of the same sound key
+    var _soundThrottleMs = { drop: 50, pickup: 0, place: 0, merge: 0, complete: 0 };
+    // Stores last played timestamp per key for playSoundThrottled
+    var _lastThrottledMs = {};
+
+    // Plays a sound only if enough time has passed since the same key was last played
+    function playSoundThrottled(key) {
+      var now = performance.now();
+      var minInterval = _soundThrottleMs[key] || 0;
+      if (minInterval > 0 && _lastThrottledMs[key] && now - _lastThrottledMs[key] < minInterval) return;
+      _lastThrottledMs[key] = now;
+      playSound(key);
+    }
+
     function playSound(key) {
       if (audioMuted || !isFocused || !_audioCtx) return;
       var buffer = _audioBuffers[key];
@@ -1683,7 +1697,7 @@
         var source = _audioCtx.createBufferSource();
         source.buffer = buffer;
         source.connect(_audioCtx.destination);
-        source.start(0);
+        source.start(_audioCtx.currentTime);
       } catch(e) {}
     }
 
@@ -2645,7 +2659,7 @@
       var completedTransfers = 0;
       function onTransferComplete() {
         completedTransfers++;
-        playSound('drop'); // play on each individual coin landing
+        playSound('drop');
         checkFillThreshold();
         if (completedTransfers < toTransfer.length) return;
 
@@ -3617,7 +3631,7 @@
               slotEntry.slot.coins.push(coin);
               var pos = getCoinPosition(slotEntry.slot, targetIdx);
               animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
-                playSound('drop');
+                playSoundThrottled('drop');
                 checkFillThreshold();
                 completed.count++;
                 if (completed.count >= completed.total) _onAllLanded();
