@@ -1180,11 +1180,10 @@
   <script>
 
     let adFirstInteraction = false;
-    let adInteractionCount = 0;
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
-    const CTA_SHOW_DELAY_MS = 100;
+    const CTA_SHOW_DELAY_MS = 60000;
     const CTA_PULSE_START_DELAY_MS = 260;
     const CTA_TEXT_FILL_RATIO = 0.5; // text height as fraction of button height
     const STORE_URL_ANDROID = 'https://play.google.com/store/apps/details?id=com.MoodGames.CoinSort';
@@ -1263,24 +1262,11 @@
     var _audioBuffers = { merge: null, pickup: null, drag: null, place: null, bgMusic: null };
 
     function markFirstInteraction() {
-      adInteractionCount++;
-
-      if (!adFirstInteraction) {
-        adFirstInteraction = true;
-        adTimerStartMs = performance.now();
-        window.__adTimerStarted = true;
-        ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
-      } else if (adInteractionCount === 2) {
-        // Second interaction: skip remaining delay and show CTA immediately
-        if (ctaRevealTimeoutId !== null) {
-          clearTimeout(ctaRevealTimeoutId);
-          ctaRevealTimeoutId = null;
-        }
-        showInstallCta();
-        return;
-      } else {
-        return;
-      }
+      if (adFirstInteraction) return;
+      adFirstInteraction = true;
+      adTimerStartMs = performance.now();
+      window.__adTimerStarted = true;
+      ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
       if (_audioCtx && _audioCtx.state !== 'running') {
         // Mobile: resume() is async and may need a second gesture to resolve on
         // some browsers. Poll via rAF so updateAudio() fires the frame state
