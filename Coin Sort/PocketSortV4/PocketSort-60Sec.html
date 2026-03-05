@@ -1835,7 +1835,7 @@
     const CoinMergePopOvershoot  = 1.28; // scale overshoot on spawn pop (1 = no overshoot)
     const CoinMergeSpawnDuration = 420;  // total duration of the pop-in animation (ms)
     const CoinThrowHeight   = 1.5;  // world units above launch point at arc peak
-    const CoinThrowDuration = 700;  // ms for the full throw arc
+    const CoinThrowDuration = 150;  // ms for the full throw arc
     const CoinThrowFlips    = 2;    // whole number of 360° rotations so coin lands at original rotation
     const SlotOpenPunchScale    = 1.2;  // scale peak during slot-open animation
     const SlotOpenPunchDuration = 180;  // ms to reach peak scale
@@ -1853,7 +1853,7 @@
     const CoinTransferXSpinTurns = 0;    // full X-axis spins (tumble) during transfer — set 0 to disable
     const CoinTransferTilt = 1;   // mid-air tilt amount
     const CoinTransferClearance = 0.0;   // guaranteed clearance over full stacks
-    const CoinMergeResult = 2;      // how many coins of next level after merging 10
+    const CoinMergeResult = 5;      // how many coins of next level after merging 10
 
     // Shine effect (plays on coins just before merge)
     const CoinShineDuration = 600;  // ms for one sweep across a single coin
@@ -1925,7 +1925,7 @@
     const DealNumbers = [1, 2];     // coin numbers used when IsSpecificCoinsDeal is true
     const DealArcPeakHeight = 3;      // peak Y height of the parabolic throw
     const DealSpinTurns = 1;      // full Y-axis spins during flight
-
+    const DealSlotEmptySpaceRate   = 1.5; 
     // Pre-defined coin layout (indexed by slot 0Ã¢â‚¬â€œ14, each is array of coin numbers)
     const DefaultCoinLayout = [
       [], [], [], [], [],
@@ -3264,7 +3264,7 @@
                 var t = _arc.t;
                 c.position.x = bx + (tp.x - bx) * t;
                 c.position.z = bz + (tp.z - bz) * t;
-                c.position.y = by + (tp.y - by) * t + CoinThrowHeight * 4 * t * (1 - t);
+                c.position.y = by + (tp.y - by) * t;
               })
               .onComplete(function () {
                 c.position.set(tp.x, tp.y, tp.z);
@@ -3272,13 +3272,6 @@
                 landed++;
                 if (landed >= CoinMergeResult) mergingSlots.delete(slotIdx);
               })
-              .start();
-            // Whole-number flips so coin returns exactly to its original rotation
-            new TWEEN.Tween(c.rotation)
-              .to({ x: Math.PI * 2 * CoinThrowFlips }, CoinThrowDuration)
-              .easing(TWEEN.Easing.Quadratic.Out)
-              .delay(delay)
-              .onComplete(function () { c.rotation.x = 0; })
               .start();
           })(coin, targetPos, backPos.x, backPos.y, backPos.z, i * spawnStagger);
         }
@@ -3523,7 +3516,10 @@
       if (eligible.length <= 0) return;
 
       var targetCount = Math.max(1, eligible.length - DealSlotNCount);
-      eligible.sort(function (a, b) { return (b.capacity - b.coins.length) - (a.capacity - a.coins.length); });
+      eligible.sort(function (a, b) {
+        if (a.coins.length !== b.coins.length) return a.coins.length - b.coins.length;
+        return (b.capacity - b.coins.length) - (a.capacity - a.coins.length);
+      });
       var targetSlots = eligible.slice(0, targetCount);
 
       var origin = getDealButtonWorldPosition();
@@ -3543,7 +3539,7 @@
           baseNumber = DealLowSpaceCoinNumber;
           coinCount  = Math.max(1, Math.floor(emptyPoints * DealLowSpaceFillFraction));
         } else {
-          var halfEmpty = Math.ceil(emptyPoints / 2);
+          var halfEmpty = Math.ceil(emptyPoints / DealSlotEmptySpaceRate);
           coinCount  = Math.max(1, Math.round(halfEmpty * CoinGroupDifficulty));
           baseNumber = _useSpecific ? DealNumbers[s % DealNumbers.length] : randomCoinNumber();
           if (baseNumber === DealCoinMaxRange) {

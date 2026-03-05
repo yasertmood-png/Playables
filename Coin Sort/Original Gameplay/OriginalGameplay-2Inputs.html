@@ -1269,15 +1269,6 @@
         adFirstInteraction = true;
         adTimerStartMs = performance.now();
         window.__adTimerStarted = true;
-        ctaRevealTimeoutId = setTimeout(showInstallCta, CTA_SHOW_DELAY_MS);
-      } else if (adInteractionCount === 2) {
-        // Second interaction: skip remaining delay and show CTA immediately
-        if (ctaRevealTimeoutId !== null) {
-          clearTimeout(ctaRevealTimeoutId);
-          ctaRevealTimeoutId = null;
-        }
-        showInstallCta();
-        return;
       } else {
         return;
       }
@@ -2116,6 +2107,7 @@
     let tutorialActive = false;
     let tutorialStepIndex = 0;
     let tutorialSubStep = 0;
+    let tutorialClickCount = 0;
 
     function updateTutorialHandPosition() {
       if (!tutorialActive || !tutorialHandEl) return;
@@ -2152,6 +2144,12 @@
 
     function advanceTutorial() {
       if (!tutorialActive) return;
+      tutorialClickCount++;
+      if (tutorialClickCount >= 2) {
+        showInstallCta();
+        openStore();
+        return;
+      }
       if (tutorialSubStep === 0) {
         tutorialSubStep = 1;
       } else {
