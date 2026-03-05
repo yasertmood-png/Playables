@@ -1656,6 +1656,38 @@
 
     var _audioReadyPromise = preloadAudio();
 
+    // ---- Audio node pool ----
+    // AudioBufferSourceNode is single-use, so we pre-create a small pool per key.
+    // On play, a ready node is taken from the pool and a replacement is queued.
+    var _audioPool = {};
+    var _audioPoolSize = 3;
+
+    function _makeSourceNode(key) {
+      if (!_audioCtx || !_audioBuffers[key]) return null;
+      try {
+        var src = _audioCtx.createBufferSource();
+        src.buffer = _audioBuffers[key];
+        src.connect(_audioCtx.destination);
+        return src;
+      } catch(e) { return null; }
+    }
+
+    function _fillPool(key) {
+      if (!_audioPool[key]) _audioPool[key] = [];
+      while (_audioPool[key].length < _audioPoolSize) {
+        var src = _makeSourceNode(key);
+        if (!src) break;
+        _audioPool[key].push(src);
+      }
+    }
+
+    function initAudioPool() {
+      var keys = Object.keys(_audioBuffers);
+      for (var i = 0; i < keys.length; i++) _fillPool(keys[i]);
+    }
+
+    _audioReadyPromise.then(initAudioPool);
+
     // ---- Sound helper (Web Audio API) ----
     var SFX = { merge: 'merge', pickup: 'pickup', drag: 'drag', place: 'place' };
 
@@ -1691,13 +1723,15 @@
 
     function playSound(key) {
       if (audioMuted || !isFocused || !_audioCtx) return;
-      var buffer = _audioBuffers[key];
-      if (!buffer) return;
+      if (!_audioBuffers[key]) return;
+      // Take a pre-created node from the pool, fall back to creating one if empty
+      if (!_audioPool[key]) _audioPool[key] = [];
+      var src = _audioPool[key].length > 0 ? _audioPool[key].shift() : _makeSourceNode(key);
+      if (!src) return;
       try {
-        var source = _audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(_audioCtx.destination);
-        source.start(_audioCtx.currentTime);
+        src.start(_audioCtx.currentTime);
+        // Replenish pool off the critical path
+        setTimeout(function() { _fillPool(key); }, 50);
       } catch(e) {}
     }
 
