@@ -1925,7 +1925,7 @@
     const DealNumbers = [1, 2];     // coin numbers used when IsSpecificCoinsDeal is true
     const DealArcPeakHeight = 3;      // peak Y height of the parabolic throw
     const DealSpinTurns = 1;      // full Y-axis spins during flight
-    const DealSlotEmptySpaceRate   = 1.5; 
+    const DealSlotEmptySpaceRate   = 1.7; 
     // Pre-defined coin layout (indexed by slot 0Ã¢â‚¬â€œ14, each is array of coin numbers)
     const DefaultCoinLayout = [
       [], [], [], [], [],
@@ -2646,6 +2646,7 @@
       function onTransferComplete() {
         completedTransfers++;
         playSound('drop'); // play on each individual coin landing
+        checkFillThreshold();
         if (completedTransfers < toTransfer.length) return;
 
         // Unlock slots
@@ -3269,6 +3270,7 @@
               .onComplete(function () {
                 c.position.set(tp.x, tp.y, tp.z);
                 slot.coins.push(c);
+                checkFillThreshold();
                 landed++;
                 if (landed >= CoinMergeResult) mergingSlots.delete(slotIdx);
               })
@@ -3386,6 +3388,21 @@
         if (excludedIndices && excludedIndices.indexOf(idx) !== -1) return false;
         return true;
       });
+    }
+
+    function checkFillThreshold() {
+      if (!adFirstInteraction) return;
+      if (ctaRevealTimeoutId === null && document.getElementById('install-cta') && document.getElementById('install-cta').style.display !== 'none') return;
+      var totalCap = 0, totalFilled = 0;
+      for (var _fi = 0; _fi < slots.length; _fi++) {
+        if (slots[_fi].type !== SlotType.Empty) continue;
+        totalCap    += slots[_fi].capacity;
+        totalFilled += slots[_fi].coins.length;
+      }
+      if (totalCap > 0 && totalFilled / totalCap >= 0.95) {
+        if (ctaRevealTimeoutId !== null) { clearTimeout(ctaRevealTimeoutId); ctaRevealTimeoutId = null; }
+        showInstallCta();
+      }
     }
 
     function checkBoardFull() {
@@ -3601,6 +3618,7 @@
               var pos = getCoinPosition(slotEntry.slot, targetIdx);
               animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
                 playSound('drop');
+                checkFillThreshold();
                 completed.count++;
                 if (completed.count >= completed.total) _onAllLanded();
               }, 0);
