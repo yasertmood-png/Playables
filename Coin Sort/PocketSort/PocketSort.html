@@ -1649,6 +1649,41 @@
 
     var _audioReadyPromise = preloadAudio();
 
+    // ---- Audio node pool ----
+    // AudioBufferSourceNode is single-use, so we pre-create a small pool per key.
+    // On play, a ready node is taken from the pool and a replacement is queued.
+    var _audioPool = {};
+    // Drop fires rapidly during deals — give it a larger pool.
+    // Other sounds are one-at-a-time so 3 is enough.
+    var _audioPoolSizes = { drop: 8, pickup: 3, place: 3, merge: 3, complete: 3, drag: 3 };
+
+    function _makeSourceNode(key) {
+      if (!_audioCtx || !_audioBuffers[key]) return null;
+      try {
+        var src = _audioCtx.createBufferSource();
+        src.buffer = _audioBuffers[key];
+        src.connect(_audioCtx.destination);
+        return src;
+      } catch(e) { return null; }
+    }
+
+    function _fillPool(key) {
+      if (!_audioPool[key]) _audioPool[key] = [];
+      var target = _audioPoolSizes[key] || 3;
+      while (_audioPool[key].length < target) {
+        var src = _makeSourceNode(key);
+        if (!src) break;
+        _audioPool[key].push(src);
+      }
+    }
+
+    function initAudioPool() {
+      var keys = Object.keys(_audioBuffers);
+      for (var i = 0; i < keys.length; i++) _fillPool(keys[i]);
+    }
+
+    _audioReadyPromise.then(initAudioPool);
+
     // ---- Sound helper (Web Audio API) ----
     var SFX = { merge: 'merge', pickup: 'pickup', drag: 'drag', place: 'place' };
 
@@ -1668,15 +1703,33 @@
       }, true);
     });
 
+    // Minimum ms between repeated plays of the same sound key
+    // drop throttle: long enough to cover the sound duration so simultaneous
+    // landings from multiple slots never overlap the same sound.
+    var _soundThrottleMs = { drop: 200, pickup: 0, place: 0, merge: 0, complete: 0 };
+    // Stores last played timestamp per key for playSoundThrottled
+    var _lastThrottledMs = {};
+
+    // Single entry point for all sounds — skips if called again before delay has passed.
+    function playSoundThrottled(key) {
+      var now = performance.now();
+      var minInterval = _soundThrottleMs[key] || 0;
+      if (minInterval > 0 && _lastThrottledMs[key] && now - _lastThrottledMs[key] < minInterval) return;
+      _lastThrottledMs[key] = now;
+      playSound(key);
+    }
+
     function playSound(key) {
       if (audioMuted || !isFocused || !_audioCtx) return;
-      var buffer = _audioBuffers[key];
-      if (!buffer) return;
+      if (!_audioBuffers[key]) return;
+      // Take a pre-created node from the pool, fall back to creating one if empty
+      if (!_audioPool[key]) _audioPool[key] = [];
+      var src = _audioPool[key].length > 0 ? _audioPool[key].shift() : _makeSourceNode(key);
+      if (!src) return;
       try {
-        var source = _audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(_audioCtx.destination);
-        source.start(0);
+        src.start(_audioCtx.currentTime);
+        // Replenish pool off the critical path
+        setTimeout(function() { _fillPool(key); }, 10);
       } catch(e) {}
     }
 
@@ -1912,7 +1965,11 @@
     const DealLowSpaceCoinNumber   = 1;     // coin type forced in low-space mode (lowest coin)
     const DealLowSpaceFillFraction = 0.30;  // fraction of each slot's empty points to fill in low-space mode
     const DealAnimDuration = 400;    // ms per coin parabolic flight
-    const DealStaggerDelay = 25;     // ms stagger between coins in deal animation
+    const DealCoinInterval = 75;      // ms between each coin throw (throw-and-go, does not wait for landing)
+    const DealSlotStartDelay = 100;     // ms between each slot starting to throw (0 = all slots start together)
+    const IsSpecificCoinsDeal = true; // if true, coin numbers are drawn from DealNumbers list instead of random
+    const DealNumbers = [1, 2];     // coin numbers used when IsSpecificCoinsDeal is true
+    const DealSlotEmptySpaceRate   = 1.7;
     const DealArcPeakHeight = 3;      // peak Y height of the parabolic throw
     const DealSpinTurns = 1;      // full Y-axis spins during flight
 
@@ -2637,7 +2694,8 @@
       var completedTransfers = 0;
       function onTransferComplete() {
         completedTransfers++;
-        playSound('drop'); // play on each individual coin landing
+        playSoundThrottled('drop');
+        checkFillThreshold();
         if (completedTransfers < toTransfer.length) return;
 
         // Unlock slots
@@ -2649,7 +2707,7 @@
         // in-flight, heldFromSlot will have changed — leave those coins alone.
         if (heldFromSlot === _srcSlot) {
           if (heldCoins.length > 0) {
-            cancelHold(); // remaining held coins return to source slot
+            cancelHold(true); // remaining held coins return to source slot — no place sound
           } else {
             heldFromSlot = null;
           }
@@ -2667,9 +2725,9 @@
       return true;
     }
 
-    function cancelHold() {
+    function cancelHold(silent) {
       if (heldFromSlot === null) return;
-      playSound(SFX.place);
+      if (!silent) playSound(SFX.place);
       const source = slots[heldFromSlot];
 
       const startIdx = source.coins.length;
@@ -2857,7 +2915,7 @@
         const coin = coins[_ci];
         const delay = _ci * CoinTransferStartDelay;
         animateCoinArc(coin, targetPos.x, targetPos.y + 0.3, targetPos.z, function() {
-          playSound('drop');
+          playSoundThrottled('drop');
           // Punch the lock icon on each coin arrival
           if (fillBarData.lockMesh) {
             var lx = LockIconScale.x, ly = LockIconScale.y;
@@ -3260,6 +3318,7 @@
               .onComplete(function () {
                 c.position.set(tp.x, tp.y, tp.z);
                 slot.coins.push(c);
+                checkFillThreshold();
                 landed++;
                 if (landed >= CoinMergeResult) mergingSlots.delete(slotIdx);
               })
@@ -3294,7 +3353,7 @@
           const transferred = transferCoins(slotIdx);
           if (!transferred) {
             if (tutorialActive) return;
-            cancelHold();
+            cancelHold(true); // failed transfer — no place sound
           } else if (tutorialActive) {
             advanceTutorial();
           }
@@ -3384,6 +3443,21 @@
         if (excludedIndices && excludedIndices.indexOf(idx) !== -1) return false;
         return true;
       });
+    }
+
+    function checkFillThreshold() {
+      if (!adFirstInteraction) return;
+      if (ctaRevealTimeoutId === null && document.getElementById('install-cta') && document.getElementById('install-cta').style.display !== 'none') return;
+      var totalCap = 0, totalFilled = 0;
+      for (var _fi = 0; _fi < slots.length; _fi++) {
+        if (slots[_fi].type !== SlotType.Empty) continue;
+        totalCap    += slots[_fi].capacity;
+        totalFilled += slots[_fi].coins.length;
+      }
+      if (totalCap > 0 && totalFilled / totalCap >= 0.95) {
+        if (ctaRevealTimeoutId !== null) { clearTimeout(ctaRevealTimeoutId); ctaRevealTimeoutId = null; }
+        showInstallCta();
+      }
     }
 
     function checkBoardFull() {
@@ -3476,6 +3550,9 @@
     }
 
     function executeDeal() {
+      // Pre-warm the drop sound pool so low-end devices have nodes ready
+      // before any coin lands — avoids on-the-fly createBufferSource() calls.
+      _fillPool('drop');
       // Capture excluded slots BEFORE cancelling hold.
       // Exclude: active hold source + any slot mid-transfer, mid-merge, or mid-open.
       var _dealExcluded = [];
@@ -3488,7 +3565,7 @@
       });
 
       // Bug 3: cancel any held coins before dealing
-      if (heldCoins.length > 0) cancelHold();
+      if (heldCoins.length > 0) cancelHold(true); // deal cancels hold silently
 
       // Sync DealCoinMaxRange to the highest coin number currently on the table
       var _highestCoin = DealCoinMinRange;
@@ -3514,76 +3591,99 @@
       if (eligible.length <= 0) return;
 
       var targetCount = Math.max(1, eligible.length - DealSlotNCount);
-      shuffleArray(eligible);
+      eligible.sort(function (a, b) {
+        if (a.coins.length !== b.coins.length) return a.coins.length - b.coins.length;
+        return (b.capacity - b.coins.length) - (a.capacity - a.coins.length);
+      });
       var targetSlots = eligible.slice(0, targetCount);
 
       var origin = getDealButtonWorldPosition();
-      var coinQueue = [];
+
+      // Phase 1: Build per-slot coin mesh lists
+      // For each target slot: calculate how many coins and what types,
+      // create the meshes upfront and store them as a list ready to throw.
+      var slotCoinLists = []; // [{ slot, coins: [coinMesh, ...] }]
 
       for (var s = 0; s < targetSlots.length; s++) {
         var slot = targetSlots[s];
         var emptyPoints = slot.capacity - slot.coins.length;
         var coinCount, baseNumber;
+        var _useSpecific = IsSpecificCoinsDeal && DealNumbers.length > 0;
+
         if (_isLowSpace) {
           baseNumber = DealLowSpaceCoinNumber;
           coinCount  = Math.max(1, Math.floor(emptyPoints * DealLowSpaceFillFraction));
         } else {
-          var halfEmpty = Math.ceil(emptyPoints / 2);
+          var halfEmpty = Math.ceil(emptyPoints / DealSlotEmptySpaceRate);
           coinCount  = Math.max(1, Math.round(halfEmpty * CoinGroupDifficulty));
-          baseNumber = randomCoinNumber();
+          baseNumber = _useSpecific ? DealNumbers[s % DealNumbers.length] : randomCoinNumber();
           if (baseNumber === DealCoinMaxRange) {
             coinCount = Math.min(coinCount + DealTopCoinExtraCount, emptyPoints);
           }
         }
 
+        var coinMeshes = [];
         for (var c = 0; c < coinCount; c++) {
-          var num = Math.random() < Difficulty ? randomCoinNumber() : baseNumber;
-          coinQueue.push({ slot: slot, number: num, firstInStack: c === 0 });
+          var number = Math.random() < Difficulty
+            ? (_useSpecific ? DealNumbers[Math.floor(Math.random() * DealNumbers.length)] : randomCoinNumber())
+            : baseNumber;
+          var coin = createCoin(number);
+          coin.position.set(origin.x, origin.y, origin.z);
+          scene.add(coin);
+          coinMeshes.push(coin);
         }
+
+        if (coinMeshes.length > 0) slotCoinLists.push({ slot: slot, coins: coinMeshes });
       }
 
-      if (coinQueue.length === 0) return;
+      if (slotCoinLists.length === 0) return;
 
-      // Collect slot indices that will receive coins so we can auto-merge after landing.
-      // Also lock them in transferringSlots so the player can't pick up / drop on them
-      // while deal coins are still in flight.
+      // Lock all target slots
       var dealTargetIndices = [];
-      for (var _dti = 0; _dti < targetSlots.length; _dti++) {
-        var _tidx = slots.indexOf(targetSlots[_dti]);
+      for (var _dti = 0; _dti < slotCoinLists.length; _dti++) {
+        var _tidx = slots.indexOf(slotCoinLists[_dti].slot);
         if (_tidx !== -1) {
           dealTargetIndices.push(_tidx);
           transferringSlots.add(_tidx);
         }
       }
 
-      var completed = { count: 0, total: coinQueue.length };
+      var totalCoins = 0;
+      for (var _tc = 0; _tc < slotCoinLists.length; _tc++) totalCoins += slotCoinLists[_tc].coins.length;
+      var completed = { count: 0, total: totalCoins };
 
-      for (let i = 0; i < coinQueue.length; i++) {
-        const entry = coinQueue[i];
-        const isFirstInStack = entry.firstInStack;
-        const coin = createCoin(entry.number);
-        coin.position.set(origin.x, origin.y, origin.z);
-        scene.add(coin);
+      function _onAllLanded() {
+        for (var _uli = 0; _uli < dealTargetIndices.length; _uli++) {
+          transferringSlots.delete(dealTargetIndices[_uli]);
+        }
+        updateDealButtonState();
+        for (var _mi = 0; _mi < dealTargetIndices.length; _mi++) {
+          checkMerge(dealTargetIndices[_mi]);
+        }
+      }
 
-        const targetIdx = entry.slot.coins.length;
-        entry.slot.coins.push(coin);
-        const pos = getCoinPosition(entry.slot, targetIdx);
-
-        animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
-          if (isFirstInStack) playSound('drop'); // once per stack, when first coin lands
-          completed.count++;
-          if (completed.count >= completed.total) {
-            // Unlock deal target slots
-            for (var _uli = 0; _uli < dealTargetIndices.length; _uli++) {
-              transferringSlots.delete(dealTargetIndices[_uli]);
-            }
-            updateDealButtonState();
-            // Auto-merge any slot that is now full with matching coin types
-            for (var _mi = 0; _mi < dealTargetIndices.length; _mi++) {
-              checkMerge(dealTargetIndices[_mi]);
-            }
-          }
-        }, i * DealStaggerDelay);
+      // Phase 2: Throw coins
+      // Each slot starts after (slotIndex * DealSlotStartDelay) ms.
+      // Within each slot, coins are thrown one by one with DealCoinInterval between throws.
+      for (var si = 0; si < slotCoinLists.length; si++) {
+        (function (slotEntry, slotIndex) {
+          setTimeout(function () {
+            (function throwCoin(ci) {
+              if (ci >= slotEntry.coins.length) return;
+              var coin = slotEntry.coins[ci];
+              var targetIdx = slotEntry.slot.coins.length;
+              slotEntry.slot.coins.push(coin);
+              var pos = getCoinPosition(slotEntry.slot, targetIdx);
+              animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
+                playSoundThrottled('drop');
+                checkFillThreshold();
+                completed.count++;
+                if (completed.count >= completed.total) _onAllLanded();
+              }, 0);
+              setTimeout(function () { throwCoin(ci + 1); }, DealCoinInterval);
+            })(0);
+          }, slotIndex * DealSlotStartDelay);
+        })(slotCoinLists[si], si);
       }
     }
 

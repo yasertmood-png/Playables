@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3:*)",
+      "Bash(del \"c:/MoodGames/Playable Ads/Playables/Coin Sort/PocketSortV4/undo_drop.py\")"
+    ]
+  }
+}

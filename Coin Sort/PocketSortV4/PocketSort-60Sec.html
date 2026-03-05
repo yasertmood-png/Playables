@@ -1660,7 +1660,9 @@
     // AudioBufferSourceNode is single-use, so we pre-create a small pool per key.
     // On play, a ready node is taken from the pool and a replacement is queued.
     var _audioPool = {};
-    var _audioPoolSize = 3;
+    // Drop fires rapidly during deals — give it a larger pool.
+    // Other sounds are one-at-a-time so 3 is enough.
+    var _audioPoolSizes = { drop: 8, pickup: 3, place: 3, merge: 3, complete: 3, drag: 3 };
 
     function _makeSourceNode(key) {
       if (!_audioCtx || !_audioBuffers[key]) return null;
@@ -1674,7 +1676,8 @@
 
     function _fillPool(key) {
       if (!_audioPool[key]) _audioPool[key] = [];
-      while (_audioPool[key].length < _audioPoolSize) {
+      var target = _audioPoolSizes[key] || 3;
+      while (_audioPool[key].length < target) {
         var src = _makeSourceNode(key);
         if (!src) break;
         _audioPool[key].push(src);
@@ -1708,15 +1711,17 @@
     });
 
     // Minimum ms between repeated plays of the same sound key
+    // drop throttle: long enough to cover the sound duration so simultaneous
+    // landings from multiple slots never overlap the same sound.
     var _soundThrottleMs = { drop: 50, pickup: 0, place: 0, merge: 0, complete: 0 };
     // Stores last played timestamp per key for playSoundThrottled
     var _lastThrottledMs = {};
 
-    // Plays a sound only if enough time has passed since the same key was last played
+    // Single entry point for all sounds — skips if called again before delay has passed.
     function playSoundThrottled(key) {
       var now = performance.now();
       var minInterval = _soundThrottleMs[key] || 0;
-      if (minInterval > 0 && _lastThrottledMs[key] && now - _lastThrottledMs[key] < minInterval) return;
+      if (minInterval > 0 && _lastThrottledMs[key] && (now - _lastThrottledMs[key]) < minInterval) return;
       _lastThrottledMs[key] = now;
       playSound(key);
     }
@@ -1731,7 +1736,7 @@
       try {
         src.start(_audioCtx.currentTime);
         // Replenish pool off the critical path
-        setTimeout(function() { _fillPool(key); }, 50);
+        setTimeout(function() { _fillPool(key); }, 10);
       } catch(e) {}
     }
 
@@ -2693,7 +2698,7 @@
       var completedTransfers = 0;
       function onTransferComplete() {
         completedTransfers++;
-        playSound('drop');
+        playSoundThrottled('drop');
         checkFillThreshold();
         if (completedTransfers < toTransfer.length) return;
 
@@ -2706,7 +2711,7 @@
         // in-flight, heldFromSlot will have changed — leave those coins alone.
         if (heldFromSlot === _srcSlot) {
           if (heldCoins.length > 0) {
-            cancelHold(); // remaining held coins return to source slot
+            cancelHold(true); // remaining held coins return to source slot — no place sound
           } else {
             heldFromSlot = null;
           }
@@ -2724,9 +2729,9 @@
       return true;
     }
 
-    function cancelHold() {
+    function cancelHold(silent) {
       if (heldFromSlot === null) return;
-      playSound(SFX.place);
+      if (!silent) playSound(SFX.place);
       const source = slots[heldFromSlot];
 
       const startIdx = source.coins.length;
@@ -2914,7 +2919,7 @@
         const coin = coins[_ci];
         const delay = _ci * CoinTransferStartDelay;
         animateCoinArc(coin, targetPos.x, targetPos.y + 0.3, targetPos.z, function() {
-          playSound('drop');
+          playSoundThrottled('drop');
           // Punch the lock icon on each coin arrival
           if (fillBarData.lockMesh) {
             var lx = LockIconScale.x, ly = LockIconScale.y;
@@ -3346,7 +3351,7 @@
           const transferred = transferCoins(slotIdx);
           if (!transferred) {
             if (tutorialActive) return;
-            cancelHold();
+            cancelHold(true); // failed transfer — no place sound
           } else if (tutorialActive) {
             advanceTutorial();
           }
@@ -3543,6 +3548,9 @@
     }
 
     function executeDeal() {
+      // Pre-warm the drop sound pool so low-end devices have nodes ready
+      // before any coin lands — avoids on-the-fly createBufferSource() calls.
+      _fillPool('drop');
       // Capture excluded slots BEFORE cancelling hold.
       // Exclude: active hold source + any slot mid-transfer, mid-merge, or mid-open.
       var _dealExcluded = [];
@@ -3555,7 +3563,7 @@
       });
 
       // Bug 3: cancel any held coins before dealing
-      if (heldCoins.length > 0) cancelHold();
+      if (heldCoins.length > 0) cancelHold(true); // deal cancels hold silently
 
       // Sync DealCoinMaxRange to the highest coin number currently on the table
       var _highestCoin = DealCoinMinRange;
