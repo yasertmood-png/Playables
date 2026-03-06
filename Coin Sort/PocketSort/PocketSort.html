@@ -1315,7 +1315,14 @@
     }
 
     var _audioCtx = null;
-    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    var _audioLatency = 0; // seconds — hardware output latency, read once at init
+    try {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // outputLatency: time from scheduling to speakers (Chrome/Firefox).
+      // baseLatency:   minimum hardware buffer latency (broader support).
+      // Falls back to 0 if neither is available (Safari < 14.1).
+      _audioLatency = _audioCtx.outputLatency || _audioCtx.baseLatency || 0;
+    } catch(e) {}
 
     // Decode a base64 data URI into an AudioBuffer
     function decodeB64Audio(dataUri) {
@@ -1717,6 +1724,27 @@
       if (minInterval > 0 && _lastThrottledMs[key] && now - _lastThrottledMs[key] < minInterval) return;
       _lastThrottledMs[key] = now;
       playSound(key);
+    }
+
+    // Schedules the drop sound on the audio clock `delaySec` seconds from now.
+    // Fires at the exact moment the coin visually lands, independent of rAF timing.
+    // Still respects the throttle so simultaneous slot landings don't stack up.
+    function scheduleDropSound(delaySec) {
+      var now = performance.now();
+      var mi = _soundThrottleMs['drop'] || 0;
+      if (mi > 0 && _lastThrottledMs['drop'] && now - _lastThrottledMs['drop'] < mi) return;
+      _lastThrottledMs['drop'] = now;
+      if (audioMuted || !isFocused || !_audioCtx || !_audioBuffers['drop']) return;
+      if (!_audioPool['drop']) _audioPool['drop'] = [];
+      var src = _audioPool['drop'].length > 0 ? _audioPool['drop'].shift() : _makeSourceNode('drop');
+      if (!src) return;
+      try {
+        // Subtract hardware output latency so the sound leaves the audio engine
+        // early enough to arrive at the speakers exactly when the coin lands.
+        var startAt = _audioCtx.currentTime + Math.max(0, (delaySec || 0) - _audioLatency);
+        src.start(startAt);
+        setTimeout(function() { _fillPool('drop'); }, 10);
+      } catch(e) {}
     }
 
     function playSound(key) {
@@ -2575,6 +2603,7 @@
       var landingRotY = startRotY + spinDir * Math.PI * 2 * landingTurns;
       var endRotX = startRotX + Math.PI * 2 * CoinTransferXSpinTurns;
 
+      var _dropScheduled = false;
       coin.userData.activeTween = new TWEEN.Tween({ t: 0 })
         .to({ t: 1 }, CoinTransferDuration)
         .delay(Math.max(0, startDelayMs || 0))
@@ -2597,6 +2626,11 @@
             spinY = spinY + (landingRotY - rawEndRotY) * s;
           }
           coin.rotation.y = spinY;
+          if (!_dropScheduled && t >= 0.8) {
+            _dropScheduled = true;
+            var remainingSec = CoinTransferDuration * (1 - t) / 1000;
+            scheduleDropSound(remainingSec);
+          }
         })
         .onComplete(function () {
           coin.userData.activeTween = null;
@@ -2695,7 +2729,6 @@
       var completedTransfers = 0;
       function onTransferComplete() {
         completedTransfers++;
-        playSoundThrottled('drop');
         checkFillThreshold();
         if (completedTransfers < toTransfer.length) return;
 
@@ -3534,6 +3567,7 @@
       if (peakBoost < 1) peakBoost = 1;
 
       var spinDir = targetX >= sx ? 1 : -1;
+      var _dropScheduled = false;
 
       new TWEEN.Tween({ t: 0 })
         .to({ t: 1 }, DealAnimDuration)
@@ -3541,6 +3575,14 @@
         .easing(TWEEN.Easing.Linear.None)
         .onUpdate(function (obj) {
           var t = obj.t;
+          // Schedule drop sound once when coin is ~80% through its arc.
+          // At that point we know exactly how much audio time remains until landing,
+          // so src.start fires at the precise audio moment t reaches 1 — no rAF jitter.
+          if (!_dropScheduled && t >= 0.8) {
+            _dropScheduled = true;
+            var remainingSec = DealAnimDuration * (1 - t) / 1000;
+            scheduleDropSound(remainingSec);
+          }
 
           coin.position.x = sx + (targetX - sx) * t;
           coin.position.z = sz + (targetZ - sz) * t;
@@ -3687,7 +3729,6 @@
               slotEntry.slot.coins.push(coin);
               var pos = getCoinPosition(slotEntry.slot, targetIdx);
               animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
-                playSoundThrottled('drop');
                 checkFillThreshold();
                 completed.count++;
                 if (completed.count >= completed.total) _onAllLanded();
