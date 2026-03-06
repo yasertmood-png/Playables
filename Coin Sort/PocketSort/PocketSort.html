@@ -2034,8 +2034,8 @@
 
     let renderer = null;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       renderer.setClearColor(0x2a6db5);
       renderer.outputEncoding = THREE.sRGBEncoding;
     } catch (err) {
@@ -2352,6 +2352,7 @@
         uIdleShineStrength:{ value: 0.0 },
         uIdleShineWidth:   { value: CoinIdleShineWidth },
       };
+      coinMat.customProgramCacheKey = function () { return 'coinShine'; };
       coinMat.onBeforeCompile = function (shader) {
         shader.uniforms.uShine             = shineUniforms.uShine;
         shader.uniforms.uShineStrength     = shineUniforms.uShineStrength;
@@ -2941,7 +2942,13 @@
           new TWEEN.Tween(coin.scale)
             .to({ x: 0, y: 0, z: 0 }, 80)
             .easing(TWEEN.Easing.Cubic.In)
-            .onComplete(function() { scene.remove(coin); })
+            .onComplete(function() {
+                scene.remove(coin);
+                coin.traverse(function(child) {
+                  if (child.geometry) child.geometry.dispose();
+                  if (child.material) child.material.dispose();
+                });
+              })
             .start();
 
           // Open slot the moment the last coin lands
@@ -3282,7 +3289,12 @@
 
       setTimeout(function () {
         for (var i = 0; i < oldCoins.length; i++) {
-          scene.remove(oldCoins[i]);
+          var _oc = oldCoins[i];
+          scene.remove(_oc);
+          _oc.traverse(function(child) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+          });
         }
         slot.coins = [];
 
@@ -3722,26 +3734,24 @@
 
       // Idle shine loop — left→right wave across the board, driven by world X position
       if (CoinIdleShineEnabled && allCoinMeshes.length > 0) {
-        var _now = performance.now() * 0.001; // seconds
-        // Find board X range for wave normalisation (from coins currently in scene)
+        var _now = performance.now() * 0.001;
+        // Single pass: find X range and update uniforms together
         var _minX = Infinity, _maxX = -Infinity;
-        for (var _i = 0; _i < allCoinMeshes.length; _i++) {
-          if (allCoinMeshes[_i].parent) {
-            var _px = allCoinMeshes[_i].parent.position.x; // group world X
-            if (_px < _minX) _minX = _px;
-            if (_px > _maxX) _maxX = _px;
-          }
-        }
-        var _xRange = (_maxX > _minX) ? (_maxX - _minX) : 1.0;
         for (var _i = allCoinMeshes.length - 1; _i >= 0; _i--) {
           var _m = allCoinMeshes[_i];
-          if (!_m.parent) { allCoinMeshes.splice(_i, 1); continue; } // lazy cleanup
+          if (!_m.parent) { allCoinMeshes.splice(_i, 1); continue; }
+          var _px = _m.parent.position.x;
+          if (_px < _minX) _minX = _px;
+          if (_px > _maxX) _maxX = _px;
+        }
+        var _xRange = (_maxX > _minX) ? (_maxX - _minX) : 1.0;
+        for (var _i = 0; _i < allCoinMeshes.length; _i++) {
+          var _m = allCoinMeshes[_i];
           var _su = _m.userData.shineUniforms;
           if (!_su) continue;
-          // normalised 0=left → 1=right, used as wave phase offset
           var _normX = (_m.parent.position.x - _minX) / _xRange;
           var _t = ((_now / CoinIdleShinePeriod) + _normX * CoinIdleShineWaveSpread) % 1.0;
-          _su.uIdleShine.value         = -0.3 + _t * 1.6; // off-screen left → off-screen right
+          _su.uIdleShine.value         = -0.3 + _t * 1.6;
           _su.uIdleShineStrength.value = CoinIdleShineStrength;
         }
       }
