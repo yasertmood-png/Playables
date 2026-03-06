@@ -149,7 +149,7 @@
       object-fit: contain;
       pointer-events: auto;
       cursor: pointer;
-      z-index: 8
+      z-index: 10
     }
 
     #downloadIcon {
@@ -161,7 +161,7 @@
       object-fit: contain;
       pointer-events: auto;
       cursor: pointer;
-      z-index: 8
+      z-index: 10
     }
 
     #gameTitleImg {
@@ -1713,7 +1713,7 @@
     // Minimum ms between repeated plays of the same sound key
     // drop throttle: long enough to cover the sound duration so simultaneous
     // landings from multiple slots never overlap the same sound.
-    var _soundThrottleMs = { drop: 200, pickup: 0, place: 0, merge: 0, complete: 0 };
+    var _soundThrottleMs = { drop: 50, pickup: 0, place: 0, merge: 0, complete: 0 };
     // Stores last played timestamp per key for playSoundThrottled
     var _lastThrottledMs = {};
 
@@ -1741,7 +1741,7 @@
       try {
         // Subtract hardware output latency so the sound leaves the audio engine
         // early enough to arrive at the speakers exactly when the coin lands.
-        var startAt = _audioCtx.currentTime + Math.max(0, (delaySec || 0) - _audioLatency);
+        var startAt = _audioCtx.currentTime + Math.max(0, (delaySec || 0) - _audioLatency)*0.5;
         src.start(startAt);
         setTimeout(function() { _fillPool('drop'); }, 10);
       } catch(e) {}
@@ -1995,7 +1995,7 @@
     const DealAnimDuration = 400;    // ms per coin parabolic flight
     const DealCoinInterval = 75;      // ms between each coin throw (throw-and-go, does not wait for landing)
     const DealSlotStartDelay = 100;     // ms between each slot starting to throw (0 = all slots start together)
-    const IsSpecificCoinsDeal = true; // if true, coin numbers are drawn from DealNumbers list instead of random
+    const IsSpecificCoinsDeal = false; // if true, coin numbers are drawn from DealNumbers list instead of random
     const DealNumbers = [1, 2];     // coin numbers used when IsSpecificCoinsDeal is true
     const DealSlotEmptySpaceRate   = 1.7;
     const DealArcPeakHeight = 3;      // peak Y height of the parabolic throw
