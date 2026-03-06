@@ -1748,7 +1748,7 @@
       try {
         // Subtract hardware output latency so the sound leaves the audio engine
         // early enough to arrive at the speakers exactly when the coin lands.
-        var startAt = _audioCtx.currentTime + Math.max(0, (delaySec || 0) - _audioLatency);
+        var startAt = _audioCtx.currentTime + Math.max(0, (delaySec || 0) - _audioLatency)*0.5;
         src.start(startAt);
         setTimeout(function() { _fillPool('drop'); }, 10);
       } catch(e) {}

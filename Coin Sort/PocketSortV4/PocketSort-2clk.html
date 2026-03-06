@@ -1315,7 +1315,14 @@
     }
 
     var _audioCtx = null;
-    try { _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    var _audioLatency = 0; // seconds — hardware output latency, read once at init
+    try {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // outputLatency: time from scheduling to speakers (Chrome/Firefox).
+      // baseLatency:   minimum hardware buffer latency (broader support).
+      // Falls back to 0 if neither is available (Safari < 14.1).
+      _audioLatency = _audioCtx.outputLatency || _audioCtx.baseLatency || 0;
+    } catch(e) {}
 
     // Decode a base64 data URI into an AudioBuffer
     function decodeB64Audio(dataUri) {
@@ -1726,6 +1733,27 @@
       playSound(key);
     }
 
+    // Schedules the drop sound on the audio clock `delaySec` seconds from now.
+    // Fires at the exact moment the coin visually lands, independent of rAF timing.
+    // Still respects the throttle so simultaneous slot landings don't stack up.
+    function scheduleDropSound(delaySec) {
+      var now = performance.now();
+      var mi = _soundThrottleMs['drop'] || 0;
+      if (mi > 0 && _lastThrottledMs['drop'] && now - _lastThrottledMs['drop'] < mi) return;
+      _lastThrottledMs['drop'] = now;
+      if (audioMuted || !isFocused || !_audioCtx || !_audioBuffers['drop']) return;
+      if (!_audioPool['drop']) _audioPool['drop'] = [];
+      var src = _audioPool['drop'].length > 0 ? _audioPool['drop'].shift() : _makeSourceNode('drop');
+      if (!src) return;
+      try {
+        // Subtract hardware output latency so the sound leaves the audio engine
+        // early enough to arrive at the speakers exactly when the coin lands.
+        var startAt = _audioCtx.currentTime + Math.max(0, (delaySec || 0) - _audioLatency)*0.5;
+        src.start(startAt);
+        setTimeout(function() { _fillPool('drop'); }, 10);
+      } catch(e) {}
+    }
+
     function playSound(key) {
       if (audioMuted || !isFocused || !_audioCtx) return;
       if (!_audioBuffers[key]) return;
@@ -2045,8 +2073,8 @@
 
     let renderer = null;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       renderer.setClearColor(0x2a6db5);
       renderer.outputEncoding = THREE.sRGBEncoding;
     } catch (err) {
@@ -2356,6 +2384,7 @@
         uIdleShineStrength:{ value: 0.0 },
         uIdleShineWidth:   { value: CoinIdleShineWidth },
       };
+      coinMat.customProgramCacheKey = function () { return 'coinShine'; };
       coinMat.onBeforeCompile = function (shader) {
         shader.uniforms.uShine             = shineUniforms.uShine;
         shader.uniforms.uShineStrength     = shineUniforms.uShineStrength;
@@ -2580,6 +2609,7 @@
       var landingRotY = startRotY + spinDir * Math.PI * 2 * landingTurns;
       var endRotX = startRotX + Math.PI * 2 * CoinTransferXSpinTurns;
 
+      var _dropScheduled = false;
       coin.userData.activeTween = new TWEEN.Tween({ t: 0 })
         .to({ t: 1 }, CoinTransferDuration)
         .delay(Math.max(0, startDelayMs || 0))
@@ -2602,6 +2632,11 @@
             spinY = spinY + (landingRotY - rawEndRotY) * s;
           }
           coin.rotation.y = spinY;
+          if (!_dropScheduled && t >= 0.8) {
+            _dropScheduled = true;
+            var remainingSec = CoinTransferDuration * (1 - t) / 1000;
+            scheduleDropSound(remainingSec);
+          }
         })
         .onComplete(function () {
           coin.userData.activeTween = null;
@@ -2700,7 +2735,6 @@
       var completedTransfers = 0;
       function onTransferComplete() {
         completedTransfers++;
-        playSoundThrottled('drop');
         checkFillThreshold();
         if (completedTransfers < toTransfer.length) return;
 
@@ -2947,7 +2981,13 @@
           new TWEEN.Tween(coin.scale)
             .to({ x: 0, y: 0, z: 0 }, 80)
             .easing(TWEEN.Easing.Cubic.In)
-            .onComplete(function() { scene.remove(coin); })
+            .onComplete(function() {
+                scene.remove(coin);
+                coin.traverse(function(child) {
+                  if (child.geometry) child.geometry.dispose();
+                  if (child.material) child.material.dispose();
+                });
+              })
             .start();
 
           // Open slot the moment the last coin lands
@@ -3289,7 +3329,12 @@
 
       setTimeout(function () {
         for (var i = 0; i < oldCoins.length; i++) {
-          scene.remove(oldCoins[i]);
+          var _oc = oldCoins[i];
+          scene.remove(_oc);
+          _oc.traverse(function(child) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+          });
         }
         slot.coins = [];
 
@@ -3522,6 +3567,7 @@
       if (peakBoost < 1) peakBoost = 1;
 
       var spinDir = targetX >= sx ? 1 : -1;
+      var _dropScheduled = false;
 
       new TWEEN.Tween({ t: 0 })
         .to({ t: 1 }, DealAnimDuration)
@@ -3529,6 +3575,14 @@
         .easing(TWEEN.Easing.Linear.None)
         .onUpdate(function (obj) {
           var t = obj.t;
+          // Schedule drop sound once when coin is ~80% through its arc.
+          // At that point we know exactly how much audio time remains until landing,
+          // so src.start fires at the precise audio moment t reaches 1 — no rAF jitter.
+          if (!_dropScheduled && t >= 0.8) {
+            _dropScheduled = true;
+            var remainingSec = DealAnimDuration * (1 - t) / 1000;
+            scheduleDropSound(remainingSec);
+          }
 
           coin.position.x = sx + (targetX - sx) * t;
           coin.position.z = sz + (targetZ - sz) * t;
@@ -3675,7 +3729,6 @@
               slotEntry.slot.coins.push(coin);
               var pos = getCoinPosition(slotEntry.slot, targetIdx);
               animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
-                playSoundThrottled('drop');
                 checkFillThreshold();
                 completed.count++;
                 if (completed.count >= completed.total) _onAllLanded();
@@ -3722,26 +3775,24 @@
 
       // Idle shine loop — left→right wave across the board, driven by world X position
       if (CoinIdleShineEnabled && allCoinMeshes.length > 0) {
-        var _now = performance.now() * 0.001; // seconds
-        // Find board X range for wave normalisation (from coins currently in scene)
+        var _now = performance.now() * 0.001;
+        // Single pass: find X range and update uniforms together
         var _minX = Infinity, _maxX = -Infinity;
-        for (var _i = 0; _i < allCoinMeshes.length; _i++) {
-          if (allCoinMeshes[_i].parent) {
-            var _px = allCoinMeshes[_i].parent.position.x; // group world X
-            if (_px < _minX) _minX = _px;
-            if (_px > _maxX) _maxX = _px;
-          }
-        }
-        var _xRange = (_maxX > _minX) ? (_maxX - _minX) : 1.0;
         for (var _i = allCoinMeshes.length - 1; _i >= 0; _i--) {
           var _m = allCoinMeshes[_i];
-          if (!_m.parent) { allCoinMeshes.splice(_i, 1); continue; } // lazy cleanup
+          if (!_m.parent) { allCoinMeshes.splice(_i, 1); continue; }
+          var _px = _m.parent.position.x;
+          if (_px < _minX) _minX = _px;
+          if (_px > _maxX) _maxX = _px;
+        }
+        var _xRange = (_maxX > _minX) ? (_maxX - _minX) : 1.0;
+        for (var _i = 0; _i < allCoinMeshes.length; _i++) {
+          var _m = allCoinMeshes[_i];
           var _su = _m.userData.shineUniforms;
           if (!_su) continue;
-          // normalised 0=left → 1=right, used as wave phase offset
           var _normX = (_m.parent.position.x - _minX) / _xRange;
           var _t = ((_now / CoinIdleShinePeriod) + _normX * CoinIdleShineWaveSpread) % 1.0;
-          _su.uIdleShine.value         = -0.3 + _t * 1.6; // off-screen left → off-screen right
+          _su.uIdleShine.value         = -0.3 + _t * 1.6;
           _su.uIdleShineStrength.value = CoinIdleShineStrength;
         }
       }
