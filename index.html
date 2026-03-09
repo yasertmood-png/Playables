@@ -72,7 +72,7 @@
         display: inline-block;
         margin-right: 10px;
         font-weight: bold;
-        max-width: 200px; /* Adjust as needed */
+        max-width: 200px;
         text-overflow: ellipsis;
         white-space: nowrap;
         overflow: hidden;
@@ -114,43 +114,91 @@
 
     .muted{opacity:.75;}
     .error{color:#ffb4b4;}
+
+    /* Share landing page */
+    #landing{display:none;}
+    .landing-inner{
+      max-width:420px;
+      margin:80px auto 0;
+      text-align:center;
+    }
+    .landing-inner h2{
+      font-size:20px;
+      margin:0 0 6px 0;
+      word-break:break-all;
+    }
+    .landing-inner .sub{
+      color:#7a8a9a;
+      font-size:13px;
+      margin-bottom:32px;
+    }
+    .landing-btns{
+      display:flex;
+      gap:16px;
+      justify-content:center;
+    }
+    .landing-btns .run,
+    .landing-btns .download{
+      font-size:16px;
+      padding:14px 28px;
+    }
+    .back-link{
+      display:inline-block;
+      margin-top:32px;
+      color:#5a7fa8;
+      text-decoration:none;
+      font-size:13px;
+    }
+    .back-link:hover{color:#7fafd8;}
   </style>
 </head>
 
 <body>
-  <h1>🎮 Playables</h1>
+  <!-- Normal index view -->
+  <div id="index-view">
+    <h1>🎮 Playables</h1>
 
-  <div class="card">
-    <div class="controls">
-      <button id="expandAll" class="btn">Expand all</button>
-      <button id="collapseAll" class="btn">Collapse all</button>
-      <input id="search" placeholder="Search folders / files…" />
-      <span id="status" class="muted"></span>
+    <div class="card">
+      <div class="controls">
+        <button id="expandAll" class="btn">Expand all</button>
+        <button id="collapseAll" class="btn">Collapse all</button>
+        <input id="search" placeholder="Search folders / files…" />
+        <span id="status" class="muted"></span>
+      </div>
+    </div>
+
+    <div id="tree" class="card">Loading repository files…</div>
+  </div>
+
+  <!-- Share landing page -->
+  <div id="landing">
+    <div class="landing-inner">
+      <h2 id="landing-name"></h2>
+      <div class="sub">Playable Ad</div>
+      <div class="landing-btns">
+        <button id="landing-download" class="download">⬇ Download</button>
+        <button id="landing-run" class="run">▶ Run</button>
+      </div>
+      <a id="landing-back" href="" class="back-link">← All playables</a>
     </div>
   </div>
 
-  <div id="tree" class="card">Loading repository files…</div>
-
 <script>
 (() => {
-  // Exclude these basenames anywhere in the repo:
   const EXCLUDE_BASENAMES = new Set(["README.md", "index.html"]);
-
-  // List only these file extensions as runnable playables:
-  const ALLOWED_EXT = [".html"]; // add ".htm" if you want
-
-  const treeEl = document.getElementById("tree");
-  const statusEl = document.getElementById("status");
-  const searchEl = document.getElementById("search");
+  const ALLOWED_EXT = [".html"];
 
   function inferFromPagesURL() {
-    // Expected URL: https://USERNAME.github.io/REPO/...
-    const host = location.hostname; // USERNAME.github.io
-    const parts = location.pathname.split("/").filter(Boolean); // [REPO, ...]
+    const host = location.hostname;
+    const parts = location.pathname.split("/").filter(Boolean);
     if (!host.endsWith(".github.io") || parts.length === 0) return null;
     const owner = host.slice(0, -".github.io".length);
     const repo = parts[0];
     return { owner, repo };
+  }
+
+  function pagesBaseFromInferred({ owner, repo }) {
+    return `https://${owner}.github.io/${repo}/`;
   }
 
   function isAllowedPlayable(path) {
@@ -159,16 +207,18 @@
   }
 
   async function getDefaultBranch(owner, repo) {
-    const url = `https://api.github.com/repos/${owner}/${repo}`;
-    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" }});
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { "Accept": "application/vnd.github+json" }
+    });
     if (!res.ok) throw new Error(`Repo API error: ${res.status} ${res.statusText}`);
-    const data = await res.json();
-    return data.default_branch || "main";
+    return (await res.json()).default_branch || "main";
   }
 
   async function getRecursiveTree(owner, repo, branch) {
-    const url = `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
-    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" }});
+    const res = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+      { headers: { "Accept": "application/vnd.github+json" } }
+    );
     if (!res.ok) throw new Error(`Tree API error: ${res.status} ${res.statusText}`);
     const data = await res.json();
     return Array.isArray(data.tree) ? data.tree : [];
@@ -194,93 +244,89 @@
   }
 
   function sortChildren(map) {
-    return [...map.entries()].sort((a,b) => {
+    return [...map.entries()].sort((a, b) => {
       const A = a[1], B = b[1];
       if (A.type !== B.type) return A.type === "dir" ? -1 : 1;
       return a[0].localeCompare(b[0], undefined, { sensitivity: "base" });
     });
   }
 
+  function makeShareURL(filePath) {
+    return `${location.origin}${location.pathname}?file=${encodeURIComponent(filePath)}`;
+  }
+
   function renderNode(node, name, depth, pagesBase) {
-  if (node.type === "file") {
-    const fileDiv = document.createElement("div");
-    fileDiv.className = "file";
-    fileDiv.dataset.path = node.path.toLowerCase();
+    if (node.type === "file") {
+      const fileDiv = document.createElement("div");
+      fileDiv.className = "file";
+      fileDiv.dataset.path = node.path.toLowerCase();
 
-    const url = pagesBase + node.path;
-    const filename = node.path.split("/").pop() || "playable.html";
+      const fileUrl = pagesBase + node.path;
+      const filename = node.path.split("/").pop() || "playable.html";
 
-    // File name display
-    const fileNameDiv = document.createElement("div");
-    fileNameDiv.className = "file-name";
-    fileNameDiv.textContent = filename;
+      const fileNameDiv = document.createElement("div");
+      fileNameDiv.className = "file-name";
+      fileNameDiv.textContent = filename;
 
-    // Download: uses an <a download> click so it saves the file.
-    const downloadBtn = document.createElement("button");
-    downloadBtn.className = "download";
-    downloadBtn.textContent = "⬇ Download";
-    downloadBtn.addEventListener("click", () => {
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename; // hint filename
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    });
-
-    // Run: opens in a new tab/window
-    const runBtn = document.createElement("button");
-    runBtn.className = "run";
-    runBtn.textContent = "▶ Run";
-    runBtn.addEventListener("click", () => {
-      window.open(url, "_blank", "noopener");
-    });
-
-    // Share: copies the direct URL to clipboard
-    const shareBtn = document.createElement("button");
-    shareBtn.className = "share";
-    shareBtn.textContent = "🔗 Copy Link";
-    shareBtn.addEventListener("click", () => {
-      navigator.clipboard.writeText(url).then(() => {
-        shareBtn.textContent = "✓ Copied!";
-        shareBtn.classList.add("copied");
-        setTimeout(() => {
-          shareBtn.textContent = "🔗 Copy Link";
-          shareBtn.classList.remove("copied");
-        }, 2000);
-      }).catch(() => {
-        // Fallback for non-secure contexts
-        prompt("Copy this link:", url);
+      const downloadBtn = document.createElement("button");
+      downloadBtn.className = "download";
+      downloadBtn.textContent = "⬇ Download";
+      downloadBtn.addEventListener("click", () => {
+        const a = document.createElement("a");
+        a.href = fileUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
       });
-    });
 
-    // Append file name, download, share, and run buttons
-    fileDiv.appendChild(fileNameDiv);
-    fileDiv.appendChild(downloadBtn);
-    fileDiv.appendChild(shareBtn);
-    fileDiv.appendChild(runBtn);
+      const shareBtn = document.createElement("button");
+      shareBtn.className = "share";
+      shareBtn.textContent = "🔗 Copy Link";
+      shareBtn.addEventListener("click", () => {
+        const shareUrl = makeShareURL(node.path);
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          shareBtn.textContent = "✓ Copied!";
+          shareBtn.classList.add("copied");
+          setTimeout(() => {
+            shareBtn.textContent = "🔗 Copy Link";
+            shareBtn.classList.remove("copied");
+          }, 2000);
+        }).catch(() => {
+          prompt("Copy this link:", shareUrl);
+        });
+      });
 
-    return fileDiv;
+      const runBtn = document.createElement("button");
+      runBtn.className = "run";
+      runBtn.textContent = "▶ Run";
+      runBtn.addEventListener("click", () => {
+        window.open(fileUrl, "_blank", "noopener");
+      });
+
+      fileDiv.appendChild(fileNameDiv);
+      fileDiv.appendChild(downloadBtn);
+      fileDiv.appendChild(shareBtn);
+      fileDiv.appendChild(runBtn);
+      return fileDiv;
+    }
+
+    const details = document.createElement("details");
+    details.dataset.folder = (name || "/").toLowerCase();
+    if (depth === 0) details.open = true;
+
+    const summary = document.createElement("summary");
+    summary.textContent = name || "All Playables";
+    details.appendChild(summary);
+
+    const wrap = document.createElement("div");
+    wrap.style.marginLeft = "10px";
+    for (const [childName, childNode] of sortChildren(node.children)) {
+      wrap.appendChild(renderNode(childNode, childName, depth + 1, pagesBase));
+    }
+    details.appendChild(wrap);
+    return details;
   }
-
-  const details = document.createElement("details");
-  details.dataset.folder = (name || "/").toLowerCase();
-  if (depth === 0) details.open = true;
-
-  const summary = document.createElement("summary");
-  summary.textContent = name || "All Playables";
-  details.appendChild(summary);
-
-  const wrap = document.createElement("div");
-  wrap.style.marginLeft = "10px";
-
-  for (const [childName, childNode] of sortChildren(node.children)) {
-    wrap.appendChild(renderNode(childNode, childName, depth + 1, pagesBase));
-  }
-
-  details.appendChild(wrap);
-  return details;
-}
 
   function setAllDetails(open) {
     document.querySelectorAll("#tree details").forEach(d => d.open = open);
@@ -288,7 +334,6 @@
 
   function applySearch(q) {
     q = q.trim().toLowerCase();
-
     const allFiles = [...document.querySelectorAll("#tree .file")];
     const allFolders = [...document.querySelectorAll("#tree details")];
 
@@ -301,10 +346,8 @@
     allFiles.forEach(el => el.style.display = "none");
     allFolders.forEach(el => el.style.display = "none");
 
-    // show matching files and their parent folders
     for (const fileEl of allFiles) {
-      const path = fileEl.dataset.path || "";
-      if (path.includes(q)) {
+      if ((fileEl.dataset.path || "").includes(q)) {
         fileEl.style.display = "";
         let parent = fileEl.parentElement;
         while (parent) {
@@ -317,10 +360,8 @@
       }
     }
 
-    // show folders that match, plus descendants
     for (const folderEl of allFolders) {
-      const key = folderEl.dataset.folder || "";
-      if (key.includes(q)) {
+      if ((folderEl.dataset.folder || "").includes(q)) {
         folderEl.style.display = "";
         folderEl.open = true;
         folderEl.querySelectorAll(".file").forEach(el => el.style.display = "");
@@ -329,8 +370,38 @@
     }
   }
 
+  function showLanding(filePath, pagesBase) {
+    document.getElementById("index-view").style.display = "none";
+    const landingEl = document.getElementById("landing");
+    landingEl.style.display = "block";
+
+    const fileUrl = pagesBase + filePath;
+    const filename = filePath.split("/").pop() || "playable.html";
+
+    document.title = filename;
+    document.getElementById("landing-name").textContent = filename;
+
+    document.getElementById("landing-download").addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = fileUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+
+    document.getElementById("landing-run").addEventListener("click", () => {
+      window.open(fileUrl, "_blank", "noopener");
+    });
+
+    // Back link: index without ?file=
+    document.getElementById("landing-back").href = `${location.origin}${location.pathname}`;
+  }
+
   async function main() {
     const inferred = inferFromPagesURL();
+    const treeEl = document.getElementById("tree");
+
     if (!inferred) {
       treeEl.innerHTML = `
         <div class="error">Open this page from your GitHub Pages site (USERNAME.github.io/REPO/).</div>
@@ -339,8 +410,19 @@
       return;
     }
 
+    const pagesBase = pagesBaseFromInferred(inferred);
+
+    // If ?file= param present, show the share landing page
+    const fileParam = new URLSearchParams(location.search).get("file");
+    if (fileParam) {
+      showLanding(fileParam, pagesBase);
+      return;
+    }
+
+    // Normal index view
     const { owner, repo } = inferred;
-    const pagesBase = `https://${owner}.github.io/${repo}/`;
+    const statusEl = document.getElementById("status");
+    const searchEl = document.getElementById("search");
 
     try {
       statusEl.textContent = "Loading…";
@@ -362,7 +444,6 @@
       const nested = buildNestedTree(playablePaths);
       treeEl.innerHTML = "";
       treeEl.appendChild(renderNode(nested, "", 0, pagesBase));
-
       statusEl.textContent = `${playablePaths.length} playable(s)`;
 
       document.getElementById("expandAll").addEventListener("click", () => setAllDetails(true));
@@ -378,7 +459,7 @@
           <br><br>
           Common causes:
           <ul>
-            <li>Repo is private (GitHub API won’t list files without auth).</li>
+            <li>Repo is private (GitHub API won't list files without auth).</li>
             <li>GitHub API rate limit (try again later).</li>
           </ul>
         </div>
