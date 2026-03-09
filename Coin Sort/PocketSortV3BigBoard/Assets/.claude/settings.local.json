@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(comm -23 /tmp/css_ids.txt /tmp/html_element_ids.txt)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3:*)",
+      "Bash(node -c \"c:\\\\MoodGames\\\\Playable Ads\\\\Playables\\\\Coin Sort\\\\PocketSort\\\\PocketSort.html\")",
+      "Bash(node -e \":*)",
+      "Bash(node -e \"require\\(''html-minifier-terser''\\)\")",
+      "Bash(node -e \"require\\(''javascript-obfuscator''\\)\")"
+    ]
+  }
+}

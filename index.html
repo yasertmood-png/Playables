@@ -68,14 +68,14 @@
       flex-wrap:wrap;
     }
 
-    .file-name {
-        display: inline-block;
-        margin-right: 10px;
-        font-weight: bold;
-        max-width: 200px;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        overflow: hidden;
+    .file-name{
+      display:inline-block;
+      margin-right:10px;
+      font-weight:bold;
+      max-width:200px;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      overflow:hidden;
     }
 
     .run{
@@ -116,7 +116,6 @@
     .error{color:#ffb4b4;}
 
     /* Share landing page */
-    #landing{display:none;}
     .landing-inner{
       max-width:420px;
       margin:80px auto 0;
@@ -167,11 +166,11 @@
       </div>
     </div>
 
-    <div id="tree" class="card">Loading repository files…</div>
+    <div id="tree" class="card">Loading…</div>
   </div>
 
-  <!-- Share landing page -->
-  <div id="landing">
+  <!-- Share landing page (hidden until ?file= param detected) -->
+  <div id="landing" style="display:none">
     <div class="landing-inner">
       <h2 id="landing-name"></h2>
       <div class="sub">Playable Ad</div>
@@ -185,45 +184,41 @@
 
 <script>
 (() => {
-  const EXCLUDE_BASENAMES = new Set(["README.md", "index.html"]);
-  const ALLOWED_EXT = [".html"];
+  // Base URL of the directory containing index.html (works on any host/path)
+  const BASE = location.href.split("?")[0].replace(/[^/]*$/, "");
 
-  function inferFromPagesURL() {
-    const host = location.hostname;
-    const parts = location.pathname.split("/").filter(Boolean);
-    if (!host.endsWith(".github.io") || parts.length === 0) return null;
-    const owner = host.slice(0, -".github.io".length);
-    const repo = parts[0];
-    return { owner, repo };
+  function makeShareURL(filePath) {
+    return BASE + "index.html?file=" + encodeURIComponent(filePath);
   }
 
-  function pagesBaseFromInferred({ owner, repo }) {
-    return `https://${owner}.github.io/${repo}/`;
-  }
+  // ── Share landing page ───────────────────────────────────────────────────
+  function showLanding(filePath) {
+    document.getElementById("index-view").style.display = "none";
+    document.getElementById("landing").style.display = "block";
 
-  function isAllowedPlayable(path) {
-    const lower = path.toLowerCase();
-    return ALLOWED_EXT.some(ext => lower.endsWith(ext));
-  }
+    const fileUrl = BASE + filePath;
+    const filename = filePath.split("/").pop() || "playable.html";
 
-  async function getDefaultBranch(owner, repo) {
-    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-      headers: { "Accept": "application/vnd.github+json" }
+    document.title = filename;
+    document.getElementById("landing-name").textContent = filename;
+
+    document.getElementById("landing-download").addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = fileUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     });
-    if (!res.ok) throw new Error(`Repo API error: ${res.status} ${res.statusText}`);
-    return (await res.json()).default_branch || "main";
+
+    document.getElementById("landing-run").addEventListener("click", () => {
+      window.open(fileUrl, "_blank", "noopener");
+    });
+
+    document.getElementById("landing-back").href = BASE + "index.html";
   }
 
-  async function getRecursiveTree(owner, repo, branch) {
-    const res = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
-      { headers: { "Accept": "application/vnd.github+json" } }
-    );
-    if (!res.ok) throw new Error(`Tree API error: ${res.status} ${res.statusText}`);
-    const data = await res.json();
-    return Array.isArray(data.tree) ? data.tree : [];
-  }
-
+  // ── Tree rendering ───────────────────────────────────────────────────────
   function buildNestedTree(paths) {
     const root = { type: "dir", children: new Map() };
     for (const p of paths) {
@@ -235,7 +230,8 @@
         if (last) {
           cur.children.set(name, { type: "file", path: p });
         } else {
-          if (!cur.children.has(name)) cur.children.set(name, { type: "dir", children: new Map() });
+          if (!cur.children.has(name))
+            cur.children.set(name, { type: "dir", children: new Map() });
           cur = cur.children.get(name);
         }
       }
@@ -245,27 +241,23 @@
 
   function sortChildren(map) {
     return [...map.entries()].sort((a, b) => {
-      const A = a[1], B = b[1];
-      if (A.type !== B.type) return A.type === "dir" ? -1 : 1;
+      if (a[1].type !== b[1].type) return a[1].type === "dir" ? -1 : 1;
       return a[0].localeCompare(b[0], undefined, { sensitivity: "base" });
     });
   }
 
-  function makeShareURL(filePath) {
-    return `${location.origin}${location.pathname}?file=${encodeURIComponent(filePath)}`;
-  }
-
-  function renderNode(node, name, depth, pagesBase) {
+  function renderNode(node, name, depth) {
     if (node.type === "file") {
+      const fileUrl = BASE + node.path;
+      const filename = node.path.split("/").pop() || "playable.html";
+
       const fileDiv = document.createElement("div");
       fileDiv.className = "file";
       fileDiv.dataset.path = node.path.toLowerCase();
 
-      const fileUrl = pagesBase + node.path;
-      const filename = node.path.split("/").pop() || "playable.html";
-
       const fileNameDiv = document.createElement("div");
       fileNameDiv.className = "file-name";
+      fileNameDiv.title = filename;
       fileNameDiv.textContent = filename;
 
       const downloadBtn = document.createElement("button");
@@ -321,9 +313,8 @@
 
     const wrap = document.createElement("div");
     wrap.style.marginLeft = "10px";
-    for (const [childName, childNode] of sortChildren(node.children)) {
-      wrap.appendChild(renderNode(childNode, childName, depth + 1, pagesBase));
-    }
+    for (const [childName, childNode] of sortChildren(node.children))
+      wrap.appendChild(renderNode(childNode, childName, depth + 1));
     details.appendChild(wrap);
     return details;
   }
@@ -349,13 +340,13 @@
     for (const fileEl of allFiles) {
       if ((fileEl.dataset.path || "").includes(q)) {
         fileEl.style.display = "";
-        let parent = fileEl.parentElement;
-        while (parent) {
-          if (parent.tagName && parent.tagName.toLowerCase() === "details") {
-            parent.style.display = "";
-            parent.open = true;
+        let p = fileEl.parentElement;
+        while (p) {
+          if (p.tagName && p.tagName.toLowerCase() === "details") {
+            p.style.display = "";
+            p.open = true;
           }
-          parent = parent.parentElement;
+          p = p.parentElement;
         }
       }
     }
@@ -370,100 +361,45 @@
     }
   }
 
-  function showLanding(filePath, pagesBase) {
-    document.getElementById("index-view").style.display = "none";
-    const landingEl = document.getElementById("landing");
-    landingEl.style.display = "block";
-
-    const fileUrl = pagesBase + filePath;
-    const filename = filePath.split("/").pop() || "playable.html";
-
-    document.title = filename;
-    document.getElementById("landing-name").textContent = filename;
-
-    document.getElementById("landing-download").addEventListener("click", () => {
-      const a = document.createElement("a");
-      a.href = fileUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    });
-
-    document.getElementById("landing-run").addEventListener("click", () => {
-      window.open(fileUrl, "_blank", "noopener");
-    });
-
-    // Back link: index without ?file=
-    document.getElementById("landing-back").href = `${location.origin}${location.pathname}`;
-  }
-
+  // ── Main ─────────────────────────────────────────────────────────────────
   async function main() {
-    const inferred = inferFromPagesURL();
-    const treeEl = document.getElementById("tree");
-
-    if (!inferred) {
-      treeEl.innerHTML = `
-        <div class="error">Open this page from your GitHub Pages site (USERNAME.github.io/REPO/).</div>
-        <div class="muted" style="margin-top:8px;">If you opened it on github.com (code view), scripts may not run.</div>
-      `;
-      return;
-    }
-
-    const pagesBase = pagesBaseFromInferred(inferred);
-
-    // If ?file= param present, show the share landing page
+    // Share landing mode
     const fileParam = new URLSearchParams(location.search).get("file");
     if (fileParam) {
-      showLanding(fileParam, pagesBase);
+      showLanding(fileParam);
       return;
     }
 
-    // Normal index view
-    const { owner, repo } = inferred;
+    // Index mode — load files.json
+    const treeEl = document.getElementById("tree");
     const statusEl = document.getElementById("status");
     const searchEl = document.getElementById("search");
 
     try {
-      statusEl.textContent = "Loading…";
-      const branch = await getDefaultBranch(owner, repo);
-      const items = await getRecursiveTree(owner, repo, branch);
+      const res = await fetch("files.json");
+      if (!res.ok) throw new Error(`files.json not found (${res.status}). Run generate-files.mjs first.`);
+      const paths = await res.json();
 
-      const playablePaths = items
-        .filter(x => x.type === "blob" && typeof x.path === "string")
-        .map(x => x.path)
-        .filter(p => !EXCLUDE_BASENAMES.has(p.split("/").pop()))
-        .filter(p => isAllowedPlayable(p));
-
-      if (playablePaths.length === 0) {
-        statusEl.textContent = "";
-        treeEl.innerHTML = `<div class="muted">No playables found. Upload .html files (or folders containing them).</div>`;
+      if (!Array.isArray(paths) || paths.length === 0) {
+        treeEl.innerHTML = `<div class="muted">No playables found. Run generate-files.mjs to scan for .html files.</div>`;
         return;
       }
 
-      const nested = buildNestedTree(playablePaths);
       treeEl.innerHTML = "";
-      treeEl.appendChild(renderNode(nested, "", 0, pagesBase));
-      statusEl.textContent = `${playablePaths.length} playable(s)`;
+      treeEl.appendChild(renderNode(buildNestedTree(paths), "", 0));
+      statusEl.textContent = `${paths.length} playable(s)`;
 
       document.getElementById("expandAll").addEventListener("click", () => setAllDetails(true));
       document.getElementById("collapseAll").addEventListener("click", () => setAllDetails(false));
-      searchEl.addEventListener("input", (e) => applySearch(e.target.value));
+      searchEl.addEventListener("input", e => applySearch(e.target.value));
 
     } catch (err) {
-      statusEl.textContent = "";
       treeEl.innerHTML = `
-        <div class="error">Failed to load file list.</div>
+        <div class="error">Failed to load playable list.</div>
         <div class="muted" style="margin-top:8px;">
-          ${String(err.message || err)}
-          <br><br>
-          Common causes:
-          <ul>
-            <li>Repo is private (GitHub API won't list files without auth).</li>
-            <li>GitHub API rate limit (try again later).</li>
-          </ul>
-        </div>
-      `;
+          ${String(err.message || err)}<br><br>
+          Make sure <code>files.json</code> exists — run <code>node generate-files.mjs</code> to generate it.
+        </div>`;
     }
   }
 
