@@ -2508,6 +2508,8 @@
         tutorialStepIndex++;
         if (tutorialStepIndex >= TutorialSteps.length) {
           endTutorial();
+          showInstallCta();
+          openStore();
           return;
         }
       }
@@ -2517,14 +2519,6 @@
     function endTutorial() {
       tutorialActive = false;
       tutorialHandEl.classList.remove('visible', 'pulsing');
-      if (dealTutorialTimeoutId !== null) { clearTimeout(dealTutorialTimeoutId); dealTutorialTimeoutId = null; }
-      showInstallCta();
-      var _ctUrl = getStoreUrl();
-      if (window.mraid && typeof window.mraid.open === 'function') {
-        window.mraid.open(_ctUrl);
-      } else {
-        window.location.href = _ctUrl;
-      }
     }
 
     function isTutorialTargetSlot(slotIdx) {
@@ -2545,7 +2539,7 @@
     var dealButtonUnlocked = false; // becomes true after first merge (button visible but disabled)
     var dealButtonEnabled  = false; // becomes true after second merge (button becomes active)
     var dealTutorialActive = false; // deal-button hand tutorial state
-    var dealTutorialTimeoutId = null; // timeout ID for startDealTutorial — cancelled if tutorial ends early
+    var _dealHintTimer    = null;  // timer for the non-forced idle deal hint
     var transferringSlots   = new Set(); // slot indices currently mid-transfer (locked from interaction)
     var mergingSlots        = new Set(); // slot indices currently merging (locked from interaction)
     let heldFromSlot = null;
@@ -2757,6 +2751,7 @@
         }
 
         checkMerge(targetSlotIdx);
+        scheduleDealHint(); // re-check after transfer settles
       }
 
       for (let i = 0; i < toTransfer.length; i++) {
@@ -2805,7 +2800,7 @@
         dealButtonUnlocked = true;
         dealButtonEnabled = true;
         updateDealButtonState();
-        dealTutorialTimeoutId = setTimeout(startDealTutorial, 800); // small delay so merge animation settles
+        setTimeout(startDealTutorial, 800); // small delay so merge animation settles
       }
     }
 
@@ -2821,6 +2816,42 @@
     function endDealTutorial() {
       dealTutorialActive = false;
       if (tutorialHandEl) tutorialHandEl.classList.remove('visible', 'pulsing');
+      scheduleDealHint(); // re-check after dismissal; show again if still no mergeable slot
+    }
+
+    // Returns true if the total count of any coin type across ALL slots reaches 10+,
+    // meaning the player could potentially merge them (hint should NOT show).
+    function hasMergeableSlot() {
+      var _counts = {};
+      for (var _hi = 0; _hi < slots.length; _hi++) {
+        var _hs = slots[_hi];
+        for (var _hci = 0; _hci < _hs.coins.length; _hci++) {
+          var _hn = _hs.coins[_hci].userData.coinNumber;
+          if (_hn >= 7) continue;
+          _counts[_hn] = (_counts[_hn] || 0) + 1;
+          if (_counts[_hn] >= 10) return true;
+        }
+      }
+      return false;
+    }
+
+    // Schedule the non-forced deal-button hint.
+    // Fires after a short idle delay; shows the hand only when there is no ready merge.
+    var DealHintDelay = 3000; // ms before hint appears
+    function scheduleDealHint() {
+      clearTimeout(_dealHintTimer);
+      _dealHintTimer = null;
+      if (!dealButtonEnabled || dealTutorialActive || tutorialActive) return;
+      _dealHintTimer = setTimeout(function () {
+        _dealHintTimer = null;
+        if (!dealButtonEnabled || dealTutorialActive || tutorialActive) return;
+        // If the board is still busy, retry after the same delay
+        if (transferringSlots.size > 0 || mergingSlots.size > 0) {
+          scheduleDealHint();
+          return;
+        }
+        if (!hasMergeableSlot()) startDealTutorial();
+      }, DealHintDelay);
     }
 
     function shineCoinStack(coins, onComplete) {
@@ -2900,6 +2931,12 @@
 
       var coinsToShine = slot.coins.slice();
       var capturedTarget = cstTarget;
+
+      // A merge is about to fire — cancel any pending deal hint and hide if visible.
+      clearTimeout(_dealHintTimer);
+      _dealHintTimer = null;
+      if (dealTutorialActive) { dealTutorialActive = false; if (tutorialHandEl) tutorialHandEl.classList.remove('visible', 'pulsing'); }
+
       isAnimating = true;
       mergingSlots.add(slotIdx);
 
@@ -3184,7 +3221,7 @@
                 setTimeout(function () {
                   _spawnOpenSlotCoin(closedSlot, newCoinType, _i, function () {
                     _settled++;
-                    if (_settled >= ClosedSlotOpenResultCount) mergingSlots.delete(target.slotIdx);
+                    if (_settled >= ClosedSlotOpenResultCount) { mergingSlots.delete(target.slotIdx); scheduleDealHint(); }
                   });
                 }, _i * CoinMergeStepDuration * 0.3);
               })(_ni);
@@ -3374,7 +3411,7 @@
                 slot.coins.push(c);
                 checkFillThreshold();
                 landed++;
-                if (landed >= CoinMergeResult) mergingSlots.delete(slotIdx);
+                if (landed >= CoinMergeResult) { mergingSlots.delete(slotIdx); scheduleDealHint(); }
               })
               .start();
             // Whole-number flips so coin returns exactly to its original rotation
@@ -3628,6 +3665,10 @@
       });
 
       // Bug 3: cancel any held coins before dealing
+      // Save the source slot so we can checkMerge on it after the deal lands,
+      // since cancelHold returns the coin(s) immediately but _onAllLanded only
+      // checks dealTargetIndices (which excludes the hold-source slot).
+      var _canceledHoldSlot = heldCoins.length > 0 ? heldFromSlot : -1;
       if (heldCoins.length > 0) cancelHold(true); // deal cancels hold silently
 
       // Sync DealCoinMaxRange to the highest coin number currently on the table
@@ -3723,6 +3764,13 @@
         for (var _mi = 0; _mi < dealTargetIndices.length; _mi++) {
           checkMerge(dealTargetIndices[_mi]);
         }
+        // Also check the slot that had held coins returned to it by cancelHold.
+        // It was excluded from dealTargetIndices so _onAllLanded never checked it,
+        // but the returned coin(s) may have pushed it to 10.
+        if (_canceledHoldSlot !== -1 && dealTargetIndices.indexOf(_canceledHoldSlot) === -1) {
+          checkMerge(_canceledHoldSlot);
+        }
+        scheduleDealHint(); // re-check after all deal coins settle
       }
 
       // Phase 2: Throw coins

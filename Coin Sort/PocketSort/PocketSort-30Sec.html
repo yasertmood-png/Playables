@@ -2817,18 +2817,18 @@
       scheduleDealHint(); // re-check after dismissal; show again if still no mergeable slot
     }
 
-    // Returns true if any open slot has 10+ coins all of the same type (i.e. a merge is ready).
+    // Returns true if the total count of any coin type across ALL slots reaches 10+,
+    // meaning the player could potentially merge them (hint should NOT show).
     function hasMergeableSlot() {
+      var _counts = {};
       for (var _hi = 0; _hi < slots.length; _hi++) {
         var _hs = slots[_hi];
-        if (_hs.coins.length < 10) continue;
-        var _hn = _hs.coins[0].userData.coinNumber;
-        if (_hn >= 7) continue;
-        var _allSame = true;
-        for (var _hci = 1; _hci < _hs.coins.length; _hci++) {
-          if (_hs.coins[_hci].userData.coinNumber !== _hn) { _allSame = false; break; }
+        for (var _hci = 0; _hci < _hs.coins.length; _hci++) {
+          var _hn = _hs.coins[_hci].userData.coinNumber;
+          if (_hn >= 7) continue;
+          _counts[_hn] = (_counts[_hn] || 0) + 1;
+          if (_counts[_hn] >= 10) return true;
         }
-        if (_allSame) return true;
       }
       return false;
     }
