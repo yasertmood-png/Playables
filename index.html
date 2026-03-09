@@ -100,6 +100,18 @@
     }
     .download:hover{background:#2f86c1;}
 
+    .share{
+      background:#8e44ad;
+      border:none;
+      padding:10px 14px;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:800;
+      color:#f0e8f5;
+    }
+    .share:hover{background:#7d3c98;}
+    .share.copied{background:#27ae60;color:#fff;}
+
     .muted{opacity:.75;}
     .error{color:#ffb4b4;}
   </style>
@@ -224,9 +236,28 @@
       window.open(url, "_blank", "noopener");
     });
 
-    // Append file name, download, and run buttons
+    // Share: copies the direct URL to clipboard
+    const shareBtn = document.createElement("button");
+    shareBtn.className = "share";
+    shareBtn.textContent = "🔗 Copy Link";
+    shareBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(url).then(() => {
+        shareBtn.textContent = "✓ Copied!";
+        shareBtn.classList.add("copied");
+        setTimeout(() => {
+          shareBtn.textContent = "🔗 Copy Link";
+          shareBtn.classList.remove("copied");
+        }, 2000);
+      }).catch(() => {
+        // Fallback for non-secure contexts
+        prompt("Copy this link:", url);
+      });
+    });
+
+    // Append file name, download, share, and run buttons
     fileDiv.appendChild(fileNameDiv);
     fileDiv.appendChild(downloadBtn);
+    fileDiv.appendChild(shareBtn);
     fileDiv.appendChild(runBtn);
 
     return fileDiv;
