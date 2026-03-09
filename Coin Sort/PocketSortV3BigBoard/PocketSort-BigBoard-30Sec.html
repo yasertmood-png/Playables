@@ -2100,7 +2100,7 @@
       [38,39]
     ];
     const TutorialEnabled =  TutorialSteps.length > 0;
-    const IdleHintDelay   = 3000; // ms of no-touch before idle hint activates
+    const IdleHintDelay   = 1500; // ms of no-touch before idle hint activates
 
     // #endregion
 
@@ -2661,10 +2661,11 @@
       }
       if (mergeType === -1) return null;
 
-      // Find all interactive slots that have that type on top.
+      // Find candidate slots only within the hint range (indices 22–38, bottom playable area).
       var candidates = [];
-      for (var i = 0; i < slots.length; i++) {
+      for (var i = 22; i <= 38; i++) {
         var s = slots[i];
+        if (!s) continue;
         if (s.type === SlotType.Closed || s.type === SlotType.RentClosed || s.type === SlotType.Buyable) continue;
         if (s.coins.length === 0) continue;
         if (transferringSlots.has(i) || mergingSlots.has(i)) continue;
@@ -2712,6 +2713,16 @@
           positionIdleHintHand(dropIdx);
           tutorialHandEl.classList.add('visible', 'pulsing');
         }
+        return;
+      }
+
+      // Table under 20% full — hint deal directly regardless of merge state.
+      if (dealButtonEnabled && !dealTutorialActive && isTableUnder20PercentFull()) {
+        dealTutorialActive = true;
+        var rect = dealButton.getBoundingClientRect();
+        tutorialHandEl.style.left = (rect.left + rect.width * 0.95) + 'px';
+        tutorialHandEl.style.top  = (rect.top  + 25) + 'px';
+        tutorialHandEl.classList.add('visible', 'pulsing');
         return;
       }
 
@@ -3026,6 +3037,17 @@
         dealButtonEnabled = true;
         updateDealButtonState();
       }
+    }
+
+    // Returns true if the playable (Empty-type) slots are less than 20% full.
+    function isTableUnder20PercentFull() {
+      var totalCap = 0, totalFilled = 0;
+      for (var _i = 0; _i < slots.length; _i++) {
+        if (slots[_i].type !== SlotType.Empty) continue;
+        totalCap    += slots[_i].capacity;
+        totalFilled += slots[_i].coins.length;
+      }
+      return totalCap > 0 && totalFilled / totalCap < 0.20;
     }
 
     // Returns true if the playable (Empty-type) slots are more than 75% full.
