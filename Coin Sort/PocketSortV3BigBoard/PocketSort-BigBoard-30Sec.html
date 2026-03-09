@@ -2678,9 +2678,9 @@
       return { source: candidates[0].slotIdx, target: candidates[candidates.length - 1].slotIdx };
     }
 
-    // Find a valid drop slot for the given coin type (all-same-type slot, has space).
+    // Find a valid drop slot for the given coin type — searches from last index down (bottom slots first).
     function findDropTarget(coinType, excludeSlot) {
-      for (var i = 0; i < slots.length; i++) {
+      for (var i = slots.length - 1; i >= 0; i--) {
         if (i === excludeSlot) continue;
         var s = slots[i];
         if (s.type === SlotType.Closed || s.type === SlotType.RentClosed || s.type === SlotType.Buyable) continue;
