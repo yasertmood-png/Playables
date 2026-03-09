@@ -2727,8 +2727,8 @@
         return;
       }
 
-      // No transferable pair — hint the deal button if it's enabled.
-      if (dealButtonEnabled && !dealTutorialActive) {
+      // No transferable pair — hint the deal button if it's enabled and table is not over 75% full.
+      if (dealButtonEnabled && !dealTutorialActive && !isTableOver75PercentFull()) {
         dealTutorialActive = true;
         var rect = dealButton.getBoundingClientRect();
         tutorialHandEl.style.left = (rect.left + rect.width * 0.95) + 'px';
@@ -3085,7 +3085,7 @@
           scheduleDealHint();
           return;
         }
-        if (!hasMergeableSlot()) startDealTutorial();
+        if (!hasMergeableSlot() && !isTableOver75PercentFull()) startDealTutorial();
       }, DealHintDelay);
     }
 
