@@ -261,7 +261,7 @@
     #dealButton {
       position: fixed;
       left: 50%;
-      top: 0; /* overridden by JS via updateDealButtonPosition() */
+      top: auto; /* bottom is set by JS via updateDealButtonPosition() */
       transform: translateX(-50%) translateY(150px);
       opacity: 0;
       pointer-events: none;
@@ -445,35 +445,6 @@
       user-select: none;
     }
 
-    /* ── Camera Debug Panel ── */
-    #camDebugToggle {
-      position: fixed; top: 8px; right: 8px; z-index: 9999;
-      background: rgba(0,0,0,0.75); color: #0f0; border: 1px solid #0f0;
-      font: bold 11px monospace; padding: 4px 8px; cursor: pointer; border-radius: 4px;
-    }
-    #camDebugPanel {
-      position: fixed; top: 34px; right: 8px; z-index: 9998;
-      background: rgba(0,0,0,0.88); color: #eee; font: 11px monospace;
-      padding: 10px; border-radius: 6px; border: 1px solid #555;
-      width: 220px; display: none;
-    }
-    #camDebugPanel.open { display: block; }
-    #camDebugPanel h3 { margin: 0 0 6px; font-size: 11px; color: #0f0; text-transform: uppercase; }
-    #camDebugPanel { width: 260px; }
-    #camDebugPanel label { display: flex; align-items: center; gap: 4px; margin: 3px 0; }
-    #camDebugPanel .lbl { width: 38px; color: #aaa; flex-shrink: 0; }
-    #camDebugPanel input[type=range] {
-      flex: 1; height: 3px; accent-color: #0f0; cursor: pointer;
-    }
-    #camDebugPanel .val { width: 38px; text-align: right; color: #fff; flex-shrink: 0; }
-    #camDebugPanel .fov-row { color: #fa0; margin: 4px 0; }
-    #camDebugPanel .sep { border: none; border-top: 1px solid #333; margin: 8px 0; }
-    #camDebugPanel button.copy-btn {
-      width: 100%; margin-top: 6px; padding: 4px;
-      background: #1a3; color: #fff; border: none; border-radius: 3px;
-      font: bold 11px monospace; cursor: pointer;
-    }
-
   </style>
 </head>
 
@@ -495,29 +466,6 @@
   <div id="blackScreen"></div>
   <canvas id="confetti-canvas"></canvas>
   <div id="slot-open-text"></div>
-  <!-- Camera Debug Panel -->
-  <button id="camDebugToggle">CAM</button>
-  <div id="camDebugPanel">
-    <h3>Portrait Camera</h3>
-    <label><span class="lbl">pos.x</span><input type="range" id="cp_px" min="-10" max="10"  step="0.01"><span class="val" id="cp_px_v">0</span></label>
-    <label><span class="lbl">pos.y</span><input type="range" id="cp_py" min="0"   max="30"  step="0.01"><span class="val" id="cp_py_v">0</span></label>
-    <label><span class="lbl">pos.z</span><input type="range" id="cp_pz" min="0"   max="20"  step="0.01"><span class="val" id="cp_pz_v">0</span></label>
-    <label><span class="lbl">rot.x</span><input type="range" id="cp_rx" min="-3.15" max="3.15" step="0.001"><span class="val" id="cp_rx_v">0</span></label>
-    <label><span class="lbl">rot.y</span><input type="range" id="cp_ry" min="-3.15" max="3.15" step="0.001"><span class="val" id="cp_ry_v">0</span></label>
-    <label><span class="lbl">rot.z</span><input type="range" id="cp_rz" min="-3.15" max="3.15" step="0.001"><span class="val" id="cp_rz_v">0</span></label>
-    <hr class="sep">
-    <h3>Landscape Camera</h3>
-    <label><span class="lbl">pos.x</span><input type="range" id="cl_px" min="-10" max="10"  step="0.01"><span class="val" id="cl_px_v">0</span></label>
-    <label><span class="lbl">pos.y</span><input type="range" id="cl_py" min="0"   max="30"  step="0.01"><span class="val" id="cl_py_v">0</span></label>
-    <label><span class="lbl">pos.z</span><input type="range" id="cl_pz" min="0"   max="20"  step="0.01"><span class="val" id="cl_pz_v">0</span></label>
-    <label><span class="lbl">rot.x</span><input type="range" id="cl_rx" min="-3.15" max="3.15" step="0.001"><span class="val" id="cl_rx_v">0</span></label>
-    <label><span class="lbl">rot.y</span><input type="range" id="cl_ry" min="-3.15" max="3.15" step="0.001"><span class="val" id="cl_ry_v">0</span></label>
-    <label><span class="lbl">rot.z</span><input type="range" id="cl_rz" min="-3.15" max="3.15" step="0.001"><span class="val" id="cl_rz_v">0</span></label>
-    <hr class="sep">
-    <h3>FOV</h3>
-    <label><span class="lbl" id="dbg_fov_lbl">fov</span><input type="range" id="dbg_fov_s" min="1" max="120" step="0.1"><span class="val" id="dbg_fov_v">–</span></label>
-    <button class="copy-btn" id="camDebugCopy">Copy Constants</button>
-  </div>
 
   <div id="fallbackUI" aria-live="polite">
     <div class="fallbackCard">
@@ -1894,7 +1842,7 @@
     // Camera - portrait orientation (orthographic)
     const CameraPortraitPosition  = { x: 0, y: 8.04, z: 3.5 };
     const CameraPortraitRotation  = { x: -1.116, y: 0, z: 0 };
-    let   CameraPortraitOrthoSize = 5.5;  // ortho frustum half-height (tune in debug panel)
+    let   CameraPortraitOrthoSize = 5.5;  // ortho frustum half-height
 
     // Camera - landscape orientation
     const CameraLandscapePosition = { x: 0, y: 11.09, z: 6.67 };
@@ -1906,10 +1854,13 @@
     const CameraFitPaddingPortrait  = -0.32;
     const CameraFitPaddingLandscape = 0.0;
 
-    // Pixel distance below the board's bottom edge where the deal button sits, per orientation.
-    // 0 = flush with board end, positive = further below, negative = overlaps the board.
-    const DealButtonOffsetYPortrait  = 10;
-    const DealButtonOffsetYLandscape = -15;
+    // Button positioning: sits below board with gap, clamps upward if no vertical space
+    // buttonTop = boardBottomEdge + gap (ideal position just below the board)
+    // If button would extend past screenHeight - safeMargin, it moves up to ensure full visibility
+    const DealButtonGapPortrait      = 12;   // pixels gap below board in portrait
+    const DealButtonGapLandscape     = 8;    // pixels gap below board in landscape
+    const DealButtonSafeMarginPortrait  = 10;   // pixels safety margin from screen bottom
+    const DealButtonSafeMarginLandscape = 10;   // pixels safety margin from screen bottom
 
     // Directional light position, target, intensity and color
     const DirLightPosition  = { x: 100,  y: 100,  z: 50.3  };
@@ -2135,7 +2086,7 @@
 
     let renderer = null;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
       renderer.setClearColor(0x2a6db5);
       renderer.outputEncoding = THREE.sRGBEncoding;
@@ -3792,18 +3743,38 @@
 
     // #region ─── DEAL SYSTEM & UTILITIES ────────────────────────────────────────────────────
 
-    // Positions the deal button at the board's bottom screen edge + a pixel offset.
+    // Smart button positioning: ideal is gap below board bottom edge, clamps upward for visibility.
+    // If button would go off-screen, it moves up (and may overlap the board area).
     function updateDealButtonPosition() {
-      if (!dealButton) return;
-      // Project the front edge of the table (bottom of board as seen on screen) to pixels
-      var boardEdge = new THREE.Vector3(0, 0, TABLE_HEIGHT / 2);
-      boardEdge.project(camera);
-      var boardBottomY = Math.round((1 - boardEdge.y) / 2 * window.innerHeight);
+      if (!dealButton || !camera) return;
+      
       var isPortrait = window.innerWidth <= window.innerHeight;
-      var offset = isPortrait ? DealButtonOffsetYPortrait : DealButtonOffsetYLandscape;
-      var screenY = boardBottomY + offset;
-      if (!isFinite(screenY)) screenY = Math.round(window.innerHeight * 0.85);
-      dealButton.style.top = screenY + 'px';
+      var gap = isPortrait ? DealButtonGapPortrait : DealButtonGapLandscape;
+      var safeMargin = isPortrait ? DealButtonSafeMarginPortrait : DealButtonSafeMarginLandscape;
+      
+      // Get the board bottom edge in world space (table lies in XZ plane, z direction is depth).
+      // TABLE_HEIGHT = 7.5, so bottom edge is at +TABLE_HEIGHT/2 = +3.75 on the Z axis.
+      var boardBottomWorldZ = TABLE_HEIGHT / 2;
+      var boardBottomWorld = new THREE.Vector3(0, 0.2, boardBottomWorldZ);
+      
+      // Project board bottom to screen coordinates
+      boardBottomWorld.project(camera);
+      var canvasRect = canvas.getBoundingClientRect();
+      var boardBottomScreenY = canvasRect.top + (1 - boardBottomWorld.y) / 2 * canvasRect.height;
+      
+      // Get button dimensions
+      var buttonHeight = dealButton.offsetHeight;
+      
+      // Ideal position: gap below board bottom edge
+      var idealButtonTop = boardBottomScreenY + gap;
+      
+      // Clamp to ensure button bottom doesn't go past (screenHeight - safeMargin)
+      var maxButtonTop = window.innerHeight - buttonHeight - safeMargin;
+      var finalButtonTop = Math.min(idealButtonTop, maxButtonTop);
+      
+      // Convert to CSS bottom position (measured from screen bottom)
+      var cssBottomPx = window.innerHeight - finalButtonTop - buttonHeight;
+      dealButton.style.bottom = Math.round(cssBottomPx) + 'px';
     }
 
     // Returns the four padded table corners on the ground plane.
@@ -4228,98 +4199,6 @@
     })();
 
     // #endregion
-
-    // ── Camera Debug Panel wiring ──
-    (function () {
-      var toggle = document.getElementById('camDebugToggle');
-      var panel  = document.getElementById('camDebugPanel');
-      if (!toggle || !panel) return;
-
-      var dbgIds = [
-        ['cp_px','cp_py','cp_pz','cp_rx','cp_ry','cp_rz'],
-        ['cl_px','cl_py','cl_pz','cl_rx','cl_ry','cl_rz']
-      ];
-
-      function setSlider(id, v) {
-        document.getElementById(id).value = v;
-        document.getElementById(id + '_v').textContent = parseFloat(v).toFixed(3);
-      }
-
-      // populate inputs from current constants
-      function populateInputs() {
-        setSlider('cp_px', CameraPortraitPosition.x);
-        setSlider('cp_py', CameraPortraitPosition.y);
-        setSlider('cp_pz', CameraPortraitPosition.z);
-        setSlider('cp_rx', CameraPortraitRotation.x);
-        setSlider('cp_ry', CameraPortraitRotation.y);
-        setSlider('cp_rz', CameraPortraitRotation.z);
-        setSlider('cl_px', CameraLandscapePosition.x);
-        setSlider('cl_py', CameraLandscapePosition.y);
-        setSlider('cl_pz', CameraLandscapePosition.z);
-        setSlider('cl_rx', CameraLandscapeRotation.x);
-        setSlider('cl_ry', CameraLandscapeRotation.y);
-        setSlider('cl_rz', CameraLandscapeRotation.z);
-        var fovVal = camera.isOrthographicCamera ? CameraPortraitOrthoSize : camera.fov;
-        document.getElementById('dbg_fov_s').value = fovVal;
-        document.getElementById('dbg_fov_v').textContent = fovVal.toFixed(1);
-        document.getElementById('dbg_fov_lbl').textContent = camera.isOrthographicCamera ? 'size' : 'fov';
-      }
-
-      function applyFromPanel() {
-        function g(id, dec) { var v = parseFloat(document.getElementById(id).value); document.getElementById(id+'_v').textContent = v.toFixed(dec||3); return v; }
-        CameraPortraitPosition.x  = g('cp_px');
-        CameraPortraitPosition.y  = g('cp_py');
-        CameraPortraitPosition.z  = g('cp_pz');
-        CameraPortraitRotation.x  = g('cp_rx');
-        CameraPortraitRotation.y  = g('cp_ry');
-        CameraPortraitRotation.z  = g('cp_rz');
-        CameraLandscapePosition.x = g('cl_px');
-        CameraLandscapePosition.y = g('cl_py');
-        CameraLandscapePosition.z = g('cl_pz');
-        CameraLandscapeRotation.x = g('cl_rx');
-        CameraLandscapeRotation.y = g('cl_ry');
-        CameraLandscapeRotation.z = g('cl_rz');
-        applyOrientationCamera();
-        var sliderVal = parseFloat(document.getElementById('dbg_fov_s').value);
-        if (camera.isOrthographicCamera) {
-          CameraPortraitOrthoSize = sliderVal;
-          var aspect = window.innerWidth / window.innerHeight;
-          camera.left = -sliderVal * aspect; camera.right = sliderVal * aspect;
-          camera.top  =  sliderVal;          camera.bottom = -sliderVal;
-        } else {
-          camera.fov = sliderVal;
-        }
-        document.getElementById('dbg_fov_v').textContent = sliderVal.toFixed(1);
-        camera.updateProjectionMatrix();
-      }
-
-      toggle.addEventListener('click', function () {
-        var isOpen = panel.classList.toggle('open');
-        if (isOpen) populateInputs();
-      });
-
-      panel.addEventListener('input', function (e) {
-        if (e.target.tagName === 'INPUT') applyFromPanel();
-      });
-
-      document.getElementById('camDebugCopy').addEventListener('click', function () {
-        var pp = CameraPortraitPosition, pr = CameraPortraitRotation;
-        var lp = CameraLandscapePosition, lr = CameraLandscapeRotation;
-        var txt =
-          '// Camera - portrait orientation (orthographic)\n' +
-          'const CameraPortraitPosition  = { x: ' + pp.x + ', y: ' + pp.y + ', z: ' + pp.z + ' };\n' +
-          'const CameraPortraitRotation  = { x: ' + pr.x + ', y: ' + pr.y + ', z: ' + pr.z + ' };\n' +
-          'let   CameraPortraitOrthoSize = ' + CameraPortraitOrthoSize + ';\n\n' +
-          '// Camera - landscape orientation (perspective)\n' +
-          'const CameraLandscapePosition = { x: ' + lp.x + ', y: ' + lp.y + ', z: ' + lp.z + ' };\n' +
-          'const CameraLandscapeRotation = { x: ' + lr.x + ', y: ' + lr.y + ', z: ' + lr.z + ' };\n' +
-          'const CameraLandscapeFOV      = ' + CameraLandscapeFOV + ';';
-        navigator.clipboard.writeText(txt).then(function () {
-          document.getElementById('camDebugCopy').textContent = 'Copied!';
-          setTimeout(function () { document.getElementById('camDebugCopy').textContent = 'Copy Constants'; }, 1500);
-        }).catch(function () { console.log(txt); });
-      });
-    })();
 
   </script>
 
