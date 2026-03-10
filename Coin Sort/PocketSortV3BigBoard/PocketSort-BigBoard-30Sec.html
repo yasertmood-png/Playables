@@ -1793,6 +1793,20 @@
       Buyable: 'Buyable',
     });
 
+    // Device quality detection (must be before config constants that use it)
+    function detectDeviceQuality() {
+      try {
+        if (navigator.deviceMemory) {
+          const ram = navigator.deviceMemory;
+          if (ram <= 4) return 'low';
+          if (ram <= 6) return 'medium';
+          return 'high';
+        }
+      } catch (e) {}
+      return 'medium'; // default to medium
+    }
+    const deviceQuality = detectDeviceQuality();
+
     // Progress bar
     const ProgressFillPerMerge = 0.40; // fraction of bar filled per merge (0–1)
     const ProgressStartLevel   = 3;    // level shown on first load
@@ -1947,14 +1961,14 @@
     const CoinShineWidth    = 0.4; // shine band half-width (0.05=thin sliver → 0.5=wide glow)
 
     // Hold shine — plays when coins are picked up
-    const CoinHoldShineEnabled  = true;  // master toggle
+    const CoinHoldShineEnabled  = (deviceQuality !== 'low');  // disabled on 4GB devices
     const CoinHoldShineDuration = 100;   // ms for one sweep across a single coin
     const CoinHoldShineStagger  = 10;    // ms delay between each coin in the stack (matches CoinHoldStagger)
     const CoinHoldShineStrength = 0.4;   // peak brightness (0..1+)
     const CoinHoldShineWidth    = 2;   // shine band half-width
 
     // Idle (looping) shine — always running on every coin
-    const CoinIdleShineEnabled    = true;  // master toggle
+    const CoinIdleShineEnabled    = (deviceQuality === 'high');  // only on 8GB+ devices
     const CoinIdleShineStrength   = 0.05;   // subtle brightness (keep well below CoinShineStrength)
     const CoinIdleShinePeriod     = 4;     // seconds per full diagonal sweep on one coin
     const CoinIdleShineWidth      = 0.15;  // band half-width (thinner than merge shine)
@@ -1978,7 +1992,7 @@
     const ExplosionRingEndScale   = 4;         // final ring diameter (world units)
     const ExplosionRingOpacity    = 0.65;       // peak ring opacity
     // ─── SPARKLE COLORS — one random entry picked per sparkle ───────────────
-    const ExplosionSparkCount     = 20;        // number of sparkles
+    const ExplosionSparkCount     = (deviceQuality === 'low' ? 10 : (deviceQuality === 'medium' ? 20 : 30));  // adaptive sparkles
     const ExplosionSparkMinDist   = 1;         // min travel distance per spark (world units)
     const ExplosionSparkMaxDist   = 4;         // max travel distance per spark (world units)
     const ExplosionSparkLifetime  = 2000;      // ms for sparkles to travel and fade
@@ -2086,8 +2100,10 @@
 
     let renderer = null;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      const useAntiAlias = (deviceQuality !== 'low');
+      const pixelRatioCap = (deviceQuality === 'low' ? 1 : (deviceQuality === 'medium' ? 1.5 : window.devicePixelRatio));
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: useAntiAlias, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
       renderer.setClearColor(0x2a6db5);
       renderer.outputEncoding = THREE.sRGBEncoding;
     } catch (err) {
@@ -3417,7 +3433,7 @@
     function _startConfetti() {
       if (_confettiRafId) { cancelAnimationFrame(_confettiRafId); _confettiRafId = null; }
       _confettiParticles = [];
-      var count = 90, spawnOver = 1200;
+      var count = (deviceQuality === 'low' ? 45 : (deviceQuality === 'medium' ? 90 : 150)), spawnOver = 1200;
       for (var i = 0; i < count; i++) {
         (function (idx) {
           setTimeout(function () {
