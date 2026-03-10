@@ -273,11 +273,17 @@
 
     summary::-webkit-details-marker{display:none;}
 
+    .folder-body{
+      display:grid;
+      gap:16px;
+      padding:14px;
+      background:var(--panel);
+    }
+
     .group-grid{
       display:grid;
       grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
       gap:16px;
-      padding:14px;
     }
 
     .card{
@@ -356,6 +362,16 @@
       border-color:#2f3c50;
     }
 
+    .card-actions .btn.share{
+      background:var(--accent-2);
+      color:#06111f;
+    }
+
+    .card-actions .btn.share.copied{
+      background:#3ccf7f;
+      color:#04120a;
+    }
+
     .empty{
       color:var(--muted);
       text-align:center;
@@ -368,6 +384,58 @@
       .player{position:static;}
     }
 
+    /* Share landing page */
+    #landing{
+      display:none;
+      min-height:100vh;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .landing-inner{
+      max-width:440px;
+      background:linear-gradient(145deg, rgba(27,34,48,.9), rgba(24,30,40,.95));
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:28px;
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    .landing-inner h2{
+      margin:0 0 6px 0;
+      font-size:20px;
+      word-break:break-all;
+    }
+
+    .landing-inner .sub{
+      color:#7a8a9a;
+      font-size:13px;
+      margin-bottom:24px;
+    }
+
+    .landing-btns{
+      display:flex;
+      gap:12px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .landing-btns .btn{
+      font-size:14px;
+      padding:12px 20px;
+    }
+
+    .back-link{
+      display:inline-block;
+      margin-top:22px;
+      color:#5a7fa8;
+      text-decoration:none;
+      font-size:13px;
+    }
+
+    .back-link:hover{color:#7fafd8;}
+
     @media (max-width: 640px){
       body{padding:20px 16px 48px;}
       .hero-text{padding:22px;}
@@ -379,7 +447,7 @@
 </head>
 
 <body>
-  <div class="page">
+  <div id="hub" class="page">
     <header class="hero">
       <div class="hero-text">
         <div class="eyebrow">Playable Hub</div>
@@ -429,6 +497,19 @@
     </main>
   </div>
 
+  <div id="landing">
+    <div class="landing-inner">
+      <div class="eyebrow">Playable Share</div>
+      <h2 id="landing-name"></h2>
+      <div class="sub">Playable Ad</div>
+      <div class="landing-btns">
+        <button id="landing-download" class="btn ghost">Download</button>
+        <button id="landing-run" class="btn">Run</button>
+      </div>
+      <a id="landing-back" href="" class="back-link">Back to hub</a>
+    </div>
+  </div>
+
 <script>
 (() => {
   const BASE = location.href.split("?")[0].replace(/[^/]*$/, "");
@@ -439,6 +520,9 @@
   const searchEl = document.getElementById("search");
   const toggleEl = document.getElementById("toggle");
   const emptyEl = document.getElementById("empty");
+
+  const hubEl = document.getElementById("hub");
+  const landingEl = document.getElementById("landing");
 
   const playerTitleEl = document.getElementById("player-title");
   const playerPathEl = document.getElementById("player-path");
@@ -458,6 +542,39 @@
     return BASE + path.split("/").map(encodeURIComponent).join("/");
   }
 
+  function makeShareURL(path){
+    return BASE + "index.html?file=" + encodeURIComponent(path);
+  }
+
+  function showLanding(filePath){
+    hubEl.style.display = "none";
+    landingEl.style.display = "flex";
+
+    const info = labelFromPath(filePath);
+    const fileUrl = toUrl(filePath);
+
+    document.title = info.file;
+    document.getElementById("landing-name").textContent = info.file;
+
+    const downloadBtn = document.getElementById("landing-download");
+    const runBtn = document.getElementById("landing-run");
+
+    downloadBtn.addEventListener("click", () => {
+      const a = document.createElement("a");
+      a.href = fileUrl;
+      a.download = info.file || "playable.html";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+
+    runBtn.addEventListener("click", () => {
+      window.open(fileUrl, "_blank", "noopener");
+    });
+
+    document.getElementById("landing-back").href = BASE + "index.html";
+  }
+
   function labelFromPath(path){
     const parts = path.split("/").filter(Boolean);
     const file = parts[parts.length - 1] || path;
@@ -468,6 +585,32 @@
   function groupFromPath(path){
     const parts = path.split("/").filter(Boolean);
     return parts[0] || "Ungrouped";
+  }
+
+  function buildTree(paths){
+    const root = { name: "", folders: new Map(), files: [] };
+    for (const path of paths){
+      const parts = path.split("/").filter(Boolean);
+      const file = parts.pop();
+      let node = root;
+      for (const part of parts){
+        if (!node.folders.has(part)){
+          node.folders.set(part, { name: part, folders: new Map(), files: [] });
+        }
+        node = node.folders.get(part);
+      }
+      if (file) node.files.push(path);
+    }
+    return root;
+  }
+
+  function countFiles(node){
+    let count = node.files.length;
+    for (const child of node.folders.values()){
+      count += countFiles(child);
+    }
+    node.count = count;
+    return count;
   }
 
   function setCount(total){
@@ -552,8 +695,27 @@
       window.open(toUrl(path), "_blank", "noopener");
     });
 
+    const shareBtn = document.createElement("button");
+    shareBtn.className = "btn share";
+    shareBtn.textContent = "Copy link";
+    shareBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const shareUrl = makeShareURL(path);
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        shareBtn.textContent = "Copied";
+        shareBtn.classList.add("copied");
+        setTimeout(() => {
+          shareBtn.textContent = "Copy link";
+          shareBtn.classList.remove("copied");
+        }, 1800);
+      }).catch(() => {
+        prompt("Copy this link:", shareUrl);
+      });
+    });
+
     actions.appendChild(playBtn);
     actions.appendChild(openBtn);
+    actions.appendChild(shareBtn);
 
     card.appendChild(thumb);
     card.appendChild(title);
@@ -581,49 +743,57 @@
     emptyEl.style.display = filtered.length ? "none" : "block";
     toggleEl.textContent = showAll ? "Show less" : "Show all";
 
-    const groupMap = new Map();
-    for (const path of displayList){
-      const groupName = groupFromPath(path);
-      if (!groupMap.has(groupName)) groupMap.set(groupName, []);
-      groupMap.get(groupName).push(path);
+    const tree = buildTree(displayList);
+    countFiles(tree);
+    const topFolders = [...tree.folders.values()].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+    );
+    if (tree.files.length){
+      topFolders.unshift({
+        name: "Ungrouped",
+        files: tree.files.slice(),
+        folders: new Map(),
+        count: tree.files.length
+      });
     }
 
-    const groups = [...groupMap.entries()].sort((a, b) =>
-      a[0].localeCompare(b[0], undefined, { sensitivity: "base" })
-    );
-
-    groups.forEach(([groupName, groupList], index) => {
-      const section = document.createElement("details");
-      section.className = "group";
-      section.dataset.group = groupName.toLowerCase();
-      if (index === 0) section.open = true;
+    function renderFolder(node, autoOpen){
+      const details = document.createElement("details");
+      details.className = "group";
+      if (autoOpen) details.open = true;
 
       const summary = document.createElement("summary");
-      summary.textContent = groupName;
+      summary.textContent = node.name;
 
       const badge = document.createElement("span");
       badge.className = "pill";
-      badge.textContent = groupList.length + " playable" + (groupList.length === 1 ? "" : "s");
+      badge.textContent = node.count + " playable" + (node.count === 1 ? "" : "s");
       summary.appendChild(badge);
 
-      const groupGrid = document.createElement("div");
-      groupGrid.className = "group-grid";
-      for (const path of groupList){
-        groupGrid.appendChild(buildCard(path));
+      const body = document.createElement("div");
+      body.className = "folder-body";
+
+      if (node.files.length){
+        const grid = document.createElement("div");
+        grid.className = "group-grid";
+        node.files
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+          .forEach(path => grid.appendChild(buildCard(path)));
+        body.appendChild(grid);
       }
 
-      section.appendChild(summary);
-      section.appendChild(groupGrid);
-      gridEl.appendChild(section);
-    });
+      const childFolders = [...node.folders.values()].sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+      );
+      childFolders.forEach((child) => body.appendChild(renderFolder(child, false)));
 
-    gridEl.querySelectorAll("details.group").forEach(details => {
-      details.addEventListener("toggle", () => {
-        if (!details.open) return;
-        gridEl.querySelectorAll("details.group").forEach(other => {
-          if (other !== details) other.open = false;
-        });
-      });
+      details.appendChild(summary);
+      details.appendChild(body);
+      return details;
+    }
+
+    topFolders.forEach((folder, index) => {
+      gridEl.appendChild(renderFolder(folder, index === 0));
     });
 
     if (filtered.length <= MAX_VISIBLE){
@@ -664,6 +834,20 @@
     });
 
     searchEl.addEventListener("input", applySearch);
+
+    if (!gridEl.dataset.accordion){
+      gridEl.dataset.accordion = "true";
+      gridEl.addEventListener("toggle", (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLDetailsElement)) return;
+        if (!target.open) return;
+        const parent = target.parentElement;
+        if (!parent) return;
+        [...parent.children].forEach((child) => {
+          if (child !== target && child.tagName === "DETAILS") child.open = false;
+        });
+      });
+    }
   }
 
   async function loadFiles(){
@@ -680,6 +864,12 @@
       emptyEl.style.display = "block";
       emptyEl.textContent = String(err.message || err);
     }
+  }
+
+  const fileParam = new URLSearchParams(location.search).get("file");
+  if (fileParam){
+    showLanding(fileParam);
+    return;
   }
 
   initActions();
