@@ -235,7 +235,33 @@
       font-size:15px;
     }
 
-    .grid{
+    .groups{
+      display:grid;
+      gap:22px;
+    }
+
+    .group{
+      display:grid;
+      gap:12px;
+    }
+
+    .group-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .group-title{
+      margin:0;
+      font-size:16px;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+      color:#c7d6e6;
+    }
+
+    .group-grid{
       display:grid;
       grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
       gap:16px;
@@ -382,7 +408,7 @@
       </section>
 
       <section>
-        <div class="grid" id="grid"></div>
+        <div class="groups" id="grid"></div>
         <div class="empty" id="empty" style="display:none">No playables match this search.</div>
       </section>
     </main>
@@ -424,6 +450,11 @@
     return { file, folder };
   }
 
+  function groupFromPath(path){
+    const parts = path.split("/").filter(Boolean);
+    return parts[0] || "Ungrouped";
+  }
+
   function setCount(total){
     countEl.textContent = total + " playable" + (total === 1 ? "" : "s");
   }
@@ -463,76 +494,116 @@
     playerPlaceholderEl.style.display = "none";
   }
 
+  function buildCard(path){
+    const info = labelFromPath(path);
+    const card = document.createElement("div");
+    card.className = "card";
+    card.tabIndex = 0;
+    card.setAttribute("role", "button");
+    card.setAttribute("aria-label", "Load playable " + info.file);
+
+    const thumb = document.createElement("div");
+    thumb.className = "thumb";
+    const thumbLabel = document.createElement("div");
+    thumbLabel.className = "thumb-label";
+    thumbLabel.textContent = groupFromPath(path);
+    thumb.appendChild(thumbLabel);
+
+    const title = document.createElement("p");
+    title.className = "card-title";
+    title.textContent = info.file;
+
+    const pathText = document.createElement("p");
+    pathText.className = "card-path";
+    pathText.textContent = info.folder || "Root";
+
+    const actions = document.createElement("div");
+    actions.className = "card-actions";
+
+    const playBtn = document.createElement("button");
+    playBtn.className = "btn";
+    playBtn.textContent = "Play";
+    playBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setCurrent(path);
+      playerFrameEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    const openBtn = document.createElement("button");
+    openBtn.className = "btn ghost";
+    openBtn.textContent = "New tab";
+    openBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      window.open(toUrl(path), "_blank", "noopener");
+    });
+
+    actions.appendChild(playBtn);
+    actions.appendChild(openBtn);
+
+    card.appendChild(thumb);
+    card.appendChild(title);
+    card.appendChild(pathText);
+    card.appendChild(actions);
+
+    card.addEventListener("click", () => {
+      setCurrent(path);
+      playerFrameEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " "){
+        e.preventDefault();
+        setCurrent(path);
+        playerFrameEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+
+    return card;
+  }
+
   function render(){
     const displayList = showAll ? filtered : filtered.slice(0, MAX_VISIBLE);
     gridEl.innerHTML = "";
     emptyEl.style.display = filtered.length ? "none" : "block";
     toggleEl.textContent = showAll ? "Show less" : "Show all";
 
+    const groupMap = new Map();
     for (const path of displayList){
-      const info = labelFromPath(path);
-      const card = document.createElement("div");
-      card.className = "card";
-      card.tabIndex = 0;
-      card.setAttribute("role", "button");
-      card.setAttribute("aria-label", "Load playable " + info.file);
+      const groupName = groupFromPath(path);
+      if (!groupMap.has(groupName)) groupMap.set(groupName, []);
+      groupMap.get(groupName).push(path);
+    }
 
-      const thumb = document.createElement("div");
-      thumb.className = "thumb";
-      const thumbLabel = document.createElement("div");
-      thumbLabel.className = "thumb-label";
-      thumbLabel.textContent = info.folder ? info.folder.split(" / ")[0] : "Playable";
-      thumb.appendChild(thumbLabel);
+    const groups = [...groupMap.entries()].sort((a, b) =>
+      a[0].localeCompare(b[0], undefined, { sensitivity: "base" })
+    );
 
-      const title = document.createElement("p");
-      title.className = "card-title";
-      title.textContent = info.file;
+    for (const [groupName, groupList] of groups){
+      const section = document.createElement("div");
+      section.className = "group";
 
-      const pathText = document.createElement("p");
-      pathText.className = "card-path";
-      pathText.textContent = info.folder || "Root";
+      const head = document.createElement("div");
+      head.className = "group-head";
 
-      const actions = document.createElement("div");
-      actions.className = "card-actions";
+      const title = document.createElement("h3");
+      title.className = "group-title";
+      title.textContent = groupName;
 
-      const playBtn = document.createElement("button");
-      playBtn.className = "btn";
-      playBtn.textContent = "Play";
-      playBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        setCurrent(path);
-        playerFrameEl.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      const badge = document.createElement("span");
+      badge.className = "pill";
+      badge.textContent = groupList.length + " playable" + (groupList.length === 1 ? "" : "s");
 
-      const openBtn = document.createElement("button");
-      openBtn.className = "btn ghost";
-      openBtn.textContent = "New tab";
-      openBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        window.open(toUrl(path), "_blank", "noopener");
-      });
+      head.appendChild(title);
+      head.appendChild(badge);
 
-      actions.appendChild(playBtn);
-      actions.appendChild(openBtn);
+      const groupGrid = document.createElement("div");
+      groupGrid.className = "group-grid";
+      for (const path of groupList){
+        groupGrid.appendChild(buildCard(path));
+      }
 
-      card.appendChild(thumb);
-      card.appendChild(title);
-      card.appendChild(pathText);
-      card.appendChild(actions);
-
-      card.addEventListener("click", () => {
-        setCurrent(path);
-        playerFrameEl.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-      card.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " "){
-          e.preventDefault();
-          setCurrent(path);
-          playerFrameEl.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
-
-      gridEl.appendChild(card);
+      section.appendChild(head);
+      section.appendChild(groupGrid);
+      gridEl.appendChild(section);
     }
 
     if (filtered.length <= MAX_VISIBLE){
