@@ -1858,7 +1858,7 @@
     const SlotSize = {
       [SlotType.Empty]:      { width: 0.62, height: 1.45 },
       [SlotType.Free]:       { width: 0.65, height: 1.6 },
-      [SlotType.Closed]:     { width: 0.65, height: 1.6 },
+      [SlotType.Closed]:     { width: 0.65, height: 1.4 },
       [SlotType.RentClosed]: { width: 0.65, height: 1.72 },
       [SlotType.RentOpened]: { width: 0.65, height: 1.72 },
       [SlotType.Buyable]:    { width: 0.65, height: 1.72 },
@@ -3536,9 +3536,10 @@
           .easing(TWEEN.Easing.Quadratic.In)
           .onUpdate(function () { closedSlot.mesh.scale.set(_slotScale.v, _slotScale.v, _slotScale.v); })
           .onComplete(function () {
-            // Switch slot texture to Empty and reset scale
+            // Switch slot texture and geometry to Empty and reset scale
             closedSlot.type = SlotType.Empty;
             closedSlot.mesh.position.set(closedSlot.mesh.position.x, yPosition, closedSlot.mesh.position.z);
+            closedSlot.mesh.geometry = slotGeometries[SlotType.Empty];
             closedSlot.mesh.material.map = slotTextures[SlotType.Empty];
             closedSlot.mesh.material.needsUpdate = true;
             closedSlot.mesh.scale.set(1, 1, 1);
