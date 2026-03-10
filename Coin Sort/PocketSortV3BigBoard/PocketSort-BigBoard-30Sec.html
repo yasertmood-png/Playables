@@ -1795,17 +1795,46 @@
 
     // Device quality detection (must be before config constants that use it)
     function detectDeviceQuality() {
+      // navigator.deviceMemory reports only powers of 2: 0.25, 0.5, 1, 2, 4, 8
       try {
         if (navigator.deviceMemory) {
           const ram = navigator.deviceMemory;
-          if (ram <= 4) return 'low';
-          if (ram <= 6) return 'medium';
-          return 'high';
+          if (ram <= 2) return 'low';   // 0.25 / 0.5 / 1 / 2 GB
+          if (ram <= 4) return 'medium'; // 4 GB
+          return 'high';                 // 8 GB+
         }
       } catch (e) {}
-      return 'medium'; // default to medium
+      return 'medium'; // default when deviceMemory is unsupported (Safari, Firefox)
     }
     const deviceQuality = detectDeviceQuality();
+
+    // ── Global quality settings ──────────────────────────────────────────────
+    // Edit values here to tune per-tier quality. Mid and high share the same
+    // high-quality visuals; only particles/confetti are capped at mid values.
+    const QualitySettings = {
+      low: {
+        coinHoldShine:       false,
+        coinIdleShine:       false,
+        antiAlias:           false,
+        pixelRatioCap:       1.5,
+        anisotropy:          4,
+        explosionSparkCount: 10,
+        confettiCount:       45,
+      },
+      medium: {
+        coinHoldShine:       true,
+        coinIdleShine:       true,
+        antiAlias:           true,
+        pixelRatioCap:       Infinity, // native device pixel ratio
+        anisotropy:          16,
+        explosionSparkCount: 20,       // capped at mid
+        confettiCount:       90,       // capped at mid
+      },
+    };
+    QualitySettings.high = QualitySettings.medium; // high = medium settings
+    const QS = QualitySettings[deviceQuality] || QualitySettings.medium;
+    // ────────────────────────────────────────────────────────────────────────
+
 
     // Progress bar
     const ProgressFillPerMerge = 0.40; // fraction of bar filled per merge (0–1)
@@ -1961,14 +1990,14 @@
     const CoinShineWidth    = 0.4; // shine band half-width (0.05=thin sliver → 0.5=wide glow)
 
     // Hold shine — plays when coins are picked up
-    const CoinHoldShineEnabled  = (deviceQuality !== 'low');  // disabled on 4GB devices
+    const CoinHoldShineEnabled  = QS.coinHoldShine;
     const CoinHoldShineDuration = 100;   // ms for one sweep across a single coin
     const CoinHoldShineStagger  = 10;    // ms delay between each coin in the stack (matches CoinHoldStagger)
     const CoinHoldShineStrength = 0.4;   // peak brightness (0..1+)
     const CoinHoldShineWidth    = 2;   // shine band half-width
 
     // Idle (looping) shine — always running on every coin
-    const CoinIdleShineEnabled    = (deviceQuality === 'high');  // only on 8GB+ devices
+    const CoinIdleShineEnabled    = QS.coinIdleShine;
     const CoinIdleShineStrength   = 0.05;   // subtle brightness (keep well below CoinShineStrength)
     const CoinIdleShinePeriod     = 4;     // seconds per full diagonal sweep on one coin
     const CoinIdleShineWidth      = 0.15;  // band half-width (thinner than merge shine)
@@ -1992,7 +2021,7 @@
     const ExplosionRingEndScale   = 4;         // final ring diameter (world units)
     const ExplosionRingOpacity    = 0.65;       // peak ring opacity
     // ─── SPARKLE COLORS — one random entry picked per sparkle ───────────────
-    const ExplosionSparkCount     = (deviceQuality === 'low' ? 10 : (deviceQuality === 'medium' ? 20 : 30));  // adaptive sparkles
+    const ExplosionSparkCount     = QS.explosionSparkCount;
     const ExplosionSparkMinDist   = 1;         // min travel distance per spark (world units)
     const ExplosionSparkMaxDist   = 4;         // max travel distance per spark (world units)
     const ExplosionSparkLifetime  = 2000;      // ms for sparkles to travel and fade
@@ -2100,10 +2129,8 @@
 
     let renderer = null;
     try {
-      const useAntiAlias = (deviceQuality !== 'low');
-      const pixelRatioCap = (deviceQuality === 'low' ? 1 : (deviceQuality === 'medium' ? 1.5 : window.devicePixelRatio));
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: useAntiAlias, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap));
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: QS.antiAlias, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, QS.pixelRatioCap));
       renderer.setClearColor(0x2a6db5);
       renderer.outputEncoding = THREE.sRGBEncoding;
     } catch (err) {
@@ -2403,8 +2430,14 @@
       6: loadB64Texture(ASSETS.coinTexture6),
       7: loadB64Texture(ASSETS.coinTexture7),
     };
-    // Flip coin textures on Y axis
-    Object.values(coinTextures).forEach(function (t) { t.flipY = false; t.needsUpdate = true; });
+    // Flip coin textures on Y axis and apply anisotropic filtering
+    var _maxAniso = renderer ? renderer.capabilities.getMaxAnisotropy() : 1;
+    var _aniso = Math.min(_maxAniso, QS.anisotropy);
+    Object.values(coinTextures).forEach(function (t) {
+      t.flipY = false;
+      t.anisotropy = _aniso;
+      t.needsUpdate = true;
+    });
 
 
     const coinMaterialTuning = {
@@ -3433,7 +3466,7 @@
     function _startConfetti() {
       if (_confettiRafId) { cancelAnimationFrame(_confettiRafId); _confettiRafId = null; }
       _confettiParticles = [];
-      var count = (deviceQuality === 'low' ? 45 : (deviceQuality === 'medium' ? 90 : 150)), spawnOver = 1200;
+      var count = QS.confettiCount, spawnOver = 1200;
       for (var i = 0; i < count; i++) {
         (function (idx) {
           setTimeout(function () {

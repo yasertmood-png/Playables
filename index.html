@@ -40,7 +40,7 @@
     header.hero{
       display:grid;
       gap:24px;
-      grid-template-columns:1.1fr .9fr;
+      grid-template-columns:1fr;
       align-items:stretch;
       margin-bottom:28px;
     }
@@ -109,35 +109,6 @@
       font-size:13px;
     }
 
-    .hero-card{
-      background:linear-gradient(145deg, rgba(27,34,48,.85), rgba(24,30,40,.95));
-      border:1px solid var(--border);
-      border-radius:18px;
-      padding:24px;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      gap:16px;
-      box-shadow:var(--shadow);
-    }
-
-    .hero-card h2{
-      margin:0;
-      font-size:20px;
-    }
-
-    .hero-card p{
-      margin:0;
-      color:var(--muted);
-      font-size:14px;
-    }
-
-    .hero-actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
     .btn{
       background:var(--accent);
       color:#0b1513;
@@ -147,6 +118,9 @@
       font-weight:700;
       cursor:pointer;
       transition:transform .15s ease, box-shadow .15s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
     }
 
     .btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(90,208,166,.25);}
@@ -165,6 +139,25 @@
       color:var(--text);
       border:1px solid var(--border);
       box-shadow:none;
+    }
+
+    .btn .icon{
+      width:16px;
+      height:16px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      flex:0 0 auto;
+    }
+
+    .btn .icon svg{
+      width:16px;
+      height:16px;
+      stroke:currentColor;
+      fill:none;
+      stroke-width:2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
     }
 
     main{
@@ -495,16 +488,12 @@
             <span style="font-size:12px;color:var(--muted);">Search</span>
             <input id="search" placeholder="Title or folder" />
           </label>
-          <button id="toggle" class="btn ghost">Show all</button>
-        </div>
-      </div>
-
-      <div class="hero-card">
-        <h2>Ready to test?</h2>
-        <p>Pick a playable card to load it in the player. Use fullscreen to demo on a device or open in a new tab.</p>
-        <div class="hero-actions">
-          <button id="fullscreen" class="btn" disabled>Fullscreen</button>
-          <button id="newtab" class="btn ghost" disabled>Open in new tab</button>
+          <button id="toggle" class="btn ghost">
+            <span class="icon">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </span>
+            <span>Show all</span>
+          </button>
         </div>
       </div>
     </header>
@@ -518,9 +507,36 @@
             <div id="player-path" class="player-sub">No playable loaded yet.</div>
           </div>
           <div class="player-actions">
-            <button id="reload" class="btn ghost" disabled>Reload</button>
-            <button id="rotate" class="btn ghost" disabled>Rotate</button>
-            <button id="close" class="btn ghost" disabled>Close</button>
+            <button id="reload" class="btn ghost" disabled>
+              <span class="icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v6h-6"/></svg>
+              </span>
+              <span>Reload</span>
+            </button>
+            <button id="rotate" class="btn ghost" disabled>
+              <span class="icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 2H8v4"/><path d="M8 22h8v-4"/><path d="M8 6h8a4 4 0 0 1 4 4v1"/><path d="M16 18H8a4 4 0 0 1-4-4v-1"/></svg>
+              </span>
+              <span>Rotate</span>
+            </button>
+            <button id="fullscreen" class="btn ghost" disabled>
+              <span class="icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5v4"/><path d="M15 3h4v4"/><path d="M9 21H5v-4"/><path d="M15 21h4v-4"/></svg>
+              </span>
+              <span>Fullscreen</span>
+            </button>
+            <button id="newtab" class="btn ghost" disabled>
+              <span class="icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v7H3V3h7"/></svg>
+              </span>
+              <span>New tab</span>
+            </button>
+            <button id="close" class="btn ghost" disabled>
+              <span class="icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+              </span>
+              <span>Close</span>
+            </button>
           </div>
         </div>
         <div class="player-controls">
@@ -544,13 +560,23 @@
   </div>
 
   <div id="landing">
-    <div class="landing-inner">
+      <div class="landing-inner">
       <div class="eyebrow">Playable Share</div>
       <h2 id="landing-name"></h2>
       <div class="sub">Playable Ad</div>
       <div class="landing-btns">
-        <button id="landing-download" class="btn ghost">Download</button>
-        <button id="landing-run" class="btn">Run</button>
+        <button id="landing-download" class="btn ghost">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+          </span>
+          <span>Download</span>
+        </button>
+        <button id="landing-run" class="btn">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>
+          </span>
+          <span>Run</span>
+        </button>
       </div>
       <a id="landing-back" href="" class="back-link">Back to hub</a>
     </div>
@@ -598,6 +624,21 @@
 
   function makeShareURL(path){
     return BASE + "index.html?file=" + encodeURIComponent(path);
+  }
+
+  function iconSvg(name){
+    switch (name){
+      case "play":
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5l11 7-11 7z"/></svg>';
+      case "newtab":
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v7H3V3h7"/></svg>';
+      case "share":
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.7 11.1l6.6-3.2"/><path d="M8.7 12.9l6.6 3.2"/></svg>';
+      case "list":
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+      default:
+        return "";
+    }
   }
 
   function showLanding(filePath){
@@ -669,6 +710,11 @@
 
   function setCount(total){
     countEl.textContent = total + " playable" + (total === 1 ? "" : "s");
+  }
+
+  function setToggleLabel(){
+    const label = showAll ? "Show less" : "Show all";
+    toggleEl.innerHTML = '<span class="icon">' + iconSvg("list") + '</span><span>' + label + '</span>';
   }
 
   function setCurrent(path){
@@ -772,7 +818,7 @@
 
     const playBtn = document.createElement("button");
     playBtn.className = "btn";
-    playBtn.textContent = "Play";
+    playBtn.innerHTML = '<span class="icon">' + iconSvg("play") + '</span><span>Play</span>';
     playBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       setCurrent(path);
@@ -781,7 +827,7 @@
 
     const openBtn = document.createElement("button");
     openBtn.className = "btn ghost";
-    openBtn.textContent = "New tab";
+    openBtn.innerHTML = '<span class="icon">' + iconSvg("newtab") + '</span><span>New tab</span>';
     openBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       window.open(toUrl(path), "_blank", "noopener");
@@ -789,15 +835,15 @@
 
     const shareBtn = document.createElement("button");
     shareBtn.className = "btn share";
-    shareBtn.textContent = "Copy link";
+    shareBtn.innerHTML = '<span class="icon">' + iconSvg("share") + '</span><span>Copy link</span>';
     shareBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       const shareUrl = makeShareURL(path);
       navigator.clipboard.writeText(shareUrl).then(() => {
-        shareBtn.textContent = "Copied";
+        shareBtn.innerHTML = '<span class="icon">' + iconSvg("share") + '</span><span>Copied</span>';
         shareBtn.classList.add("copied");
         setTimeout(() => {
-          shareBtn.textContent = "Copy link";
+          shareBtn.innerHTML = '<span class="icon">' + iconSvg("share") + '</span><span>Copy link</span>';
           shareBtn.classList.remove("copied");
         }, 1800);
       }).catch(() => {
@@ -833,7 +879,7 @@
     const displayList = filtered.slice();
     gridEl.innerHTML = "";
     emptyEl.style.display = filtered.length ? "none" : "block";
-    toggleEl.textContent = showAll ? "Show less" : "Show all";
+    setToggleLabel();
 
     const tree = buildTree(displayList);
     countFiles(tree);
