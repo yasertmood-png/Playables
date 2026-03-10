@@ -2608,6 +2608,8 @@
         tutorialStepIndex++;
         if (tutorialStepIndex >= TutorialSteps.length) {
           endTutorial();
+          showInstallCta();
+          openStore();
           return;
         }
       }
