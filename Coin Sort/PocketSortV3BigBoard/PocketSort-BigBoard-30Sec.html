@@ -1894,15 +1894,17 @@
     // Camera - portrait orientation (orthographic)
     const CameraPortraitPosition  = { x: 0, y: 8.04, z: 3.5 };
     const CameraPortraitRotation  = { x: -1.116, y: 0, z: 0 };
-    let   CameraPortraitOrthoSize = 4.95;  // ortho frustum half-height (tune in debug panel)
+    let   CameraPortraitOrthoSize = 5.5;  // ortho frustum half-height (tune in debug panel)
 
     // Camera - landscape orientation
     const CameraLandscapePosition = { x: 0, y: 11.09, z: 6.67 };
     const CameraLandscapeRotation = { x: -1.096, y: 0, z: 0 };
     const CameraLandscapeFOV      = 33;
 
-    // Extra breathing room added around the table when auto-fitting FOV (0 = tight, 0.1 = 10% border)
-    const CameraFitPadding = 0.2;
+    // Extra breathing room around the table per orientation (0 = tight fit, 0.2 = 20% border).
+    // Increase to zoom out, decrease to zoom in.
+    const CameraFitPaddingPortrait  = -0.32;
+    const CameraFitPaddingLandscape = 0.0;
 
     // Pixel distance below the board's bottom edge where the deal button sits, per orientation.
     // 0 = flush with board end, positive = further below, negative = overlaps the board.
@@ -2183,6 +2185,7 @@
       const rot = isPortrait ? CameraPortraitRotation : CameraLandscapeRotation;
       if (isPortrait) {
         camera = orthoCamera;
+        // Set a temporary size so updateMatrixWorld has something valid, then auto-fit.
         const hs = CameraPortraitOrthoSize;
         camera.left = -hs * aspect; camera.right = hs * aspect;
         camera.top  =  hs;          camera.bottom = -hs;
@@ -2194,6 +2197,10 @@
       camera.position.set(pos.x, pos.y, pos.z);
       camera.rotation.set(rot.x, rot.y, rot.z);
       camera.updateProjectionMatrix();
+      camera.updateMatrixWorld(true);
+      // Auto-fit so the full board is always visible regardless of screen size/aspect.
+      if (isPortrait) fitOrthoToBoard();
+      else            fitBoardInView();
     }
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
@@ -3798,33 +3805,51 @@
       dealButton.style.top = screenY + 'px';
     }
 
-    // Adjusts camera.fov so the table always fits inside the viewport.
-    // Camera position and rotation are never touched; only FOV changes.
-    function fitBoardInView() {
-      camera.updateMatrixWorld();
-      var halfW = TABLE_WIDTH  / 2 * (1 + CameraFitPadding);
-      var halfH = TABLE_HEIGHT / 2 * (1 + CameraFitPadding);
-      // Four corners of the table on the ground plane (Y=0)
-      var corners = [
+    // Returns the four padded table corners on the ground plane.
+    function _tableCornersWorld(padding) {
+      var halfW = TABLE_WIDTH  / 2 * (1 + padding);
+      var halfH = TABLE_HEIGHT / 2 * (1 + padding);
+      return [
         new THREE.Vector3(-halfW, 0, -halfH),
         new THREE.Vector3( halfW, 0, -halfH),
         new THREE.Vector3(-halfW, 0,  halfH),
         new THREE.Vector3( halfW, 0,  halfH),
       ];
-      var maxTanY = 0;
-      var maxTanX = 0;
+    }
+
+    // Adjusts perspective camera FOV so the table always fits inside the viewport.
+    function fitBoardInView() {
+      camera.updateMatrixWorld();
+      var corners = _tableCornersWorld(CameraFitPaddingLandscape);
+      var maxTanY = 0, maxTanX = 0;
       for (var i = 0; i < corners.length; i++) {
         var c = corners[i].clone().applyMatrix4(camera.matrixWorldInverse);
-        var depth = -c.z; // positive = in front of camera
+        var depth = -c.z;
         if (depth <= 0) continue;
         maxTanY = Math.max(maxTanY, Math.abs(c.y) / depth);
         maxTanX = Math.max(maxTanX, Math.abs(c.x) / depth);
       }
-      // Vertical FOV required to fit vertical extent
       var fovFromY = 2 * Math.atan(maxTanY) * (180 / Math.PI);
-      // Vertical FOV required so horizontal extent fits within the aspect-scaled horizontal FOV
       var fovFromX = 2 * Math.atan(maxTanX / camera.aspect) * (180 / Math.PI);
       camera.fov = Math.max(fovFromY, fovFromX);
+      camera.updateProjectionMatrix();
+    }
+
+    // Adjusts ortho camera size so the table always fits inside the viewport.
+    function fitOrthoToBoard() {
+      camera.updateMatrixWorld();
+      var aspect = window.innerWidth / window.innerHeight;
+      var corners = _tableCornersWorld(CameraFitPaddingPortrait);
+      var maxExtY = 0, maxExtX = 0;
+      for (var i = 0; i < corners.length; i++) {
+        var c = corners[i].clone().applyMatrix4(camera.matrixWorldInverse);
+        maxExtY = Math.max(maxExtY, Math.abs(c.y));
+        maxExtX = Math.max(maxExtX, Math.abs(c.x));
+      }
+      // hs must cover both vertical and horizontal extents
+      var hs = Math.max(maxExtY, maxExtX / aspect);
+      camera.left = -hs * aspect; camera.right = hs * aspect;
+      camera.top  =  hs;          camera.bottom = -hs;
       camera.updateProjectionMatrix();
     }
 
