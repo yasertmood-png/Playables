@@ -209,6 +209,31 @@
       flex-wrap:wrap;
     }
 
+    .player-controls{
+      margin:-6px 0 16px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-size:12px;
+    }
+
+    .size-control{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      background:var(--panel-2);
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:6px 10px;
+    }
+
+    .size-control input[type="range"]{
+      accent-color:var(--accent-2);
+      width:140px;
+    }
+
     .player-frame{
       position:relative;
       background:var(--panel-2);
@@ -217,6 +242,16 @@
       height:min(68vh, 720px);
       min-height:320px;
       overflow:hidden;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .player-stage{
+      background:#000;
+      border-radius:12px;
+      overflow:hidden;
+      box-shadow:0 14px 40px rgba(0,0,0,.35);
     }
 
     .player-frame iframe{
@@ -252,7 +287,7 @@
     }
 
     .group[open] summary{
-      background:var(--panel-2);
+      background:linear-gradient(135deg, rgba(69,163,255,.18), rgba(90,208,166,.12));
     }
 
     summary{
@@ -269,6 +304,7 @@
       text-transform:uppercase;
       color:#c7d6e6;
       border-bottom:1px solid var(--border);
+      border-left:4px solid var(--accent-2);
     }
 
     summary::-webkit-details-marker{display:none;}
@@ -482,8 +518,18 @@
             <div id="player-path" class="player-sub">No playable loaded yet.</div>
           </div>
           <div class="player-actions">
+            <button id="reload" class="btn ghost" disabled>Reload</button>
+            <button id="rotate" class="btn ghost" disabled>Rotate</button>
             <button id="close" class="btn ghost" disabled>Close</button>
           </div>
+        </div>
+        <div class="player-controls">
+          <div class="size-control">
+            <span>Preview size</span>
+            <input id="size-range" type="range" min="60" max="100" step="5" value="90" />
+            <span id="size-value">90%</span>
+          </div>
+          <span id="orientation-label">Portrait</span>
         </div>
         <div class="player-frame" id="player-frame">
           <div class="player-placeholder" id="player-placeholder">Pick a playable from the grid to launch it here.</div>
@@ -531,12 +577,20 @@
   const closeBtn = document.getElementById("close");
   const fullscreenBtn = document.getElementById("fullscreen");
   const newTabBtn = document.getElementById("newtab");
+  const reloadBtn = document.getElementById("reload");
+  const rotateBtn = document.getElementById("rotate");
+  const sizeRange = document.getElementById("size-range");
+  const sizeValue = document.getElementById("size-value");
+  const orientationLabel = document.getElementById("orientation-label");
 
   let files = [];
   let filtered = [];
   let showAll = false;
   let currentPath = "";
   let iframe = null;
+  let playerStage = null;
+  let orientation = "portrait";
+  let scale = 0.9;
 
   function toUrl(path){
     return BASE + path.split("/").map(encodeURIComponent).join("/");
@@ -627,10 +681,16 @@
       closeBtn.disabled = true;
       newTabBtn.disabled = true;
       fullscreenBtn.disabled = true;
+      reloadBtn.disabled = true;
+      rotateBtn.disabled = true;
       if (iframe){
         iframe.src = "about:blank";
         iframe.remove();
         iframe = null;
+      }
+      if (playerStage){
+        playerStage.remove();
+        playerStage = null;
       }
       playerPlaceholderEl.style.display = "flex";
       return;
@@ -641,15 +701,47 @@
     closeBtn.disabled = false;
     newTabBtn.disabled = false;
     fullscreenBtn.disabled = false;
+    reloadBtn.disabled = false;
+    rotateBtn.disabled = false;
+
+    if (!playerStage){
+      playerStage = document.createElement("div");
+      playerStage.className = "player-stage";
+      playerFrameEl.appendChild(playerStage);
+    }
 
     if (!iframe){
       iframe = document.createElement("iframe");
       iframe.allow = "fullscreen; autoplay; gamepad";
       iframe.setAttribute("allowfullscreen", "");
-      playerFrameEl.appendChild(iframe);
+      playerStage.appendChild(iframe);
     }
     iframe.src = toUrl(path);
     playerPlaceholderEl.style.display = "none";
+    updateStage();
+  }
+
+  function updateStage(){
+    if (!playerStage) return;
+    const rect = playerFrameEl.getBoundingClientRect();
+    const maxW = Math.max(0, rect.width - 24);
+    const maxH = Math.max(0, rect.height - 24);
+    const aspect = orientation === "portrait" ? 9 / 16 : 16 / 9;
+
+    let width = maxW;
+    let height = width / aspect;
+    if (height > maxH){
+      height = maxH;
+      width = height * aspect;
+    }
+
+    width *= scale;
+    height *= scale;
+
+    playerStage.style.width = Math.max(200, Math.round(width)) + "px";
+    playerStage.style.height = Math.max(200, Math.round(height)) + "px";
+    orientationLabel.textContent = orientation === "portrait" ? "Portrait" : "Landscape";
+    sizeValue.textContent = Math.round(scale * 100) + "%";
   }
 
   function buildCard(path){
@@ -738,7 +830,7 @@
   }
 
   function render(){
-    const displayList = showAll ? filtered : filtered.slice(0, MAX_VISIBLE);
+    const displayList = filtered.slice();
     gridEl.innerHTML = "";
     emptyEl.style.display = filtered.length ? "none" : "block";
     toggleEl.textContent = showAll ? "Show less" : "Show all";
@@ -757,13 +849,16 @@
       });
     }
 
-    function renderFolder(node, autoOpen){
+    const accentColors = ["#5ad0a6", "#45a3ff", "#f2c14e", "#ff7a8a", "#9b6dff"];
+
+    function renderFolder(node, autoOpen, depth = 0){
       const details = document.createElement("details");
       details.className = "group";
       if (autoOpen) details.open = true;
 
       const summary = document.createElement("summary");
       summary.textContent = node.name;
+      summary.style.borderLeftColor = accentColors[depth % accentColors.length];
 
       const badge = document.createElement("span");
       badge.className = "pill";
@@ -776,24 +871,25 @@
       if (node.files.length){
         const grid = document.createElement("div");
         grid.className = "group-grid";
-        node.files
+        const list = node.files
           .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
-          .forEach(path => grid.appendChild(buildCard(path)));
+        const visibleFiles = showAll ? list : list.slice(0, MAX_VISIBLE);
+        visibleFiles.forEach(path => grid.appendChild(buildCard(path)));
         body.appendChild(grid);
       }
 
       const childFolders = [...node.folders.values()].sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
       );
-      childFolders.forEach((child) => body.appendChild(renderFolder(child, false)));
+      childFolders.forEach((child) => body.appendChild(renderFolder(child, false, depth + 1)));
 
       details.appendChild(summary);
       details.appendChild(body);
       return details;
     }
 
-    topFolders.forEach((folder, index) => {
-      gridEl.appendChild(renderFolder(folder, index === 0));
+    topFolders.forEach((folder) => {
+      gridEl.appendChild(renderFolder(folder, false));
     });
 
     if (filtered.length <= MAX_VISIBLE){
@@ -817,6 +913,25 @@
     });
 
     closeBtn.addEventListener("click", () => setCurrent(""));
+
+    reloadBtn.addEventListener("click", () => {
+      if (!iframe || !currentPath) return;
+      try{
+        iframe.contentWindow.location.reload();
+      } catch {
+        iframe.src = toUrl(currentPath);
+      }
+    });
+
+    rotateBtn.addEventListener("click", () => {
+      orientation = orientation === "portrait" ? "landscape" : "portrait";
+      updateStage();
+    });
+
+    sizeRange.addEventListener("input", () => {
+      scale = Math.max(0.6, Math.min(1, Number(sizeRange.value) / 100));
+      updateStage();
+    });
 
     fullscreenBtn.addEventListener("click", () => {
       if (!currentPath) return;
@@ -874,6 +989,11 @@
 
   initActions();
   loadFiles();
+  updateStage();
+
+  window.addEventListener("resize", () => {
+    updateStage();
+  });
 })();
 </script>
 </body>
