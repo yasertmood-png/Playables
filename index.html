@@ -170,6 +170,8 @@
     main{
       display:grid;
       gap:26px;
+      grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+      align-items:start;
     }
 
     .player{
@@ -178,6 +180,8 @@
       border-radius:18px;
       padding:20px;
       box-shadow:var(--shadow);
+      position:sticky;
+      top:20px;
     }
 
     .player-head{
@@ -237,34 +241,43 @@
 
     .groups{
       display:grid;
-      gap:22px;
+      gap:16px;
     }
 
     .group{
-      display:grid;
-      gap:12px;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:16px;
+      overflow:hidden;
     }
 
-    .group-head{
+    .group[open] summary{
+      background:var(--panel-2);
+    }
+
+    summary{
+      list-style:none;
+      cursor:pointer;
+      padding:12px 14px;
       display:flex;
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .group-title{
-      margin:0;
-      font-size:16px;
+      font-weight:700;
+      font-size:14px;
       letter-spacing:.04em;
       text-transform:uppercase;
       color:#c7d6e6;
+      border-bottom:1px solid var(--border);
     }
+
+    summary::-webkit-details-marker{display:none;}
 
     .group-grid{
       display:grid;
       grid-template-columns:repeat(auto-fit, minmax(190px, 1fr));
       gap:16px;
+      padding:14px;
     }
 
     .card{
@@ -351,6 +364,8 @@
 
     @media (max-width: 960px){
       header.hero{grid-template-columns:1fr;}
+      main{grid-template-columns:1fr;}
+      .player{position:static;}
     }
 
     @media (max-width: 640px){
@@ -577,23 +592,19 @@
       a[0].localeCompare(b[0], undefined, { sensitivity: "base" })
     );
 
-    for (const [groupName, groupList] of groups){
-      const section = document.createElement("div");
+    groups.forEach(([groupName, groupList], index) => {
+      const section = document.createElement("details");
       section.className = "group";
+      section.dataset.group = groupName.toLowerCase();
+      if (index === 0) section.open = true;
 
-      const head = document.createElement("div");
-      head.className = "group-head";
-
-      const title = document.createElement("h3");
-      title.className = "group-title";
-      title.textContent = groupName;
+      const summary = document.createElement("summary");
+      summary.textContent = groupName;
 
       const badge = document.createElement("span");
       badge.className = "pill";
       badge.textContent = groupList.length + " playable" + (groupList.length === 1 ? "" : "s");
-
-      head.appendChild(title);
-      head.appendChild(badge);
+      summary.appendChild(badge);
 
       const groupGrid = document.createElement("div");
       groupGrid.className = "group-grid";
@@ -601,10 +612,19 @@
         groupGrid.appendChild(buildCard(path));
       }
 
-      section.appendChild(head);
+      section.appendChild(summary);
       section.appendChild(groupGrid);
       gridEl.appendChild(section);
-    }
+    });
+
+    gridEl.querySelectorAll("details.group").forEach(details => {
+      details.addEventListener("toggle", () => {
+        if (!details.open) return;
+        gridEl.querySelectorAll("details.group").forEach(other => {
+          if (other !== details) other.open = false;
+        });
+      });
+    });
 
     if (filtered.length <= MAX_VISIBLE){
       toggleEl.style.display = "none";
