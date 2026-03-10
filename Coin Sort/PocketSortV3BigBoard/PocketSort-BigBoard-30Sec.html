@@ -2102,6 +2102,14 @@
     const TutorialEnabled =  TutorialSteps.length > 0;
     const IdleHintDelay   = 1500; // ms of no-touch before idle hint activates
 
+    // Slots eligible to be shown as hint source/target (must be visible on screen).
+    // Edit this list to match which slots are always visible on the target device.
+    const HintEligibleSlots = [
+      16, 17, 18, 19,
+      24, 25, 26, 27, 28,29,30,
+      35, 36, 37, 38,39, 40, 41
+    ];
+
     // #endregion
 
     // #region ─── SCENE SETUP · Renderer · Camera · Lights ───────────────────────────────────
@@ -2642,57 +2650,92 @@
       if (tutorialHandEl) tutorialHandEl.classList.remove('visible', 'pulsing');
     }
 
-    // Find a transfer hint pair only when a coin type has 10+ coins total (merge is possible).
+    // Find a transfer hint pair where following the hint will actually trigger a merge.
+    // Returns pairs of eligible slots that can be transferred.
+    // Merge-ready pairs (result >= 10 same-type coins) are prioritised over plain transfers.
     // Returns { source, target } or null.
     function findMergeableHintPair() {
-      // Count total coins per type across all slots.
-      var counts = {};
-      for (var i = 0; i < slots.length; i++) {
-        var s = slots[i];
-        for (var j = 0; j < s.coins.length; j++) {
-          var n = s.coins[j].userData.coinNumber;
-          counts[n] = (counts[n] || 0) + 1;
+      var mergeablePairs = [];
+      var transferPairs  = [];
+
+      for (var _si = 0; _si < HintEligibleSlots.length; _si++) {
+        var srcIdx = HintEligibleSlots[_si];
+        var src = slots[srcIdx];
+        if (!src || src.coins.length === 0) continue;
+        if (src.type === SlotType.Closed || src.type === SlotType.RentClosed || src.type === SlotType.Buyable) continue;
+        if (transferringSlots.has(srcIdx) || mergingSlots.has(srcIdx)) continue;
+
+        // Count how many coins at the top of the source share the top type.
+        var srcTopType  = src.coins[src.coins.length - 1].userData.coinNumber;
+        var srcTopCount = 0;
+        for (var k = src.coins.length - 1; k >= 0; k--) {
+          if (src.coins[k].userData.coinNumber === srcTopType) srcTopCount++;
+          else break;
+        }
+
+        for (var _ti = 0; _ti < HintEligibleSlots.length; _ti++) {
+          if (_ti === _si) continue;
+          var tgtIdx = HintEligibleSlots[_ti];
+          var tgt = slots[tgtIdx];
+          if (!tgt || tgt.coins.length === 0) continue;
+          if (tgt.type === SlotType.Closed || tgt.type === SlotType.RentClosed || tgt.type === SlotType.Buyable) continue;
+          if (transferringSlots.has(tgtIdx) || mergingSlots.has(tgtIdx)) continue;
+
+          var tgtTopType = tgt.coins[tgt.coins.length - 1].userData.coinNumber;
+          if (tgtTopType !== srcTopType) continue;
+
+          // Target must be pure (all same type) — mixed-type slots are sources only, never targets.
+          var tgtPure = true;
+          for (var p = 0; p < tgt.coins.length; p++) {
+            if (tgt.coins[p].userData.coinNumber !== srcTopType) { tgtPure = false; break; }
+          }
+          if (!tgtPure) continue;
+
+          // Target needs at least 1 free space — game transfers only what fits, rest returns to source.
+          var space = tgt.capacity - tgt.coins.length;
+          if (space <= 0) continue;
+
+          var afterCount = tgt.coins.length + Math.min(srcTopCount, space);
+
+          if (afterCount >= 10) {
+            mergeablePairs.push({ source: srcIdx, target: tgtIdx, total: afterCount });
+          } else {
+            transferPairs.push({ source: srcIdx, target: tgtIdx, total: afterCount });
+          }
         }
       }
-      // Pick the type with the most coins that has 10+ total.
-      var mergeType = -1, maxCount = 0;
-      for (var t in counts) {
-        if (counts[t] >= 10 && counts[t] > maxCount) { maxCount = counts[t]; mergeType = parseInt(t); }
-      }
-      if (mergeType === -1) return null;
 
-      // Find candidate slots only within the hint range (indices 22–38, bottom playable area).
-      var candidates = [];
-      for (var i = 22; i <= 38; i++) {
-        var s = slots[i];
-        if (!s) continue;
-        if (s.type === SlotType.Closed || s.type === SlotType.RentClosed || s.type === SlotType.Buyable) continue;
-        if (s.coins.length === 0) continue;
-        if (transferringSlots.has(i) || mergingSlots.has(i)) continue;
-        if (s.coins[s.coins.length - 1].userData.coinNumber !== mergeType) continue;
-        candidates.push({ slotIdx: i, coinCount: s.coins.length });
+      if (mergeablePairs.length > 0) {
+        mergeablePairs.sort(function (a, b) { return b.total - a.total; });
+        return mergeablePairs[0];
       }
-      if (candidates.length < 2) return null;
-      candidates.sort(function (a, b) { return a.coinCount - b.coinCount; });
-      // Source = fewest coins (pick up), target = most coins (drop onto).
-      return { source: candidates[0].slotIdx, target: candidates[candidates.length - 1].slotIdx };
+      if (transferPairs.length > 0) {
+        transferPairs.sort(function (a, b) { return b.total - a.total; });
+        return transferPairs[0];
+      }
+      return null;
     }
 
-    // Find a valid drop slot for the given coin type — searches from last index down (bottom slots first).
+    // Find a valid drop slot for held coins — pure same-type target with room for all held coins.
     function findDropTarget(coinType, excludeSlot) {
-      for (var i = slots.length - 1; i >= 0; i--) {
+      var heldCount = heldCoins.length;
+      for (var _di = HintEligibleSlots.length - 1; _di >= 0; _di--) {
+        var i = HintEligibleSlots[_di];
         if (i === excludeSlot) continue;
         var s = slots[i];
+        if (!s || s.coins.length === 0) continue;
         if (s.type === SlotType.Closed || s.type === SlotType.RentClosed || s.type === SlotType.Buyable) continue;
         if (transferringSlots.has(i) || mergingSlots.has(i)) continue;
-        if (s.coins.length === 0 || s.coins.length >= s.capacity) continue;
         var topType = s.coins[s.coins.length - 1].userData.coinNumber;
         if (topType !== coinType) continue;
+        // Target must be pure same-type.
         var pure = true;
         for (var j = 0; j < s.coins.length; j++) {
           if (s.coins[j].userData.coinNumber !== coinType) { pure = false; break; }
         }
         if (!pure) continue;
+        // Target needs at least 1 free space — game transfers only what fits, rest returns to source.
+        if (s.coins.length >= s.capacity) continue;
         return i;
       }
       return -1;
@@ -2716,17 +2759,19 @@
         return;
       }
 
-      // Table under 20% full — hint deal directly regardless of merge state.
-      if (dealButtonEnabled && !dealTutorialActive && isTableUnder20PercentFull()) {
-        dealTutorialActive = true;
-        var rect = dealButton.getBoundingClientRect();
-        tutorialHandEl.style.left = (rect.left + rect.width * 0.95) + 'px';
-        tutorialHandEl.style.top  = (rect.top  + 25) + 'px';
-        tutorialHandEl.classList.add('visible', 'pulsing');
+      // Eligible slots under 30% full → hint deal.
+      if (isHintSlotsUnder30PercentFull()) {
+        if (dealButtonEnabled && !dealTutorialActive) {
+          dealTutorialActive = true;
+          var r = dealButton.getBoundingClientRect();
+          tutorialHandEl.style.left = (r.left + r.width * 0.95) + 'px';
+          tutorialHandEl.style.top  = (r.top  + 25) + 'px';
+          tutorialHandEl.classList.add('visible', 'pulsing');
+        }
         return;
       }
 
-      // Phase: nothing held — check for a mergeable coin type (10+ coins of same type).
+      // 30%+ full → look for a transfer hint (merge-ready first, plain transfer as fallback).
       var pair = findMergeableHintPair();
       if (pair) {
         idleHintActive = true;
@@ -2734,16 +2779,6 @@
         idleHintSourceSlot = pair.source;
         idleHintTargetSlot = pair.target;
         positionIdleHintHand(pair.source);
-        tutorialHandEl.classList.add('visible', 'pulsing');
-        return;
-      }
-
-      // No transferable pair — hint the deal button if it's enabled and table is not over 75% full.
-      if (dealButtonEnabled && !dealTutorialActive && !isTableOver75PercentFull()) {
-        dealTutorialActive = true;
-        var rect = dealButton.getBoundingClientRect();
-        tutorialHandEl.style.left = (rect.left + rect.width * 0.95) + 'px';
-        tutorialHandEl.style.top  = (rect.top  + 25) + 'px';
         tutorialHandEl.classList.add('visible', 'pulsing');
       }
     }
@@ -2877,6 +2912,12 @@
           coin.rotation.set(startRotX, startRotY, startRotZ);
           if (onComplete) onComplete();
         })
+        .onStop(function () {
+          // Arc was interrupted (e.g. merge started on this coin mid-flight).
+          // Still fire the callback so transferringSlots cleanup always completes.
+          coin.userData.activeTween = null;
+          if (onComplete) onComplete();
+        })
         .start();
       isAnimating = true;
     }
@@ -2971,6 +3012,9 @@
         checkFillThreshold();
         if (completedTransfers < toTransfer.length) return;
 
+        // All coins have landed (or had their arcs stopped) — safe to check merge now.
+        checkMerge(targetSlotIdx);
+
         // Unlock slots
         transferringSlots.delete(_srcSlot);
         transferringSlots.delete(targetSlotIdx);
@@ -2986,7 +3030,6 @@
           }
         }
 
-        checkMerge(targetSlotIdx);
         scheduleDealHint(); // re-check after transfer settles
       }
 
@@ -3050,15 +3093,34 @@
       return totalCap > 0 && totalFilled / totalCap < 0.20;
     }
 
-    // Returns true if the playable (Empty-type) slots are more than 75% full.
-    function isTableOver75PercentFull() {
+    // Shared fill calculation for HintEligibleSlots.
+    function _hintSlotsFill() {
       var totalCap = 0, totalFilled = 0;
-      for (var _i = 0; _i < slots.length; _i++) {
-        if (slots[_i].type !== SlotType.Empty) continue;
-        totalCap    += slots[_i].capacity;
-        totalFilled += slots[_i].coins.length;
+      for (var _i = 0; _i < HintEligibleSlots.length; _i++) {
+        var s = slots[HintEligibleSlots[_i]];
+        if (!s) continue;
+        totalCap    += s.capacity;
+        totalFilled += s.coins.length;
       }
-      return totalCap > 0 && totalFilled / totalCap >= 0.75;
+      return totalCap > 0 ? totalFilled / totalCap : 0;
+    }
+
+    // < 30% fill → too few coins, nudge player to deal.
+    function isHintSlotsUnder30PercentFull() { return _hintSlotsFill() < 0.30; }
+
+    // > 50% fill → hard cap that suppresses deal hint.
+    function isHintSlotsOver50PercentFull()  { return _hintSlotsFill() > 0.50; }
+
+    // < 25% of eligible slots have 0 coins → board crowded, nudge player to deal.
+    function isLessThan25PercentEligibleSlotsEmpty() {
+      var total = 0, empty = 0;
+      for (var _i = 0; _i < HintEligibleSlots.length; _i++) {
+        var s = slots[HintEligibleSlots[_i]];
+        if (!s) continue;
+        total++;
+        if (s.coins.length === 0) empty++;
+      }
+      return total > 0 && empty / total < 0.25;
     }
 
     function startDealTutorial() {
@@ -3076,12 +3138,13 @@
       scheduleDealHint(); // re-check after dismissal; show again if still no mergeable slot
     }
 
-    // Returns true if the total count of any coin type across ALL slots reaches 10+,
-    // meaning the player could potentially merge them (hint should NOT show).
+    // Returns true if any coin type within HintEligibleSlots reaches 10+ total coins,
+    // meaning a merge hint could fire (used to suppress deal hint in that case).
     function hasMergeableSlot() {
       var _counts = {};
-      for (var _hi = 0; _hi < slots.length; _hi++) {
-        var _hs = slots[_hi];
+      for (var _hi = 0; _hi < HintEligibleSlots.length; _hi++) {
+        var _hs = slots[HintEligibleSlots[_hi]];
+        if (!_hs) continue;
         for (var _hci = 0; _hci < _hs.coins.length; _hci++) {
           var _hn = _hs.coins[_hci].userData.coinNumber;
           if (_hn >= MaxCoinType) continue;
@@ -3107,7 +3170,7 @@
           scheduleDealHint();
           return;
         }
-        if (!hasMergeableSlot() && !isTableOver75PercentFull()) startDealTutorial();
+        if (isHintSlotsUnder30PercentFull()) startDealTutorial();
       }, DealHintDelay);
     }
 
@@ -3166,6 +3229,7 @@
     }
 
     function checkMerge(slotIdx) {
+      if (mergingSlots.has(slotIdx)) return;
       const slot = slots[slotIdx];
       if (slot.coins.length < 10) return;
 
@@ -3173,7 +3237,7 @@
       if (!slot.coins.every(c => c.userData.coinNumber === num)) return;
 
       // Max level - no merge
-      if (num >= 7) return;
+      if (num >= MaxCoinType) return;
 
       // Look for a predefined closed slot that accepts this coin type
       var cstTarget = null;
@@ -4017,12 +4081,8 @@
           transferringSlots.delete(dealTargetIndices[_uli]);
         }
         updateDealButtonState();
-        for (var _mi = 0; _mi < dealTargetIndices.length; _mi++) {
-          checkMerge(dealTargetIndices[_mi]);
-        }
-        // Also check the slot that had held coins returned to it by cancelHold.
-        // It was excluded from dealTargetIndices so _onAllLanded never checked it,
-        // but the returned coin(s) may have pushed it to 10.
+        // Per-coin checkMerge is called above in animateCoinParabola onComplete.
+        // Only need to check the held-coins slot since it wasn't a deal target.
         if (_canceledHoldSlot !== -1 && dealTargetIndices.indexOf(_canceledHoldSlot) === -1) {
           checkMerge(_canceledHoldSlot);
         }
@@ -4034,6 +4094,7 @@
       // Within each slot, coins are thrown one by one with DealCoinInterval between throws.
       for (var si = 0; si < slotCoinLists.length; si++) {
         (function (slotEntry, slotIndex) {
+          var _dealSlotIdx = dealTargetIndices[slotIndex];
           setTimeout(function () {
             (function throwCoin(ci) {
               if (ci >= slotEntry.coins.length) return;
@@ -4043,6 +4104,7 @@
               var pos = getCoinPosition(slotEntry.slot, targetIdx);
               animateCoinParabola(coin, pos.x, pos.y, pos.z, function () {
                 checkFillThreshold();
+                checkMerge(_dealSlotIdx); // check on every coin landing (mergingSlots guard prevents double-trigger)
                 completed.count++;
                 if (completed.count >= completed.total) _onAllLanded();
               }, 0);
@@ -4064,8 +4126,8 @@
         dealButton.classList.add('clicking');
         setTimeout(function () { dealButton.classList.remove('clicking'); }, 200);
 
-        // Close deal tutorial on first click
-        if (dealTutorialActive) endDealTutorial();
+        // Treat deal button tap as an interaction — hides any hint and restarts the idle countdown.
+        resetIdleTimer();
 
         executeDeal();
       });
