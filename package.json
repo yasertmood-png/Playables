@@ -1,0 +1,25 @@
+{
+  "name": "playables",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch": "nodemon --watch './**/*.html' --exec 'node generate-files.mjs'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moodplayables/Playables.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/moodplayables/Playables/issues"
+  },
+  "homepage": "https://github.com/moodplayables/Playables#readme",
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
