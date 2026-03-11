@@ -135,9 +135,14 @@
 
     :root {
       --cta-left-portrait: 50%;
-      --cta-bottom-portrait: 160px;
+      --cta-bottom-portrait: 25vh;
       --cta-left-landscape: 50%;
-      --cta-bottom-landscape: 90px
+      --cta-bottom-landscape: 25vh;
+
+      --gameTitleImage-left-portrait: 50%;
+      --gameTitleImage-bottom-portrait: 60vh;
+      --gameTitleImage-left-landscape: 50%;
+      --gameTitleImage-bottom-landscape: 60vh;
     }
 
     #gameIcon {
@@ -166,10 +171,10 @@
 
     #gameTitleImg {
       position: fixed;
-      top: calc(clamp(100px, 15vmin, 250px) + env(safe-area-inset-top, 0px));
+      bottom: var(--gameTitleImage-bottom-portrait);
       left: 50%;
       transform: translateX(-50%);
-      width: clamp(320px, 45vmin, 450px);
+      width: 42vh;
       height: auto;
       object-fit: contain;
       pointer-events: none;
@@ -181,10 +186,10 @@
     @media (orientation: landscape) {
       #gameTitleImg {
       position: fixed;
-      top: 10vh;
+      bottom: var(--gameTitleImage-bottom-landscape);
       left: 50%;
       transform: translateX(-50%);
-      width: clamp(250px, 45vmin, 400px);
+      width: 70vh;
       height: auto;
       object-fit: contain;
       pointer-events: none;
@@ -210,8 +215,8 @@
       justify-content: center;
       border: 0;
       border-radius: 0;
-      width: clamp(140px, 50vw, 320px);
-      height: clamp(70px, 8vh, 50px);
+      width: clamp(140px, 60vw, 320px);
+      height: clamp(50px, 60vh, 90px);
       padding: 0 0 12px 0;
       background-color: transparent;
       background-repeat: no-repeat;
@@ -245,7 +250,7 @@
       }
 
       50% {
-        transform: translateX(-50%) translateY(0) scale(1.08)
+        transform: translateX(-50%) translateY(0) scale(1.15)
       }
     }
 
@@ -254,7 +259,7 @@
         left: var(--cta-left-landscape);
         bottom: var(--cta-bottom-landscape);
         width: clamp(100px, 30vw, 160px);
-        height: clamp(60px, 8vh, 50px)
+        height: clamp(60px, 10vh, 80px)
       }
     }
 
