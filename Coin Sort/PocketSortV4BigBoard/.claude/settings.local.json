@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \":*)",
+      "Bash(node inject-cam-debug.mjs)",
+      "Bash(python3 -c \":*)",
+      "Bash(ls \"c:\\\\MoodGames\\\\Playable Ads\\\\Playables\\\\Coin Sort\\\\PocketSortV3BigBoard\"/*.html)",
+      "Bash(node --version)",
+      "Bash(node build-min.js)",
+      "Bash(node -e \"require\\(''terser''\\); require\\(''javascript-obfuscator''\\); require\\(''html-minifier-terser''\\); console.log\\(''all deps ok''\\)\")",
+      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --use-short-doctype -o \"PocketSort-BigBoard-2clk.min.html\" \"PocketSort-BigBoard-2clk.html\")",
+      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --use-short-doctype -o \"PocketSort-BigBoard-30Sec.min.html\" \"PocketSort-BigBoard-30Sec.html\")",
+      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --use-short-doctype -o \"PocketSort-BigBoard-60Sec.min.html\" \"PocketSort-BigBoard-60Sec.html\")"
+    ]
+  }
+}
