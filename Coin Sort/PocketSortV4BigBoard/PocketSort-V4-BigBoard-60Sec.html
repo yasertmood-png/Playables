@@ -215,8 +215,9 @@
       justify-content: center;
       border: 0;
       border-radius: 0;
-      width: clamp(140px, 60vw, 320px);
-      height: clamp(50px, 60vh, 90px);
+      width: 24vh;
+      height: auto;
+      aspect-ratio: 490 / 223;
       padding: 0 0 12px 0;
       background-color: transparent;
       background-repeat: no-repeat;
@@ -260,8 +261,9 @@
       #ctaInstall {
         left: var(--cta-left-landscape);
         bottom: var(--cta-bottom-landscape);
-        width: clamp(100px, 30vw, 160px);
-        height: clamp(60px, 10vh, 80px)
+        width: 35vh;
+        height: auto;
+        aspect-ratio: 490 / 223
       }
     }
 
@@ -1255,9 +1257,10 @@
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
-    const CTA_SHOW_DELAY_MS = 30000;
+    const CTA_SHOW_DELAY_MS = 60000;
     const CTA_PULSE_START_DELAY_MS = 260;
-    const CTA_TEXT_FILL_RATIO = 0.5; // text height as fraction of button height
+    const CTA_TEXT_WIDTH_MARGIN = 0.82; // fraction of button width available for text
+    const CTA_TEXT_HEIGHT_RATIO = 0.72; // max fraction of button height for text
     const STORE_URL_ANDROID = 'https://play.google.com/store/apps/details?id=com.MoodGames.CoinSort';
     const STORE_URL_IOS = 'https://apps.apple.com/us/app/coin-sort/id6446354191';
     const UI_BUTTON_IMAGE = 'data:image/png;base64,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';
@@ -1290,15 +1293,30 @@
 // #region ─── AD FRAMEWORK · CTA · Click-through ─────────────────────────────────────────
     function updateCtaTextSize() {
       if (!ctaInstallButton) return;
-      var h = ctaInstallButton.offsetHeight;
-      var pad = parseFloat(getComputedStyle(ctaInstallButton).paddingBottom) || 0;
-      var textArea = h - pad;
-      if (textArea > 0) ctaInstallButton.style.fontSize = (textArea * CTA_TEXT_FILL_RATIO).toFixed(1) + 'px';
+      var cs = getComputedStyle(ctaInstallButton);
+      var padBottom = parseFloat(cs.paddingBottom) || 0;
+      var availW = ctaInstallButton.offsetWidth * CTA_TEXT_WIDTH_MARGIN;
+      var availH = (ctaInstallButton.offsetHeight - padBottom) * CTA_TEXT_HEIGHT_RATIO;
+      if (availW <= 0 || availH <= 0) return;
+      // Measure actual text width at a known reference size using a hidden probe element
+      var refSize = 100;
+      var probe = document.createElement('span');
+      probe.style.cssText = 'position:absolute;top:-9999px;left:-9999px;white-space:nowrap;font-family:' + cs.fontFamily + ';font-weight:' + cs.fontWeight + ';font-size:' + refSize + 'px;letter-spacing:' + cs.letterSpacing;
+      probe.textContent = ctaInstallButton.textContent.trim();
+      document.body.appendChild(probe);
+      var textW = probe.offsetWidth;
+      document.body.removeChild(probe);
+      if (textW <= 0) return;
+      // Scale to fit both axes, use the smaller to guarantee no overflow
+      var sizeByW = (availW / textW) * refSize;
+      var fontSize = Math.min(sizeByW, availH);
+      ctaInstallButton.style.fontSize = fontSize.toFixed(1) + 'px';
     }
 
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(function () { updateCtaTextSize(); });
     }
+    window.addEventListener('resize', updateCtaTextSize);
 
     var storeOverlay = document.getElementById('storeOverlay');
     if (storeOverlay) {
@@ -3808,7 +3826,7 @@
     // #region ─── DEAL SYSTEM & UTILITIES ────────────────────────────────────────────────────
 
     // Smart button positioning: ideal is gap below board bottom edge, clamps upward for visibility.
-    // If button would go off-screen, it moves up (and may overlap the board area).
+    // Button always sits just below the board bottom edge, never overlapping the board.
     function updateDealButtonPosition() {
       if (!dealButton || !camera) return;
       
@@ -3832,9 +3850,8 @@
       // Ideal position: gap below board bottom edge
       var idealButtonTop = boardBottomScreenY + gap;
       
-      // Clamp to ensure button bottom doesn't go past (screenHeight - safeMargin)
-      var maxButtonTop = window.innerHeight - buttonHeight - safeMargin;
-      var finalButtonTop = Math.min(idealButtonTop, maxButtonTop);
+      // Always sit below the board bottom edge — never overlap the board.
+      var finalButtonTop = idealButtonTop;
       
       // Convert to CSS bottom position (measured from screen bottom)
       var cssBottomPx = window.innerHeight - finalButtonTop - buttonHeight;

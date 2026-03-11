@@ -10,7 +10,21 @@
       "Bash(node -e \"require\\(''terser''\\); require\\(''javascript-obfuscator''\\); require\\(''html-minifier-terser''\\); console.log\\(''all deps ok''\\)\")",
       "Bash(html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --use-short-doctype -o \"PocketSort-BigBoard-2clk.min.html\" \"PocketSort-BigBoard-2clk.html\")",
       "Bash(html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --use-short-doctype -o \"PocketSort-BigBoard-30Sec.min.html\" \"PocketSort-BigBoard-30Sec.html\")",
-      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --use-short-doctype -o \"PocketSort-BigBoard-60Sec.min.html\" \"PocketSort-BigBoard-60Sec.html\")"
+      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --use-short-doctype -o \"PocketSort-BigBoard-60Sec.min.html\" \"PocketSort-BigBoard-60Sec.html\")",
+      "Bash(npx html-minifier-terser --version)",
+      "Bash(npx html-minifier-terser \"PocketSort-BigBoard-30Sec.html\" --collapse-whitespace --remove-comments --remove-redundant-attributes --remove-script-type-attributes --remove-style-link-type-attributes --use-short-doctype --minify-css '{\"\"level\"\":2}' --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' -o \"PocketSort-BigBoard-30Sec.min.html\")",
+      "Bash(npx javascript-obfuscator --version)",
+      "Bash(ls -lh \"c:/MoodGames/Playable Ads/Playables/Coin Sort/PocketSortV4BigBoard/PocketSort-BigBoard-30Sec\"*.html)",
+      "Bash(npx html-minifier-terser \"PocketSort-BigBoard-60Sec.html\" --collapse-whitespace --remove-comments --remove-redundant-attributes --remove-script-type-attributes --remove-style-link-type-attributes --use-short-doctype --minify-css '{\"\"level\"\":2}' --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' -o \"PocketSort-BigBoard-60Sec.min.html\")",
+      "Bash(ls -lh \"c:/MoodGames/Playable Ads/Playables/Coin Sort/PocketSortV4BigBoard/PocketSort-BigBoard-60Sec\"*.html)",
+      "Bash(npm --version)",
+      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --remove-optional-tags --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype --minify-css true --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' -o \"PocketSort-V4-BigBoard-30Sec.min.html\" \"PocketSort-V4-BigBoard-30Sec.html\")",
+      "Bash(node _obfuscate.js)",
+      "Bash(node _minify.js)",
+      "Bash(node _minify.js PocketSort-V4-BigBoard-60Sec.html)",
+      "Bash(node _obfuscate.js PocketSort-V4-BigBoard-60Sec.min.html)",
+      "Bash(node _minify.js PocketSort-V4-BigBoard-2clk.html)",
+      "Bash(node _obfuscate.js PocketSort-V4-BigBoard-2clk.min.html)"
     ]
   }
 }
