@@ -1,6 +1,0 @@
-{
-  "title": "Basic Playable",
-  "icon": "", // Icon next to the playable in Unity Playworks, takes a Data URL.
-
-  "fields": {} // You can populate this with any settings you wish to be editable in Unity Playworks
-}
