@@ -297,7 +297,7 @@
       background-size: 100% 100%;
       background-repeat: no-repeat;
       background-position: center;
-      width: 20vmin;
+      width: 30vmin;
       transition: opacity .24s ease, transform .24s ease;
       z-index: 8;
       cursor: pointer
@@ -1695,9 +1695,9 @@
       2: 0x009E00,   // green
       3: 0x009DFF,   // blue
       4: 0x6300DB,   // purple
-      5: 0x2DD100,   // light green
       6: 0xDE1721,   // red
       7: 0xFF2EBD,   // pink
+      5: 0x2DD100,   // light green
     };
 
     // Coin size (scale on each axis)
@@ -2994,17 +2994,35 @@
         executeDeal();
       });
     }
+    // Smart button positioning: ideal is gap below board bottom edge, clamps upward for visibility.
+    // Button always sits just below the board bottom edge, never overlapping the board.
     function updateDealButtonPosition() {
       if (!dealButton || !camera) return;
+
       var isPortrait = window.innerWidth <= window.innerHeight;
-      var gap = isPortrait ? DealButtonGapPortrait : DealButtonGapLandscape;
-      var boardBottomWorld = new THREE.Vector3(0, 0.2, TABLE_HEIGHT / 2);
+      var gap        = isPortrait ? DealButtonGapPortrait        : DealButtonGapLandscape;
+      var safeMargin = isPortrait ? DealButtonSafeMarginPortrait : DealButtonSafeMarginLandscape;
+
+      // Board bottom edge in world space: table lies in XZ plane, bottom edge at +TABLE_HEIGHT/2 on Z axis.
+      var boardBottomWorldZ = TABLE_HEIGHT / 2;
+      var boardBottomWorld  = new THREE.Vector3(0, 0.2, boardBottomWorldZ);
+
+      // Project to screen coordinates
       boardBottomWorld.project(camera);
-      var canvasRect = canvas.getBoundingClientRect();
+      var canvasRect         = canvas.getBoundingClientRect();
       var boardBottomScreenY = canvasRect.top + (1 - boardBottomWorld.y) / 2 * canvasRect.height;
+
       var buttonHeight = dealButton.offsetHeight;
+
+      // Ideal: gap below board bottom edge
       var idealButtonTop = boardBottomScreenY + gap;
-      var cssBottomPx = window.innerHeight - idealButtonTop - buttonHeight;
+
+      // Clamp so button stays within safe margin from bottom of screen
+      var maxButtonTop   = window.innerHeight - buttonHeight - safeMargin;
+      var finalButtonTop = Math.min(idealButtonTop, maxButtonTop);
+
+      // Convert to CSS bottom
+      var cssBottomPx = window.innerHeight - finalButtonTop - buttonHeight;
       dealButton.style.bottom = Math.round(cssBottomPx) + 'px';
     }
 
