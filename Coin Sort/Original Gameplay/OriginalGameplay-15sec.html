@@ -155,7 +155,7 @@
       object-fit: contain;
       pointer-events: auto;
       cursor: pointer;
-      z-index: 9
+      z-index: 8
     }
 
     #downloadBtn {
@@ -167,7 +167,7 @@
       object-fit: contain;
       pointer-events: auto;
       cursor: pointer;
-      z-index: 9
+      z-index: 7
     }
 
     /* ── Play Now Button ── width/height from CSS vars, top set by JS ── */
@@ -376,6 +376,18 @@
       pointer-events: none;
     }
 
+    #ctaDimmer {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 8;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .24s ease;
+    }
+    #ctaDimmer.visible {
+      opacity: 1;
+    }
     #storeOverlay {
       position: fixed;
       inset: 0;
@@ -407,6 +419,7 @@
   <img id="gameIcon" alt="Game icon">
   <button id="dealButton" type="button" aria-label="Deal"></button>
   <img id="tutorialHand" alt="">
+  <div id="ctaDimmer"></div>
   <button id="storeOverlay" type="button" aria-label="Download"></button>
   <button id="muteBtn" type="button" aria-label="Mute">&#128266;</button>
   <img id="downloadBtn" alt="Download">
@@ -1268,6 +1281,8 @@
       ctaInstallButton.classList.add('visible');
       ctaInstallButton.classList.remove('pulsing');
       if (storeOverlay) storeOverlay.classList.add('visible');
+      var ctaDimmer = document.getElementById('ctaDimmer');
+      if (ctaDimmer) ctaDimmer.classList.add('visible');
       var ctaGameNameEl = document.getElementById('ctaGameName');
       if (ctaGameNameEl) ctaGameNameEl.classList.add('visible');
       if (ctaPulseTimeoutId !== null) clearTimeout(ctaPulseTimeoutId);
