@@ -9,7 +9,11 @@
       "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":{\"\"reserved\"\":[\"\"openStore\"\",\"\"openClickThrough\"\",\"\"getStoreUrl\"\",\"\"mraid\"\",\"\"whenMraidReady\"\",\"\"markFirstInteraction\"\",\"\"startGame\"\",\"\"openStore\"\"]}}' --output \"CoinSort-OriginalGameplay-M.html\" \"OriginalGameplay.html\")",
       "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":{\"\"reserved\"\":[\"\"openStore\"\",\"\"openClickThrough\"\",\"\"getStoreUrl\"\",\"\"whenMraidReady\"\",\"\"markFirstInteraction\"\",\"\"startGame\"\",\"\"mraid\"\"]}}' --output \"CoinSort-OriginalGameplay-M.html\" \"OriginalGameplay.html\")",
       "Bash(python3:*)",
-      "Bash(grep -v \"base64\\\\|//.*setTimeout\")"
+      "Bash(grep -v \"base64\\\\|//.*setTimeout\")",
+      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --remove-optional-tags --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype --minify-css true --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' --output \"c:\\\\MoodGames\\\\Playable Ads\\\\Playables\\\\Coin Sort\\\\Original Gameplay\\\\OriginalGameplay-60Sec-min.html\" \"c:\\\\MoodGames\\\\Playable Ads\\\\Playables\\\\Coin Sort\\\\Original Gameplay\\\\OriginalGameplay-60Sec.html\")",
+      "Bash(node \"c:/MoodGames/Playable Ads/Playables/Coin Sort/Original Gameplay/inspect-scripts.js\")",
+      "Bash(node \"c:/MoodGames/Playable Ads/Playables/Coin Sort/Original Gameplay/inspect-scripts2.js\")",
+      "Bash(node \"c:/MoodGames/Playable Ads/Playables/Coin Sort/Original Gameplay/obfuscate.js\")"
     ]
   }
 }
