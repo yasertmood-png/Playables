@@ -142,7 +142,7 @@
       --play-now-width-landscape: 19vmin;
       --gameTitleImage-bottom-portrait: 60vh;
       --gameTitleImage-bottom-landscape: 60vh;
-      --icon-size: 14vmin;
+      --icon-size: 12vmin;
       --icon-margin: 1.5vmin
     }
 
@@ -155,7 +155,8 @@
       object-fit: contain;
       pointer-events: auto;
       cursor: pointer;
-      z-index: 8
+      z-index: 8;
+      will-change: transform
     }
 
     #downloadBtn {
@@ -167,7 +168,8 @@
       object-fit: contain;
       pointer-events: auto;
       cursor: pointer;
-      z-index: 7
+      z-index: 7;
+      will-change: transform
     }
 
     /* ── Play Now Button ── width/height from CSS vars, top set by JS ── */
@@ -182,7 +184,8 @@
       pointer-events: auto;
       z-index: 9;
       opacity: 1;
-      transition: opacity .24s ease
+      transition: opacity .24s ease;
+      will-change: transform
     }
 
     #playNowButton.hidden {
@@ -300,7 +303,8 @@
       width: 38vmin;
       transition: opacity .24s ease, transform .24s ease;
       z-index: 8;
-      cursor: pointer
+      cursor: pointer;
+      will-change: transform
     }
 
     #dealButton.visible {
@@ -316,12 +320,12 @@
     }
 
     #dealButton.clicking {
-      animation: dealBtnClick 0.18s ease-out forwards
+      animation: dealBtnClick 0.3s ease-in-out forwards
     }
 
     @keyframes dealBtnClick {
       0%   { transform: translateX(-50%) translateY(0) scale(1); }
-      40%  { transform: translateX(-50%) translateY(0) scale(0.87); }
+      35%  { transform: translateX(-50%) translateY(0) scale(0.90); }
       100% { transform: translateX(-50%) translateY(0) scale(1); }
     }
 
@@ -1689,17 +1693,17 @@
     const SlotEdgeRotation = { x:0, y: 0, z: 0 };     // rotation in degrees
 
     // Camera - portrait orientation
-    const CameraPortraitPosition = { x: 0, y: 8.04, z: 4 };
-    const CameraPortraitRotation = { x: -1.116, y: 0, z: 0 };
+    const CameraPortraitPosition = { x: 0, y: 8.04, z: 5 };
+    const CameraPortraitRotation = { x: -1.0, y: 0, z: 0 };
 
     // Camera - landscape orientation
-    const CameraLandscapePosition = { x: 0, y: 11.09, z: 7 };
-    const CameraLandscapeRotation = { x: -1.096, y: 0, z: 0 };
+    const CameraLandscapePosition = { x: 0, y: 8.04, z: 6 };
+    const CameraLandscapeRotation = { x: -1.0, y: 0, z: 0 };
 
-    // Extra breathing room around the table per orientation (0 = tight fit, 0.2 = 20% border).
-    // Increase to zoom out, decrease to zoom in.
-    const CameraFitPaddingPortrait  = -0.32;
-    const CameraFitPaddingLandscape = 0.1;
+    // Camera virtual FOV (degrees) per orientation — works like a perspective FOV.
+    // Moving the camera closer zooms in; farther zooms out. Larger angle = more zoomed out.
+    const CameraFOVPortrait  = -0.32;
+    const CameraFOVLandscape = 0.05;
 
     // Coin number-to-color mapping
     const CoinColors = {
@@ -1887,35 +1891,24 @@
 
     const scene = new THREE.Scene();
 
-    const perspCamera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-    perspCamera.rotation.order = 'YXZ';
     const orthoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
     orthoCamera.rotation.order = 'YXZ';
-    let camera = perspCamera; // active camera — swapped per orientation
+    let camera = orthoCamera;
 
     function applyOrientationCamera() {
       const isPortrait = window.innerWidth <= window.innerHeight;
       const aspect = window.innerWidth / window.innerHeight;
       const pos = isPortrait ? CameraPortraitPosition : CameraLandscapePosition;
       const rot = isPortrait ? CameraPortraitRotation : CameraLandscapeRotation;
-      if (isPortrait) {
-        camera = orthoCamera;
-        // Set a temporary size so updateMatrixWorld has something valid, then auto-fit.
-        const hs = 5.5;
-        camera.left = -hs * aspect; camera.right = hs * aspect;
-        camera.top  =  hs;          camera.bottom = -hs;
-      } else {
-        camera = perspCamera;
-        camera.aspect = aspect;
-        camera.fov = 33;
-      }
+      // Temporary size so updateMatrixWorld has something valid before auto-fit.
+      const hs = 5.5;
+      camera.left = -hs * aspect; camera.right = hs * aspect;
+      camera.top  =  hs;          camera.bottom = -hs;
       camera.position.set(pos.x, pos.y, pos.z);
       camera.rotation.set(rot.x, rot.y, rot.z);
       camera.updateProjectionMatrix();
       camera.updateMatrixWorld(true);
-      // Auto-fit so the full board is always visible regardless of screen size/aspect.
-      if (isPortrait) fitOrthoToBoard();
-      else            fitBoardInView();
+      fitOrthoToBoard();
     }
 
     // Returns the four padded table corners on the ground plane.
@@ -1930,39 +1923,25 @@
       ];
     }
 
-    // Adjusts ortho camera size so the table always fits inside the viewport.
+    // Fits the ortho frustum to the board corners, then scales by (1 + CameraFOV).
+    // Camera position and rotation are never touched — only left/right/top/bottom change.
     function fitOrthoToBoard() {
+      const isPortrait = window.innerWidth <= window.innerHeight;
+      const fov = isPortrait ? CameraFOVPortrait : CameraFOVLandscape;
       camera.updateMatrixWorld();
       var aspect = window.innerWidth / window.innerHeight;
-      var corners = _tableCornersWorld(CameraFitPaddingPortrait);
+      var corners = _tableCornersWorld(0);
       var maxExtY = 0, maxExtX = 0;
       for (var i = 0; i < corners.length; i++) {
         var c = corners[i].clone().applyMatrix4(camera.matrixWorldInverse);
         maxExtY = Math.max(maxExtY, Math.abs(c.y));
         maxExtX = Math.max(maxExtX, Math.abs(c.x));
       }
-      // hs must cover both vertical and horizontal extents
-      var hs = Math.max(maxExtY, maxExtX / aspect);
-      camera.left = -hs * aspect; camera.right = hs * aspect;
-      camera.top  =  hs;          camera.bottom = -hs;
-      camera.updateProjectionMatrix();
-    }
-
-    // Adjusts perspective camera FOV so the table always fits inside the viewport.
-    function fitBoardInView() {
-      camera.updateMatrixWorld();
-      var corners = _tableCornersWorld(CameraFitPaddingLandscape);
-      var maxTanY = 0, maxTanX = 0;
-      for (var i = 0; i < corners.length; i++) {
-        var c = corners[i].clone().applyMatrix4(camera.matrixWorldInverse);
-        var depth = -c.z;
-        if (depth <= 0) continue;
-        maxTanY = Math.max(maxTanY, Math.abs(c.y) / depth);
-        maxTanX = Math.max(maxTanX, Math.abs(c.x) / depth);
-      }
-      var fovFromY = 2 * Math.atan(maxTanY) * (180 / Math.PI);
-      var fovFromX = 2 * Math.atan(maxTanX / camera.aspect) * (180 / Math.PI);
-      camera.fov = Math.max(fovFromY, fovFromX);
+      var hs = Math.max(maxExtY, maxExtX / aspect) * (1 + fov);
+      camera.left   = -hs * aspect;
+      camera.right  =  hs * aspect;
+      camera.top    =  hs;
+      camera.bottom = -hs;
       camera.updateProjectionMatrix();
     }
 
@@ -2166,7 +2145,26 @@
       depthWrite: true,
     };
 
-    function createCoin(number) {
+    // ── Coin pool ────────────────────────────────────────────────────────────
+    // How many coins to pre-build at launch (for deal + merge cycles).
+    // Initial board coins (spawnCoins) are built separately via _buildCoin and
+    // do NOT consume from this pool. Raise this number if you see pool-miss
+    // warnings in the console.
+    const CoinPoolSize = 60;
+
+    var _coinPool    = [];
+    var _coinTexCache = {}; // per-number texture, created once, never disposed
+
+    // Pre-bake one text texture per coin number so createCoin never allocates.
+    function _warmCoinTextures() {
+      Object.keys(CoinColors).forEach(function (n) {
+        _coinTexCache[+n] = createTextTexture(n);
+      });
+    }
+
+    // Allocates a brand-new coin group (startup only — never called during gameplay).
+    function _buildCoin(number) {
+      var tex = _coinTexCache[number] || (_coinTexCache[number] = createTextTexture(String(number)));
       const color = CoinColors[number] || 0xCCCCCC;
       const group = new THREE.Group();
 
@@ -2189,16 +2187,61 @@
       );
       group.add(coinMesh);
 
-      const textTex = createTextTexture(String(number));
       const textGeo = new THREE.PlaneGeometry(CoinTextPlaneSize, CoinTextPlaneSize);
-      const textMat = new THREE.MeshBasicMaterial({ map: textTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+      const textMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
       const textMesh = new THREE.Mesh(textGeo, textMat);
       textMesh.position.set(CoinTextOffsetX, CoinTextOffsetY, CoinTextOffsetZ);
       textMesh.rotation.set(CoinTextRotationX, CoinTextRotationY, CoinTextRotationZ);
       group.add(textMesh);
 
       group.userData.coinNumber = number;
+      group.userData._coinMat   = coinMat;
+      group.userData._textMat   = textMat;
       return group;
+    }
+
+    // Pre-fills the pool at launch. Spreads builds across all coin numbers so
+    // materials are warm for each color.
+    function warmCoinPool() {
+      _warmCoinTextures();
+      var nums = Object.keys(CoinColors).map(Number);
+      for (var i = 0; i < CoinPoolSize; i++) {
+        var coin = _buildCoin(nums[i % nums.length]);
+        coin.visible = false;
+        _coinPool.push(coin);
+      }
+    }
+
+    // Takes a coin from the pool and reconfigures it for `number`.
+    // Zero allocations: color is a property write, texture is a pointer swap.
+    // Should ONLY be called during gameplay (deal / merge). Never falls back to
+    // _buildCoin — if the pool is empty something is wrong with the pool size.
+    function createCoin(number) {
+      if (_coinPool.length === 0) {
+        console.warn('Coin pool empty — increase CoinPoolSize (currently ' + CoinPoolSize + ')');
+        return _buildCoin(number); // graceful fallback, should never happen
+      }
+      var group = _coinPool.pop();
+      group.userData._coinMat.color.setHex(CoinColors[number] || 0xCCCCCC);
+      group.userData._textMat.map = _coinTexCache[number] || _coinTexCache[1];
+      group.userData._textMat.needsUpdate = true;
+      group.userData.coinNumber = number;
+      group.position.set(0, 0, 0);
+      group.scale.set(1, 1, 1);
+      group.rotation.set(0, 0, 0);
+      group.visible = true;
+      return group;
+    }
+
+    // Returns a coin to the pool — no disposal, no scene changes beyond parent removal.
+    function releaseCoin(group) {
+      if (group.userData.activeTween) {
+        group.userData.activeTween.stop();
+        group.userData.activeTween = null;
+      }
+      if (group.parent) group.parent.remove(group);
+      group.visible = false;
+      _coinPool.push(group);
     }
 
     function spawnCoins() {
@@ -2209,7 +2252,7 @@
         if (!slot) continue;
 
         for (let i = 0; i < coinNumbers.length; i++) {
-          const coin = createCoin(coinNumbers[i]);
+          const coin = _buildCoin(coinNumbers[i]);
           const pos = getCoinPosition(slot, i);
           coin.position.set(pos.x, pos.y, pos.z);
           scene.add(coin);
@@ -2224,6 +2267,7 @@
       if (!webglAvailable) return;
       onResize();
       updatePlayNowButtonPosition();
+      warmCoinPool();
       spawnCoins();
       var _playNowEl = document.getElementById('playNowButton');
       if (IsDealOpen) {
@@ -2313,6 +2357,7 @@
 
     let heldCoins = [];
     let heldFromSlot = null;
+    let holdSessionId = 0;
     let isAnimating = false;
 
     function animateCoin(coin, targetX, targetY, targetZ, onComplete, CoinHoldEasing) {
@@ -2456,6 +2501,7 @@
       slot.coins.splice(slot.coins.length - topCoins.length, topCoins.length);
       heldCoins = topCoins;
       heldFromSlot = slotIdx;
+      holdSessionId++;
 
       for (let i = 0; i < heldCoins.length; i++) {
         const c = heldCoins[i];
@@ -2464,6 +2510,9 @@
     }
 
     function transferCoins(targetSlotIdx) {
+      // Block if target slot is busy (transferring or merging)
+      if (transferringSlots.has(targetSlotIdx) || mergingSlots.has(targetSlotIdx)) return false;
+      
       const target = slots[targetSlotIdx];
       if (target.type === SlotType.Closed || target.type === SlotType.RentClosed || target.type === SlotType.Buyable) return false;
       const available = target.capacity - target.coins.length;
@@ -2474,6 +2523,9 @@
         if (topCoin.userData.coinNumber !== heldCoins[0].userData.coinNumber) return false; // different color
       }
 
+      const transferSourceSlot = heldFromSlot;
+      const transferHoldSession = holdSessionId;
+
       const transferCount = Math.min(heldCoins.length, available);
       const toTransfer = heldCoins.splice(heldCoins.length - transferCount, transferCount).reverse();
 
@@ -2483,16 +2535,25 @@
 
       playSound(SFX.drag);
 
+      // Lock target slot before starting animation
+      transferringSlots.add(targetSlotIdx);
+      
       var completedTransfers = 0;
       function onTransferComplete() {
         completedTransfers++;
         if (completedTransfers < toTransfer.length) return;
 
-        if (heldCoins.length > 0) {
-          cancelHold();
-        } else {
-          heldCoins = [];
-          heldFromSlot = null;
+        // Unlock target slot after all coins landed
+        transferringSlots.delete(targetSlotIdx);
+        
+        const sameHoldSession = (heldFromSlot === transferSourceSlot && holdSessionId === transferHoldSession);
+        if (sameHoldSession) {
+          if (heldCoins.length > 0) {
+            cancelHold();
+          } else {
+            heldCoins = [];
+            heldFromSlot = null;
+          }
         }
 
         checkMerge(targetSlotIdx);
@@ -2536,6 +2597,9 @@
       if (num >= 7) return;
 
       playSound(SFX.merge);
+      
+      // Lock slot while merging
+      mergingSlots.add(slotIdx);
 
       isAnimating = true;
 
@@ -2685,8 +2749,11 @@
       const slot = slots[slotIdx];
 
       setTimeout(function () {
+        // Unlock slot at start of merge finish
+        mergingSlots.delete(slotIdx);
+        
         for (var i = 0; i < oldCoins.length; i++) {
-          scene.remove(oldCoins[i]);
+          releaseCoin(oldCoins[i]);
         }
         slot.coins = [];
 
@@ -2727,7 +2794,10 @@
     // ---- Pointer Event ----
     canvas.addEventListener('pointerdown', function (e) {
       markFirstInteraction();
-      if (isAnimating) return;
+      
+      // Block all coin interactions during deal button tutorial or the gap between slot and deal tutorials
+      // (but allow interactions during slot tutorial)
+      if (dealTutorialActive || (!tutorialActive && dealButtonUnlocked && !_dealTutorialDone)) return;
 
       const slotIdx = getClickedSlotIndex(e);
 
@@ -2742,13 +2812,20 @@
           if (!transferred) {
             if (tutorialActive) return;
             cancelHold();
-          } else if (tutorialActive) {
-            advanceTutorial();
+          } else {
+            // After successful transfer, return any remaining coins immediately
+            if (heldCoins.length > 0) {
+              cancelHold();
+            }
+            if (tutorialActive) {
+              advanceTutorial();
+            }
           }
         }
       } else {
         // Nothing held Ã¢â‚¬â€ try to pick up
         if (slotIdx !== -1 && slots[slotIdx].coins.length > 0) {
+          if (transferringSlots.has(slotIdx) || mergingSlots.has(slotIdx)) return;
           if (tutorialActive && !isTutorialTargetSlot(slotIdx)) return;
           pickUpCoins(slotIdx);
           if (tutorialActive) advanceTutorial();
@@ -3018,7 +3095,7 @@
         dealButton.classList.remove('clicking');
         void dealButton.offsetWidth;
         dealButton.classList.add('clicking');
-        setTimeout(function () { dealButton.classList.remove('clicking'); }, 200);
+        setTimeout(function () { dealButton.classList.remove('clicking'); }, 300);
 
         if (dealTutorialActive) endDealTutorial();
         playSound(SFX.deal);
