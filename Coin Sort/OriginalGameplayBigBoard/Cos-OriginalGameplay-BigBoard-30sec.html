@@ -138,12 +138,12 @@
       --cta-bottom-portrait: 25vh;
       --cta-left-landscape: 50%;
       --cta-bottom-landscape: 25vh;
-      --play-now-width-portrait: 15vh;
-      --play-now-width-landscape: 19vh;
+      --play-now-width-portrait: 15vmin;
+      --play-now-width-landscape: 19vmin;
       --gameTitleImage-bottom-portrait: 60vh;
       --gameTitleImage-bottom-landscape: 60vh;
-      --icon-size: 8.5vh;
-      --icon-margin: 1.5vh
+      --icon-size: 14vmin;
+      --icon-margin: 1.5vmin
     }
 
     #gameIcon {
@@ -332,7 +332,7 @@
     }
     #tutorialHand {
       position: fixed;
-      width: clamp(48px, 12vmin, 80px);
+      width: clamp(48px, 14vmin, 80px);
       height: auto;
       pointer-events: none;
       z-index: 8;
@@ -1206,7 +1206,7 @@
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
-    const CTA_SHOW_DELAY_MS = 60000;
+    const CTA_SHOW_DELAY_MS = 1000;
     const CTA_PULSE_START_DELAY_MS = 260;
     const CTA_TEXT_WIDTH_MARGIN = 0.82; // fraction of button width available for text
     const CTA_TEXT_HEIGHT_RATIO = 0.72; // max fraction of button height for text
@@ -1689,17 +1689,17 @@
     const SlotEdgeRotation = { x:0, y: 0, z: 0 };     // rotation in degrees
 
     // Camera - portrait orientation
-    const CameraPortraitPosition = { x: 0, y: 8.04, z: 3.5 };
+    const CameraPortraitPosition = { x: 0, y: 8.04, z: 4 };
     const CameraPortraitRotation = { x: -1.116, y: 0, z: 0 };
 
     // Camera - landscape orientation
-    const CameraLandscapePosition = { x: 0, y: 11.09, z: 6.67 };
+    const CameraLandscapePosition = { x: 0, y: 11.09, z: 7 };
     const CameraLandscapeRotation = { x: -1.096, y: 0, z: 0 };
 
     // Extra breathing room around the table per orientation (0 = tight fit, 0.2 = 20% border).
     // Increase to zoom out, decrease to zoom in.
     const CameraFitPaddingPortrait  = -0.32;
-    const CameraFitPaddingLandscape = 0.0;
+    const CameraFitPaddingLandscape = 0.1;
 
     // Coin number-to-color mapping
     const CoinColors = {
@@ -1709,7 +1709,7 @@
       4: 0x6300DB,   // purple
       5: 0xDE1721,   // red
       6: 0xFF2EBD,   // pink
-      7: 0x2DD100,   // light green
+      7: 0xA52A2A,   // light green
     };
 
     // Coin size (scale on each axis)
@@ -1803,7 +1803,7 @@
     const DealSlotEmptySpaceRate = 1.7;  // divisor for empty points when computing coin count
     const DealButtonGapPortrait      = 0;   // pixels gap below board in portrait
     const DealButtonGapLandscape     = 0;   // pixels gap below board in landscape
-    const DealButtonSafeMarginPortrait  = 50;  // pixels safety margin from screen bottom
+    const DealButtonSafeMarginPortrait  = 20;  // pixels safety margin from screen bottom
     const DealButtonSafeMarginLandscape = 35;  // pixels safety margin from screen bottom
     const DealHintDelay = 500;          // ms before deal hint appears
 
@@ -2827,10 +2827,11 @@
       // setFromCamera handles both perspective and ortho correctly
       // (for ortho it places the ray origin on the near plane, not mid-frustum)
       _cpRay.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
-      var plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      var spawnY = -1;
+      var plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -spawnY); // y = spawnY
       var hit = _cpRay.ray.intersectPlane(plane, _cpHit);
-      if (!hit) return { x: 0, y: -1, z: 6 };
-      return { x: _cpHit.x, y: -1, z: _cpHit.z + 2 };
+      if (!hit) return { x: 0, y: spawnY, z: 6 };
+      return { x: _cpHit.x, y: spawnY, z: _cpHit.z };
     }
 
     function shuffleArray(arr) {
