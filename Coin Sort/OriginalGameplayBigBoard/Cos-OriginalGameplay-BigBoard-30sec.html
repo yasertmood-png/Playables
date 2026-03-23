@@ -2289,6 +2289,7 @@
     let tutorialActive = false;
     let tutorialStepIndex = 0;
     let tutorialSubStep = 0;
+    let blockCoinInteractions = false; // block between slot tutorial end and deal tutorial completion
 
     function updateTutorialHandPosition() {
       if (!tutorialActive || !tutorialHandEl) return;
@@ -2343,6 +2344,7 @@
     function endTutorial() {
       tutorialActive = false;
       tutorialHandEl.classList.remove('visible', 'pulsing');
+      blockCoinInteractions = true;
       updateDealButtonState();
       scheduleDealHint();
     }
@@ -2798,6 +2800,7 @@
       // Block all coin interactions during deal button tutorial or the gap between slot and deal tutorials
       // (but allow interactions during slot tutorial)
       if (dealTutorialActive || (!tutorialActive && dealButtonUnlocked && !_dealTutorialDone)) return;
+      if (blockCoinInteractions) return;
 
       const slotIdx = getClickedSlotIndex(e);
 
@@ -3098,6 +3101,7 @@
         setTimeout(function () { dealButton.classList.remove('clicking'); }, 300);
 
         if (dealTutorialActive) endDealTutorial();
+        if (blockCoinInteractions) blockCoinInteractions = false;
         playSound(SFX.deal);
         executeDeal();
       });
@@ -3146,6 +3150,7 @@
 
     function endDealTutorial() {
       dealTutorialActive = false;
+      blockCoinInteractions = false;
       if (tutorialHandEl) tutorialHandEl.classList.remove('visible', 'pulsing');
     }
 
