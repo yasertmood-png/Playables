@@ -2824,22 +2824,13 @@
       var cy = rect.top + rect.height / 2;
       var ndcX = (cx / window.innerWidth) * 2 - 1;
       var ndcY = -(cy / window.innerHeight) * 2 + 1;
-      var vec = new THREE.Vector3(ndcX, ndcY, 0.5);
-      vec.unproject(camera);
-      var rayOrigin, rayDir;
-      if (camera.isOrthographicCamera) {
-        // Ortho: all rays are parallel — direction is camera forward, origin is the unprojected point
-        rayOrigin = vec.clone();
-        rayDir = new THREE.Vector3();
-        camera.getWorldDirection(rayDir);
-      } else {
-        // Perspective: ray goes from camera position through the unprojected point
-        rayDir = vec.clone().sub(camera.position).normalize();
-        rayOrigin = camera.position.clone();
-      }
-      var dist = (0 - rayOrigin.y) / rayDir.y;
-      var pos = rayOrigin.add(rayDir.multiplyScalar(dist));
-      return { x: pos.x, y: -1, z: pos.z + 2 };
+      // setFromCamera handles both perspective and ortho correctly
+      // (for ortho it places the ray origin on the near plane, not mid-frustum)
+      _cpRay.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+      var plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+      var hit = _cpRay.ray.intersectPlane(plane, _cpHit);
+      if (!hit) return { x: 0, y: -1, z: 6 };
+      return { x: _cpHit.x, y: -1, z: _cpHit.z + 2 };
     }
 
     function shuffleArray(arr) {
