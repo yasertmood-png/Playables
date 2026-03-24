@@ -1,8 +1,8 @@
 const fs = require('fs');
 const JavaScriptObfuscator = require('javascript-obfuscator');
 
-const INPUT  = 'c:/MoodGames/Playable Ads/Playables/Coin Sort/Original Gameplay/OriginalGameplay-60Sec-min.html';
-const OUTPUT = 'c:/MoodGames/Playable Ads/Playables/Coin Sort/Original Gameplay/OriginalGameplay-60Sec-obf.html';
+const INPUT  = 'c:/MoodGames/Playable Ads/Playables/Coin Sort/OriginalGameplayBigBoard/Cos-OriginalGameplay-BigBoard-2clk.min.html';
+const OUTPUT = 'c:/MoodGames/Playable Ads/Playables/Coin Sort/OriginalGameplayBigBoard/Cos-OriginalGameplay-BigBoard-2clk.obf.html';
 
 const html = fs.readFileSync(INPUT, 'utf8');
 

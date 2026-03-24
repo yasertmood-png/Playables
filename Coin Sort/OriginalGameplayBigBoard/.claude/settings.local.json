@@ -14,7 +14,12 @@
       "Bash(node \"c:/MoodGames/Playable Ads/Playables/Coin Sort/Original Gameplay/inspect-scripts.js\")",
       "Bash(node \"c:/MoodGames/Playable Ads/Playables/Coin Sort/Original Gameplay/inspect-scripts2.js\")",
       "Bash(node \"c:/MoodGames/Playable Ads/Playables/Coin Sort/Original Gameplay/obfuscate.js\")",
-      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --remove-optional-tags --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype --minify-css true --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' --output \"c:\\\\MoodGames\\\\Playable Ads\\\\Playables\\\\Coin Sort\\\\Original Gameplay\\\\OriginalGameplay-2clk-min.html\" \"c:\\\\MoodGames\\\\Playable Ads\\\\Playables\\\\Coin Sort\\\\Original Gameplay\\\\OriginalGameplay-2clk.html\")"
+      "Bash(html-minifier-terser --collapse-whitespace --remove-comments --remove-optional-tags --remove-redundant-attributes --remove-script-type-attributes --remove-tag-whitespace --use-short-doctype --minify-css true --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' --output \"c:\\\\MoodGames\\\\Playable Ads\\\\Playables\\\\Coin Sort\\\\Original Gameplay\\\\OriginalGameplay-2clk-min.html\" \"c:\\\\MoodGames\\\\Playable Ads\\\\Playables\\\\Coin Sort\\\\Original Gameplay\\\\OriginalGameplay-2clk.html\")",
+      "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --remove-redundant-attributes --use-short-doctype \"Cos-OriginalGameplay-BigBoard-30sec.html\" -o \"Cos-OriginalGameplay-BigBoard-30sec.min.html\")",
+      "Bash(node obfuscate.js)",
+      "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --remove-redundant-attributes --use-short-doctype \"Cos-OriginalGameplay-BigBoard-60sec.html\" -o \"Cos-OriginalGameplay-BigBoard-60sec.min.html\")",
+      "Bash(node -e \":*)",
+      "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --remove-redundant-attributes --use-short-doctype \"Cos-OriginalGameplay-BigBoard-2clk.html\" -o \"Cos-OriginalGameplay-BigBoard-2clk.min.html\")"
     ]
   }
 }
