@@ -336,7 +336,7 @@
     }
     #tutorialHand {
       position: fixed;
-      width: clamp(48px, 14vmin, 80px);
+      width: clamp(48px, 10vmin, 80px);
       height: auto;
       pointer-events: none;
       z-index: 8;
@@ -1697,7 +1697,7 @@
     const CameraPortraitRotation = { x: -1.0, y: 0, z: 0 };
 
     // Camera - landscape orientation
-    const CameraLandscapePosition = { x: 0, y: 8.04, z: 6.4 };
+    const CameraLandscapePosition = { x: 0, y: 8.04, z: 6.5 };
     const CameraLandscapeRotation = { x: -1.0, y: 0, z: 0 };
 
     // Camera virtual FOV (degrees) per orientation — works like a perspective FOV.
@@ -1808,7 +1808,7 @@
     const DealButtonGapPortrait      = 0;   // pixels gap below board in portrait
     const DealButtonGapLandscape     = 0;   // pixels gap below board in landscape
     const DealButtonSafeMarginPortrait  = 20;  // pixels safety margin from screen bottom
-    const DealButtonSafeMarginLandscape = 35;  // pixels safety margin from screen bottom
+    const DealButtonSafeMarginLandscape = 15;  // pixels safety margin from screen bottom
     const DealHintDelay = 500;          // ms before deal hint appears
 
     // Pre-defined coin layout (indexed by slot 0Ã¢â‚¬â€œ14, each is array of coin numbers)
