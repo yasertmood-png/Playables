@@ -1647,6 +1647,7 @@
 
     // Slot types enum
     const SlotType = Object.freeze({
+      Nothing: 'Nothing',
       Empty: 'Empty',
       Closed: 'Closed',
       Free: 'Free',
@@ -1655,9 +1656,13 @@
       Buyable: 'Buyable',
     });
 
-    // Grid layout (5 columns x 3 rows)
-    const GRID_COLS = 11;
-    const GRID_ROWS = 4;
+    // Grid layout — portrait
+    const GridColsPortrait = 11;
+    const GridRowsPortrait = 4;
+
+    // Grid layout — landscape
+    const GridColsLandscape = 11;
+    const GridRowsLandscape = 4;
 
     // Slot size per type (width, height in world units)
     const SlotSize = {
@@ -1679,13 +1684,17 @@
       [SlotType.Buyable]:    { x: 0, z: -0.1 },
     };
 
-    // Grid cell size (used for spacing/positioning — set to the largest slot dimensions)
-    const SLOT_WIDTH = 0.65;
-    const SLOT_HEIGHT = 2;
+    // Grid cell size & spacing — portrait
+    const SlotWidthPortrait            = 0.65;
+    const SlotHeightPortrait           = 2;
+    const SlotHorizontallySpacingPortrait = 0.06;
+    const SlotVerticallySpacingPortrait   = 0.06;
 
-    // Spacing between slots (world units)
-    const SlotHorizontallySpacing = 0.06;
-    const SlotVerticallySpacing = 0.06;
+    // Grid cell size & spacing — landscape
+    const SlotWidthLandscape            = 0.65;
+    const SlotHeightLandscape           = 2;
+    const SlotHorizontallySpacingLandscape = 0.06;
+    const SlotVerticallySpacingLandscape   = 0.06;
 
     // Slot edge image (SlotEdge.png) — displayed at the front edge of each slot
     const SlotEdgeSize = { x: 0.5, y: 0.1, z: 1 };    // world-unit scale (width, height, depth)
@@ -1697,13 +1706,13 @@
     const CameraPortraitRotation = { x: -1.0, y: 0, z: 0 };
 
     // Camera - landscape orientation
-    const CameraLandscapePosition = { x: 0, y: 8.04, z: 6 };
+    const CameraLandscapePosition = { x: 0, y: 8.04, z:6 };
     const CameraLandscapeRotation = { x: -1.0, y: 0, z: 0 };
 
     // Camera virtual FOV (degrees) per orientation — works like a perspective FOV.
     // Moving the camera closer zooms in; farther zooms out. Larger angle = more zoomed out.
     const CameraFOVPortrait  = -0.32;
-    const CameraFOVLandscape = 0.05;
+    const CameraFOVLandscape = -0.25;
 
     // Coin number-to-color mapping
     const CoinColors = {
@@ -1819,18 +1828,26 @@
       [6,6,6,4,4,4], [2,2,2,4,4], [3, 3, 3, 3 ,3 ,1 , 1, 1, 1 ], [6, 6, 6], [4, 4, 4], [1, 1, 1, 1], [1, 1, 1, 1 ,1 ,1 ,1], [2,2,3,3,3,3,3], [3,3,3,3,3,5,5,5], [2,2,2,4,4,4,4,4],[5,5,5,5,2,2]
     ];
 
-    // Default slot types for the board (5 cols x 3 rows, row-major order)
-    const DefaultSlotTypes = [
+    // Default slot types — portrait (GridColsPortrait x GridRowsPortrait, row-major order)
+    const DefaultSlotTypesPortrait = [
       SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed,SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed,
       SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed,SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
       SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
       SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty
     ];
 
+    // Default slot types — landscape (GridColsLandscape x GridRowsLandscape, row-major order)
+    const DefaultSlotTypesLandscape = [
+      SlotType.Nothing, SlotType.Nothing, SlotType.Nothing, SlotType.Nothing, SlotType.Nothing,SlotType.Nothing, SlotType.Nothing, SlotType.Nothing, SlotType.Nothing, SlotType.Nothing, SlotType.Nothing,
+      SlotType.Nothing, SlotType.Nothing, SlotType.Nothing, SlotType.Nothing, SlotType.Closed,SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
+      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
+      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
+    ];
+
     // ---- Tutorial Configuration ----
     // Each entry is [pickupSlotIndex, dropSlotIndex].
     const TutorialSteps = [
-      [38,39]
+      [29,31]
     ];
     const TutorialEnabled = TutorialSteps.length > 0;
 
@@ -2022,8 +2039,15 @@
     tableMesh.position.set(0, 0, 0);
     scene.add(tableMesh);
 
-    const SLOT_W = SLOT_WIDTH;
-    const SLOT_H = SLOT_HEIGHT;
+    // Pick board config based on orientation at load time
+    const _boardIsPortrait = window.innerWidth <= window.innerHeight;
+    const GRID_COLS               = _boardIsPortrait ? GridColsPortrait                : GridColsLandscape;
+    const GRID_ROWS               = _boardIsPortrait ? GridRowsPortrait                : GridRowsLandscape;
+    const DefaultSlotTypes        = _boardIsPortrait ? DefaultSlotTypesPortrait        : DefaultSlotTypesLandscape;
+    const SLOT_W                  = _boardIsPortrait ? SlotWidthPortrait               : SlotWidthLandscape;
+    const SLOT_H                  = _boardIsPortrait ? SlotHeightPortrait              : SlotHeightLandscape;
+    const SlotHorizontallySpacing = _boardIsPortrait ? SlotHorizontallySpacingPortrait : SlotHorizontallySpacingLandscape;
+    const SlotVerticallySpacing   = _boardIsPortrait ? SlotVerticallySpacingPortrait   : SlotVerticallySpacingLandscape;
 
     const gridTotalW = GRID_COLS * SLOT_W + (GRID_COLS - 1) * SlotHorizontallySpacing;
     const gridTotalH = GRID_ROWS * SLOT_H + (GRID_ROWS - 1) * SlotVerticallySpacing;
@@ -2053,6 +2077,12 @@
       for (let col = 0; col < GRID_COLS; col++) {
         const idx = row * GRID_COLS + col;
         const slotType = DefaultSlotTypes[idx] || SlotType.Empty;
+
+        if (slotType === SlotType.Nothing) {
+          // Placeholder to preserve index alignment — no mesh, not interactable
+          slots.push({ col, row, x: 0, z: 0, type: SlotType.Nothing, coins: [], capacity: 0, mesh: null });
+          continue;
+        }
 
         const offset = SlotOffset[slotType] || { x: 0, z: 0 };
         const x = gridOffsetX + SLOT_W / 2 + col * (SLOT_W + SlotHorizontallySpacing) + offset.x;
@@ -2249,7 +2279,7 @@
         const coinNumbers = DefaultCoinLayout[slotIdx];
         if (!coinNumbers || coinNumbers.length === 0) continue;
         const slot = slots[slotIdx];
-        if (!slot) continue;
+        if (!slot || slot.type === SlotType.Nothing) continue;
 
         for (let i = 0; i < coinNumbers.length; i++) {
           const coin = _buildCoin(coinNumbers[i]);
@@ -2478,14 +2508,15 @@
     // Find which slot index was clicked via raycaster
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
-    const slotMeshes = slots.map(s => s.mesh);
+    const slotMeshes = slots.map(s => s.mesh); // null for Nothing slots — preserves index alignment
+    const slotMeshesForRaycast = slotMeshes.filter(Boolean); // no nulls — safe to pass to Three.js
 
     function getClickedSlotIndex(event) {
       const rect = canvas.getBoundingClientRect();
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects(slotMeshes);
+      const hits = raycaster.intersectObjects(slotMeshesForRaycast);
       if (hits.length > 0) {
         return slotMeshes.indexOf(hits[0].object);
       }
