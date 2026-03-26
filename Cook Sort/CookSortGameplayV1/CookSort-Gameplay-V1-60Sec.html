@@ -3719,11 +3719,13 @@
       var _allFull = _totalCap > 0 && (_totalCoins / _totalCap) >= DealButtonDisableThreshold;
       if (!dealButtonEnabled || eligible.length <= 0 || _allFull) {
         dealButton.classList.add('disabled');
-        dealButton.style.backgroundImage = 'url("' + ASSETS.dealButtonDisabled + '")';
+        dealButton.style.backgroundImage = 'url("' + ASSETS.dealButtonEnabled + '")';
+        dealButton.style.opacity = '0.45';
         checkBoardFull();
       } else {
         dealButton.classList.remove('disabled');
         dealButton.style.backgroundImage = 'url("' + ASSETS.dealButtonEnabled + '")';
+        dealButton.style.opacity = '1';
       }
     }
 
