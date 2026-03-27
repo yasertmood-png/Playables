@@ -1923,12 +1923,10 @@
     const SlotEdgeRotation = { x: -45, y: 0, z: 0 };       // degrees (flat on ground, same as slot)
 
     // Camera - portrait orientation
-    const CameraPortraitPosition = { x: 0, y: 15.6, z: 10.50 };
-    const CameraPortraitRotation = { x: -0.99, y: 0, z: 0 };
+    const CameraPortraitPosition = { x: 0, y: 0, z: 0.5 };
 
     // Camera - landscape orientation
-    const CameraLandscapePosition = { x: 0, y: 10.30, z: 7.5 };
-    const CameraLandscapeRotation = { x: -0.99, y: 0, z: 0 };
+    const CameraLandscapePosition = { x: 0, y: 0, z: 0.1 };
 
     // Extra breathing room added around the table when auto-fitting FOV (0 = tight, 0.1 = 10% border)
     const CameraFitPaddingPortrait = 0.25;
@@ -1982,7 +1980,7 @@
     const DealButtonBoardGapPx = 25;      // minimum gap between board bottom and deal button
     const DealButtonViewportBottomPadPx = 12; // keep a small margin from the bottom edge
     const DealButtonWidthSlotsPortrait = 2.5;   // button width (portrait) as a multiple of slot width
-    const DealButtonWidthSlotsLandscape = 2.3;  // button width (landscape) as a multiple of slot width
+    const DealButtonWidthSlotsLandscape = 2.1;  // button width (landscape) as a multiple of slot width
 
     // Directional light position, target, intensity and color
     const DirLightPosition = { x: 100, y: 100, z: 50.3 };
@@ -2271,8 +2269,9 @@
       var paddedW = _tW * (1 + _fitPad * 2);
       var paddedH = _tH * (1 + _fitPad * 2);
       W2S_SCALE = Math.min(cw / paddedW, (ch * 0.88) / paddedH);
-      ORIGIN_X = cw * 0.5;
-      ORIGIN_Y = ch * 0.5;
+      var _cam = _isLs ? CameraLandscapePosition : CameraPortraitPosition;
+      ORIGIN_X = cw * 0.5 - _cam.x * W2S_SCALE;
+      ORIGIN_Y = ch * 0.5 - _cam.z * W2S_SCALE;
       if (typeof slots !== 'undefined') {
         for (var _li = 0; _li < slots.length; _li++) {
           var _ls = slots[_li];
@@ -3852,7 +3851,7 @@
       // Convert screen position to world coords (2D inverse of w2sx/w2sy)
       var wx = (cx - ORIGIN_X) / W2S_SCALE;
       var wz = (cy - ORIGIN_Y) / W2S_SCALE;
-      return { x: wx, y: -1, z: wz + 2 };
+      return { x: wx, y: CoinStackStartY, z: wz };
     }
 
     function shuffleArray(arr) {
