@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(node build-minify.mjs CookSort-Gameplay-V1-60Sec)",
+      "Bash(node build-obfuscate.mjs CookSort-Gameplay-V1-60Sec)",
+      "Bash(node build-minify.mjs CookSort-Gameplay-V1-30Sec)",
+      "Bash(node build-obfuscate.mjs CookSort-Gameplay-V1-30Sec)",
+      "Bash(node build-minify.mjs CookSort-Gameplay-V1-2clk)",
+      "Bash(node build-obfuscate.mjs CookSort-Gameplay-V1-2clk)"
+    ]
+  }
+}

@@ -298,7 +298,7 @@
       background-size: 100% 100%;
       background-repeat: no-repeat;
       background-position: center;
-      width: 16vh;
+      /* width set by JS via updateDealButtonPosition() to match slot scale */
       /* aspect-ratio set automatically by JS from image dimensions */
       transition: opacity .24s ease, transform .24s ease;
       z-index: 8;
@@ -333,11 +333,6 @@
       }
     }
 
-    @media (orientation:landscape) {
-      #dealButton {
-        width: 16vh;
-      }
-    }
 
     #progressBarContainer {
       position: fixed;
@@ -534,7 +529,7 @@
       transform-origin: center center;
       pointer-events: none;
       z-index: 21;
-      font-family: 'Arial Black', Arial, sans-serif;
+      font-family: 'Baloo2', sans-serif;
       font-size: clamp(32px, 8vmin, 60px);
       font-weight: 900;
       color: #FFD700;
@@ -1341,7 +1336,7 @@
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
-    const CTA_SHOW_DELAY_MS = 60000;
+    const CTA_SHOW_DELAY_MS = 30000;
     const CTA_PULSE_START_DELAY_MS = 260;
     const CTA_TEXT_FILL_RATIO = 0.5; // text height as fraction of button height
     const STORE_URL_ANDROID = 'https://play.google.com/store/apps/details?id=com.MoodGames.CookSort';
@@ -1894,7 +1889,7 @@
 
     // Spacing between slots (world units)
     const SlotHorizontallySpacing = 0.1;
-    const SlotVerticallySpacing = 0.15;
+    const SlotVerticallySpacing = -0.08;
 
     // Landscape grid: 6 columns × 2 rows (repositions existing portrait slots)
     const LS_GRID_COLS = 7;
@@ -1936,7 +1931,7 @@
     const CameraLandscapeRotation = { x: -0.99, y: 0, z: 0 };
 
     // Extra breathing room added around the table when auto-fitting FOV (0 = tight, 0.1 = 10% border)
-    const CameraFitPaddingPortrait = 0.1;
+    const CameraFitPaddingPortrait = 0.25;
     const CameraFitPaddingLandscape = 0.15;
 
     // SlotBG overlay: size (world units), position offset, and tint colors per slot category
@@ -1984,8 +1979,10 @@
     // Deal button vertical position as % of screen height (vh) from the bottom, per orientation.
     const DealButtonBottomPortrait = 8;  // vh from bottom of screen
     const DealButtonBottomLandscape = 7;  // vh from bottom of screen
-    const DealButtonBoardGapPx = -5;      // minimum gap between board bottom and deal button
+    const DealButtonBoardGapPx = 25;      // minimum gap between board bottom and deal button
     const DealButtonViewportBottomPadPx = 12; // keep a small margin from the bottom edge
+    const DealButtonWidthSlotsPortrait = 2.5;   // button width (portrait) as a multiple of slot width
+    const DealButtonWidthSlotsLandscape = 2.3;  // button width (landscape) as a multiple of slot width
 
     // Directional light position, target, intensity and color
     const DirLightPosition = { x: 100, y: 100, z: 50.3 };
@@ -2014,10 +2011,10 @@
     const CoinRotation = { x: 80, y: 0, z: 0 };
 
     // Coin spacing between coins in a slot (vertical gap)
-    const CoinSpacing = 0.14;
+    const CoinSpacing = 0.12;
 
     // Coin stacking start Y (height of first coin above the table)
-    const CoinStackStartZ = -0.73;
+    const CoinStackStartZ = -0.60;
     const CoinStackStartY = 0.46;
 
     // Dynamic coin X offset: projects slot center through camera to coin Y plane
@@ -3683,12 +3680,6 @@
             cancelHold(true); // failed transfer — no place sound
           } else if (tutorialActive) {
             advanceTutorial();
-            // 2-click variant: second click (drop) ends tutorial → open store + end card
-            if (!tutorialActive) {
-              if (ctaRevealTimeoutId !== null) { clearTimeout(ctaRevealTimeoutId); ctaRevealTimeoutId = null; }
-              openStore();
-              showInstallCta();
-            }
           }
         }
       } else {
@@ -3728,21 +3719,24 @@
       return isFinite(boardBottom) ? boardBottom : null;
     }
 
-    // Positions the deal button from its default vh offset, but pushes it down
-    // when needed so it stays below the board without leaving the viewport.
+    // Positions the deal button just below the board bottom, clamped to stay inside the viewport.
     function updateDealButtonPosition() {
       if (!dealButton) return;
       var isPortrait = window.innerWidth <= window.innerHeight;
+      var _widthSlots = isPortrait ? DealButtonWidthSlotsPortrait : DealButtonWidthSlotsLandscape;
+      dealButton.style.width = (SlotSize[SlotType.Empty].width * W2S_SCALE * _widthSlots).toFixed(1) + 'px';
       var viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-      var defaultBottomPx = viewportHeight * ((isPortrait ? DealButtonBottomPortrait : DealButtonBottomLandscape) / 100);
-      var targetBottomPx = defaultBottomPx;
       var buttonRect = dealButton.getBoundingClientRect();
       var buttonHeight = buttonRect.height || 0;
       var boardBottomPx = getBoardBottomScreenPx();
 
-      if (buttonHeight > 0 && boardBottomPx !== null) {
-        var maxBottomBeforeOverlap = viewportHeight - buttonHeight - boardBottomPx - DealButtonBoardGapPx;
-        targetBottomPx = Math.min(targetBottomPx, maxBottomBeforeOverlap);
+      var targetBottomPx;
+      if (boardBottomPx !== null && buttonHeight > 0) {
+        // Place button top at boardBottom + gap, convert to CSS bottom
+        targetBottomPx = viewportHeight - boardBottomPx - DealButtonBoardGapPx - buttonHeight;
+      } else {
+        // Fallback until board is ready
+        targetBottomPx = viewportHeight * (DealButtonBottomPortrait / 100);
       }
 
       targetBottomPx = Math.max(DealButtonViewportBottomPadPx, targetBottomPx);
