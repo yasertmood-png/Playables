@@ -402,7 +402,7 @@
       z-index: 8;
       opacity: 0;
       transition: opacity 0.25s ease;
-      transform: translate(-50%, 0%);
+      transform: translate(-50%, -50%);
       transform-origin: center center;
     }
 
@@ -2204,9 +2204,9 @@
     const TutorialHandOffsetX = 30;   // % of slot width,  positive = right
     const TutorialHandOffsetY = 15;   // % of slot height, positive = down
 
-    // Deal button tutorial hand offset (% of button size — 0,0 = top-left corner of button)
-    const DealTutorialHandOffsetX = 95;  // % of button width,  positive = right
-    const DealTutorialHandOffsetY = 50;  // % of button height, positive = down
+    // Deal button tutorial hand offset (% of button size — 0,0 = button center)
+    const DealTutorialHandOffsetX = 45;  // % of button width,  positive = right
+    const DealTutorialHandOffsetY = 0;   // % of button height, positive = down
 
     const IdleHintDelay = 1500; // ms of no-touch before idle hint activates
     const DealHintDelay = 3000; // ms before non-forced deal hint re-appears
@@ -2667,7 +2667,7 @@
       var screenX = w2sx(slot.x);
       var screenY = w2sy(slot.z);
       tutorialHandEl.style.left = (screenX + slot.slotW * TutorialHandOffsetX / 100) + 'px';
-      tutorialHandEl.style.top = (screenY + slot.slotH * TutorialHandOffsetY / 100) + 'px';
+      tutorialHandEl.style.top = (screenY + slot.slotH * TutorialHandOffsetY / 100) + 'px'; // offsets are from slot center
     }
 
     function updateIdleHintHandPosition() {
@@ -3088,8 +3088,10 @@
       if (!tutorialHandEl || !dealButton) return;
       dealTutorialActive = true;
       var rect = dealButton.getBoundingClientRect();
-      tutorialHandEl.style.left = (rect.left + rect.width * DealTutorialHandOffsetX / 100) + 'px';
-      tutorialHandEl.style.top = (rect.top + rect.height * DealTutorialHandOffsetY / 100) + 'px';
+      var btnCx = rect.left + rect.width * 0.5;
+      var btnCy = rect.top + rect.height * 0.5;
+      tutorialHandEl.style.left = (btnCx + rect.width * DealTutorialHandOffsetX / 100) + 'px';
+      tutorialHandEl.style.top = (btnCy + rect.height * DealTutorialHandOffsetY / 100) + 'px';
       tutorialHandEl.classList.add('visible', 'pulsing');
     }
 
