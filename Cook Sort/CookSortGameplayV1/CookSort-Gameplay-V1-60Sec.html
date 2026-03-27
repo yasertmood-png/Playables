@@ -3499,7 +3499,10 @@
                 setTimeout(function () {
                   _spawnOpenSlotCoin(closedSlot, newCoinType, _i, function () {
                     _settled++;
-                    if (_settled >= ClosedSlotOpenResultCount) mergingSlots.delete(target.slotIdx);
+                    if (_settled >= ClosedSlotOpenResultCount) {
+                      mergingSlots.delete(target.slotIdx);
+                      scheduleDealHint();
+                    }
                   });
                 }, _coinSpawnDelay + _i * CoinMergeStepDuration * 0.3);
               })(_ni);
