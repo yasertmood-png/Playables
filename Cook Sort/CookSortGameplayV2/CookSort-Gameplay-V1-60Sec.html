@@ -1335,7 +1335,7 @@
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
-    const CTA_SHOW_DELAY_MS = 30000;
+    const CTA_SHOW_DELAY_MS = 60000;
     const CTA_PULSE_START_DELAY_MS = 260;
     const CTA_TEXT_FILL_RATIO = 0.5; // text height as fraction of button height
     const STORE_URL_ANDROID = 'https://play.google.com/store/apps/details?id=com.MoodGames.CookSort';
@@ -2131,7 +2131,7 @@
     const DefaultCoinLayout = [
       [], [], [], [], [],
       [], [], [], [], [],
-      [], [2, 2, 2, 2, 2, 2, 2, 2], [1, 1, 1], [1, 1, 1, 1, 1, 1, 1], [],
+      [3,3,3,3,3,3,3,3], [2, 2, 2, 2], [1, 1, 1], [1, 1, 1, 1, 1, 1, 1], [2,2,2,2,2],
     ];
 
     // Initial coins for landscape orientation (16 slots, indexed by slot number)
@@ -2144,7 +2144,7 @@
     const DefaultSlotTypes = [
       SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed,
       SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed,
-      SlotType.Closed, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Closed,
+      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
     ];
 
     // Default slot types for landscape (2 rows x 8 cols, 16 slots — row-major in LANDSCAPE_SLOT_MAP order)
@@ -2157,15 +2157,14 @@
     // Maps each closed slot index to the coin type it accepts.
     // When a slot fills with 10 of that coin type, they fly here → fill bar → explosion → 5 coins of next type.
     const ClosedSlotMergeTargets = [
-      { slotIdx: 14, coinType: 2 },
-      { slotIdx: 10, coinType: 3 },
-      { slotIdx: 7, coinType: 4 },
-      { slotIdx: 8, coinType: 5 },
-      { slotIdx: 6, coinType: 6 },
-      { slotIdx: 9, coinType: 7 },
-      { slotIdx: 5, coinType: 8 },
-      { slotIdx: 2, coinType: 9 },
-      { slotIdx: 1, coinType: 10 },
+      { slotIdx: 7, coinType: 3 },
+      { slotIdx: 8, coinType: 4 },
+      { slotIdx: 6, coinType: 5 },
+      { slotIdx: 9, coinType: 6 },
+      { slotIdx: 5, coinType: 7 },
+      { slotIdx: 2, coinType: 8 },
+      { slotIdx: 1, coinType: 9 },
+      { slotIdx: 4, coinType: 10 },
     ];
 
     // Landscape version — set slotIdx values to match your 2×8 closed slots
