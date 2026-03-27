@@ -195,7 +195,7 @@
       top: calc(var(--title-top-portrait) + env(safe-area-inset-top, 0px));
       left: 50%;
       transform: translateX(-50%);
-      width: 35vh;
+      width: 32vh;
       height: auto;
       object-fit: contain;
       pointer-events: none;
@@ -210,7 +210,7 @@
         top: calc(var(--title-top-landscape) + env(safe-area-inset-top, 0px));
         left: 50%;
         transform: translateX(-50%);
-        width: 40vh;
+        width: 38vh;
         height: auto;
         object-fit: contain;
         pointer-events: none;
@@ -272,7 +272,7 @@
       }
 
       50% {
-        transform: translateX(-50%) translateY(0) scale(1.08)
+        transform: translateX(-50%) translateY(0) scale(1.12)
       }
     }
 
@@ -432,13 +432,23 @@
       position: fixed;
       top: calc(10px + env(safe-area-inset-top, 0px));
       right: calc(10px + env(safe-area-inset-right, 0px));
-      width: clamp(32px, 10vmin, 48px);
-      height: clamp(32px, 10vmin, 48px);
+      width: 5vh;
+      height: 5vh;
       border: 0;
       background: transparent;
       cursor: pointer;
       z-index: 999;
       padding: 0;
+    }
+    @media (orientation: landscape) {
+      #muteBtn {
+        width: 8vmin;
+        height: 8vmin;
+      }
+      #gameIcon,
+      #downloadIcon {
+        width: 9vmin;
+      }
     }
 
     #muteBtnImg,
@@ -1331,7 +1341,7 @@
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
-    const CTA_SHOW_DELAY_MS = 60000;
+    const CTA_SHOW_DELAY_MS = 30000;
     const CTA_PULSE_START_DELAY_MS = 260;
     const CTA_TEXT_FILL_RATIO = 0.5; // text height as fraction of button height
     const STORE_URL_ANDROID = 'https://play.google.com/store/apps/details?id=com.MoodGames.CookSort';
@@ -2032,6 +2042,8 @@
     const SlotOpenPunchDuration = 180;  // ms to reach peak scale
     const SlotOpenSettleDuration = 200;  // ms to shrink from peak to 0
     const SlotOpenLiftHeight = 0.05;  // world-units to lift slot above surroundings during open
+    const SlotRevealOvershoot = 1.15; // scale overshoot when new empty slot pops in
+    const SlotRevealDuration = 320;   // ms for the full reveal scale animation
     const CoinHoldEasing = TWEEN.Easing.Cubic.Out;
     const CoinTransferEasing = TWEEN.Easing.Cubic.InOut;
     const CoinTransferToLockedEasing = TWEEN.Easing.Cubic.In; // slow start → fast finish into locked slot
@@ -2176,8 +2188,8 @@
     ];
 
     const ClosedSlotOpenResultCount = 5;  // coins spawned when slot opens
-    const LockIconOffset = { x: 0, y: -0.25, z: 0 };
-    const LockIconScale = { x: 0.6, y: 0.5 };
+    const LockIconOffset = { x: 0, y: -0.35, z: 0 };
+    const LockIconScale = { x: 0.55, y: 0.50 };
 
     // ---- Tutorial Configuration ----
     // Each entry is [pickupSlotIndex, dropSlotIndex].
@@ -2227,6 +2239,7 @@
 
     const ctx = canvas.getContext('2d');
     if (!ctx) showFallback('Canvas 2D not available.');
+    var DPR = window.devicePixelRatio || 1;
 
     fallbackRetry && fallbackRetry.addEventListener('pointerdown', function (event) {
       event.preventDefault(); event.stopPropagation();
@@ -2253,7 +2266,7 @@
     function w2sy(wz, wy) { return ORIGIN_Y + wz * W2S_SCALE - ((wy || 0) - CoinStackStartY) * W2S_SCALE * ELEV_WORLD_RATIO; }
 
     function updateLayout() {
-      var cw = canvas.width, ch = canvas.height;
+      var cw = canvas.width / DPR, ch = canvas.height / DPR;
       var _isLs = cw > ch;
       var _fitPad = !_isLs ? CameraFitPaddingPortrait : CameraFitPaddingLandscape;
       var _tW = _isLs ? LS_TABLE_WIDTH : TABLE_WIDTH;
@@ -2739,7 +2752,7 @@
 
     // Fires after IdleHintDelay ms of no interaction.
     function activateIdleHint() {
-      if (tutorialActive || !tutorialHandEl) return;
+      if (tutorialActive || dealTutorialActive || !tutorialHandEl) return;
       if (transferringSlots.size > 0 || mergingSlots.size > 0 || isAnimating) {
         clearTimeout(idleHintTimer);
         idleHintTimer = setTimeout(activateIdleHint, 250);
@@ -2932,8 +2945,8 @@
     // 2D slot hit-test
     function getClickedSlotIndex(event) {
       var rect = canvas.getBoundingClientRect();
-      var cx = (event.clientX - rect.left) * (canvas.width / rect.width);
-      var cy = (event.clientY - rect.top) * (canvas.height / rect.height);
+      var cx = (event.clientX - rect.left);
+      var cy = (event.clientY - rect.top);
       for (var i = 0; i < slots.length; i++) {
         var s = slots[i];
         if (s.hidden) continue;
@@ -3470,8 +3483,21 @@
             closedSlot.mesh.geometry = null;  // 2D: type drives image
             closedSlot.mesh.material.map = null;
             closedSlot.mesh.material.needsUpdate = true;
-            closedSlot.mesh.scale.set(1, 1, 1);
-            // Spawn coins — slot unlocks when the last coin settles
+            // Reveal new empty slot: scale 0 → overshoot → 1
+            closedSlot.mesh.scale.set(0, 0, 0);
+            var _revealScale = { v: 0 };
+            new TWEEN.Tween(_revealScale)
+              .to({ v: SlotRevealOvershoot }, SlotRevealDuration * 0.6)
+              .easing(TWEEN.Easing.Quadratic.Out)
+              .onUpdate(function () { closedSlot.mesh.scale.set(_revealScale.v, _revealScale.v, _revealScale.v); })
+              .chain(new TWEEN.Tween(_revealScale)
+                .to({ v: 1 }, SlotRevealDuration * 0.4)
+                .easing(TWEEN.Easing.Quadratic.In)
+                .onUpdate(function () { closedSlot.mesh.scale.set(_revealScale.v, _revealScale.v, _revealScale.v); })
+                .onComplete(function () { closedSlot.mesh.scale.set(1, 1, 1); }))
+              .start();
+            // Spawn coins — offset so they appear as the slot is visible
+            var _coinSpawnDelay = SlotRevealDuration * 0.5;
             var _settled = 0;
             for (var _ni = 0; _ni < ClosedSlotOpenResultCount; _ni++) {
               (function (_i) {
@@ -3480,7 +3506,7 @@
                     _settled++;
                     if (_settled >= ClosedSlotOpenResultCount) mergingSlots.delete(target.slotIdx);
                   });
-                }, _i * CoinMergeStepDuration * 0.3);
+                }, _coinSpawnDelay + _i * CoinMergeStepDuration * 0.3);
               })(_ni);
             }
 
@@ -3724,10 +3750,12 @@
     function onResize() {
       const w = window.innerWidth;
       const h = window.innerHeight;
-      canvas.width = w;
-      canvas.height = h;
-      canvas.style.width = '';
-      canvas.style.height = '';
+      DPR = window.devicePixelRatio || 1;
+      canvas.width = w * DPR;
+      canvas.height = h * DPR;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
       var _nowLs = w > h;
       _prevOrientationIsLandscape = _nowLs;
       repositionSlotsForOrientation(_nowLs);
@@ -4086,7 +4114,7 @@
 
     function drawScene() {
       if (!ctx) return;
-      var cw = canvas.width, ch = canvas.height;
+      var cw = canvas.width / DPR, ch = canvas.height / DPR;
       if (!cw || !ch) return;
       if (isNaN(W2S_SCALE) || W2S_SCALE <= 0) { updateLayout(); }
       ctx.clearRect(0, 0, cw, ch);
