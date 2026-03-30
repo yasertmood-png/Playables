@@ -15,7 +15,15 @@
       "Bash(npx html-minifier-terser \"CookSort-Gameplay-V1-30Sec.html\" --collapse-whitespace --remove-comments --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' --minify-css true --output \"CookSort-Gameplay-V1-30Sec.min.html\")",
       "Bash(ls -lh CookSort-Gameplay-V1-30Sec*.html)",
       "Bash(npx html-minifier-terser \"CookSort-Gameplay-V1-60Sec.html\" --collapse-whitespace --remove-comments --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' --minify-css true --output \"CookSort-Gameplay-V1-60Sec.min.html\")",
-      "Bash(npx html-minifier-terser \"CookSort-Gameplay-V1-2clk.html\" --collapse-whitespace --remove-comments --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' --minify-css true --output \"CookSort-Gameplay-V1-2clk.min.html\")"
+      "Bash(npx html-minifier-terser \"CookSort-Gameplay-V1-2clk.html\" --collapse-whitespace --remove-comments --minify-js '{\"\"compress\"\":true,\"\"mangle\"\":true}' --minify-css true --output \"CookSort-Gameplay-V1-2clk.min.html\")",
+      "Bash(node -e \"require\\(''html-minifier-terser''\\)\")",
+      "Bash(node build-minify.mjs CookSort-Gameplay-V1-60Sec.html)",
+      "Bash(node -e \"require\\(''javascript-obfuscator''\\)\")",
+      "Bash(node build-obfuscate.mjs CookSort-Gameplay-V1-60Sec.html)",
+      "Bash(node build-minify.mjs CookSort-Gameplay-V1-30Sec.html)",
+      "Bash(node build-obfuscate.mjs CookSort-Gameplay-V1-30Sec.html)",
+      "Bash(node build-minify.mjs CookSort-Gameplay-V1-2clk.html)",
+      "Bash(node build-obfuscate.mjs CookSort-Gameplay-V1-2clk.html)"
     ]
   }
 }
