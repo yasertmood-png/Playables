@@ -547,15 +547,11 @@
       gap: 22px;
       padding: 24px;
       box-sizing: border-box;
-      opacity: 0;
-      transition: opacity 0.2s ease;
-    }
-    #loadContent.ready {
-      opacity: 1;
     }
     #loadScreenLogo {
       width: 50%;       /* portrait: % of screen width */
       max-width: 270px; /* portrait: hard cap */
+      min-height: 80px; /* reserve space before image decodes — prevents layout shift */
       height: auto;
       object-fit: contain;
       flex-shrink: 0;
@@ -1711,17 +1707,8 @@
       gameTitleImg.src = ASSETS.gameTitleImg;
     }
     var _loadScreenLogoEl = document.getElementById('loadScreenLogo');
-    var _loadContentEl = document.getElementById('loadContent');
-    function _revealLoadContent() {
-      if (_loadContentEl) _loadContentEl.classList.add('ready');
-    }
     if (_loadScreenLogoEl) {
-      _loadScreenLogoEl.onload = _revealLoadContent;
-      _loadScreenLogoEl.onerror = _revealLoadContent;
       _loadScreenLogoEl.src = ASSETS.gameTitleImg;
-      if (_loadScreenLogoEl.complete && _loadScreenLogoEl.naturalWidth > 0) _revealLoadContent();
-    } else {
-      _revealLoadContent();
     }
     function updateBodyBg() {
       var _ls = window.innerWidth > window.innerHeight;
