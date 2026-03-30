@@ -2173,7 +2173,7 @@
     var DealCoinMaxRange = 2;        // maximum coin number for random generation (updated dynamically before each deal)
     const DealCoinModifier = 0.25;    // bias for generated coin numbers: 0=heavily toward min(1), 0.5=uniform, 1=heavily toward max(highestCoin-1)
     const Difficulty = 0.0;    // coin number variation per slot (0=all same, 1=max variety)
-    const CoinGroupDifficulty = 1.2;    // coins per slot fill ratio of half-empty (0=1 coin, 1=half empty)
+    const CoinGroupDifficulty = 0.7;    // coins per slot fill ratio of half-empty (0=1 coin, 1=half empty)
     const DealTopCoinExtraCount = 1;    // extra coins added per slot when the dealt coin type is the highest on the table
     const DealLowSpaceThreshold = 0.20;  // if empty/total capacity falls below this, low-space mode activates
     const DealLowSpaceCoinNumber = 1;     // coin type forced in low-space mode (lowest coin)
@@ -3406,8 +3406,11 @@
       });
     }
 
+    var CONFETTI_LIFETIME = 120;   // frames until fully faded (~2s at 60fps) — reduce for shorter duration
+    var CONFETTI_FADE_START = 0.35; // fraction of lifetime when fade begins (0.35 = last 35%)
     function _newConfettiParticle() {
       var col = _confettiColors[Math.floor(Math.random() * _confettiColors.length)];
+      var life = CONFETTI_LIFETIME * (0.8 + Math.random() * 0.4);
       return {
         x: Math.random() * _confettiCanvas.width,
         y: -20,
@@ -3419,7 +3422,9 @@
         flipDir: Math.random() < 0.5 ? 1 : -1,
         flipSpd: 0.05 + Math.random() * 0.08,
         color: col,
-        dead: false
+        dead: false,
+        life: life,
+        maxLife: life
       };
     }
 
@@ -3432,9 +3437,13 @@
         p.scaleX += p.flipDir * p.flipSpd;
         if (Math.abs(p.scaleX) >= 1) { p.flipDir *= -1; p.scaleX = p.flipDir < 0 ? 1 : -1; }
         p.x += p.vx; p.y += p.vy; p.rot += p.rotSpd;
-        if (p.y < H + 20) {
+        p.life--;
+        var fadeThreshold = p.maxLife * CONFETTI_FADE_START;
+        var alpha = p.life < fadeThreshold ? p.life / fadeThreshold : 1;
+        if (p.y < H + 20 && p.life > 0) {
           alive.push(p);
           _confettiCtx.save();
+          _confettiCtx.globalAlpha = alpha;
           _confettiCtx.translate(p.x, p.y);
           _confettiCtx.rotate(p.rot);
           _confettiCtx.scale(p.scaleX, 1);
@@ -3460,7 +3469,7 @@
     function _startConfetti() {
       if (_confettiRafId) { cancelAnimationFrame(_confettiRafId); _confettiRafId = null; }
       _confettiParticles = [];
-      var count = 90, spawnOver = 1200;
+      var count = 90, spawnOver = 200;
       for (var i = 0; i < count; i++) {
         (function (idx) {
           setTimeout(function () {
@@ -4316,7 +4325,7 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.lineJoin = 'round';
-      ctx.lineWidth = fontSize * 0.18;
+      ctx.lineWidth = fontSize * 0.12;
       ctx.strokeStyle = 'rgba(0,0,0,0.55)';
       ctx.strokeText(num, 0, sz * 0.07);
       ctx.fillStyle = '#ffffff';
