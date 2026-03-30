@@ -549,9 +549,17 @@
       box-sizing: border-box;
     }
     #loadScreenLogo {
-      width: 72%;
-      max-width: 270px;
+      width: 50%;       /* portrait: % of screen width */
+      max-width: 270px; /* portrait: hard cap */
+      height: auto;
       object-fit: contain;
+      flex-shrink: 0;
+    }
+    @media (orientation: landscape) {
+      #loadScreenLogo {
+        width: 40%;       /* landscape: % of screen width */
+        max-width: 200px; /* landscape: hard cap */
+      }
     }
     #loadBarOuter {
       width: 72%;
@@ -1696,6 +1704,10 @@
     }
     if (gameTitleImg) {
       gameTitleImg.src = ASSETS.gameTitleImg;
+    }
+    var _loadScreenLogoEl = document.getElementById('loadScreenLogo');
+    if (_loadScreenLogoEl) {
+      _loadScreenLogoEl.src = ASSETS.gameTitleImg;
     }
     function updateBodyBg() {
       var _ls = window.innerWidth > window.innerHeight;
@@ -4325,12 +4337,6 @@
     // Wait for all resources before starting — with real progress bar
     (function waitForReady() {
       var loadBarFill = document.getElementById('loadBarFill');
-      var loadScreenLogo = document.getElementById('loadScreenLogo');
-
-      // Show title image in load screen
-      if (loadScreenLogo && ASSETS && ASSETS.gameTitleImg) {
-        loadScreenLogo.src = ASSETS.gameTitleImg;
-      }
 
       var rawPromises = [];
 
