@@ -551,10 +551,14 @@
     #loadScreenLogo {
       width: 50%;       /* portrait: % of screen width */
       max-width: 270px; /* portrait: hard cap */
-      min-height: 80px; /* reserve space before image decodes — prevents layout shift */
+      min-height: 80px; /* reserve space — prevents layout shift when image decodes */
       height: auto;
       object-fit: contain;
       flex-shrink: 0;
+      visibility: hidden;
+    }
+    #loadScreenLogo.loaded {
+      visibility: visible;
     }
     @media (orientation: landscape) {
       #loadScreenLogo {
@@ -1707,8 +1711,17 @@
       gameTitleImg.src = ASSETS.gameTitleImg;
     }
     var _loadScreenLogoEl = document.getElementById('loadScreenLogo');
+    var _logoDecodePromise = Promise.resolve();
     if (_loadScreenLogoEl) {
       _loadScreenLogoEl.src = ASSETS.gameTitleImg;
+      _logoDecodePromise = (_loadScreenLogoEl.decode ? _loadScreenLogoEl.decode() : new Promise(function (res) {
+        _loadScreenLogoEl.onload = res; _loadScreenLogoEl.onerror = res;
+        if (_loadScreenLogoEl.complete && _loadScreenLogoEl.naturalWidth > 0) res();
+      })).then(function () {
+        _loadScreenLogoEl.classList.add('loaded');
+      }).catch(function () {
+        _loadScreenLogoEl.classList.add('loaded');
+      });
     }
     function updateBodyBg() {
       var _ls = window.innerWidth > window.innerHeight;
@@ -4355,8 +4368,9 @@
 
       rawPromises.push(document.fonts.ready);
       rawPromises.push(_audioReadyPromise);
+      rawPromises.push(_logoDecodePromise);
 
-      var imgSrcs = [UI_GAME_ICON, UI_BUTTON_IMAGE, ASSETS.downloadIcon, ASSETS.gameTitleImg, ASSETS.hand];
+      var imgSrcs = [UI_GAME_ICON, UI_BUTTON_IMAGE, ASSETS.downloadIcon, ASSETS.hand];
       imgSrcs.forEach(function (src) {
         if (!src) return;
         rawPromises.push(new Promise(function (resolve) {
