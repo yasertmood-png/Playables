@@ -2171,6 +2171,7 @@
     const DealSlotNCount = 1;      // exclude N slots from deal targets (targetCount = eligible - this)
     const DealCoinMinRange = 1;      // minimum coin number for random generation
     var DealCoinMaxRange = 2;        // maximum coin number for random generation (updated dynamically before each deal)
+    const DealCoinModifier = 0.25;    // bias for generated coin numbers: 0=heavily toward min(1), 0.5=uniform, 1=heavily toward max(highestCoin-1)
     const Difficulty = 0.0;    // coin number variation per slot (0=all same, 1=max variety)
     const CoinGroupDifficulty = 1.2;    // coins per slot fill ratio of half-empty (0=1 coin, 1=half empty)
     const DealTopCoinExtraCount = 1;    // extra coins added per slot when the dealt coin type is the highest on the table
@@ -2183,7 +2184,7 @@
     const DealLandScaleMin = 0.8;     // landing squash scale before settling back to full size
     const DealLandScaleDownDuration = 140; // ms to scale down on landing
     const DealLandScaleUpDuration = 100;  // ms to settle back to full size
-    const IsSpecificCoinsDeal = true; // if true, coin numbers are drawn from DealNumbers list instead of random
+    const IsSpecificCoinsDeal = false; // if true, coin numbers are drawn from DealNumbers list instead of random
     const DealNumbers = [1, 2];     // coin numbers used when IsSpecificCoinsDeal is true
     const DealArcPeakHeight = 3;      // peak Y height of the parabolic throw
     const DealSpinTurns = 1;      // full Y-axis spins during flight
@@ -3917,7 +3918,9 @@
     }
 
     function randomCoinNumber() {
-      return DealCoinMinRange + Math.floor(Math.random() * (DealCoinMaxRange - DealCoinMinRange + 1));
+      var exponent = Math.pow(4, 1 - 2 * DealCoinModifier);
+      var t = Math.pow(Math.random(), exponent);
+      return DealCoinMinRange + Math.floor(t * (DealCoinMaxRange - DealCoinMinRange + 1));
     }
 
     function animateDealCoinLanding(coin, onComplete) {
@@ -4010,7 +4013,7 @@
           if (_cn > _highestCoin) _highestCoin = _cn;
         }
       }
-      DealCoinMaxRange = _highestCoin;
+      DealCoinMaxRange = Math.max(DealCoinMinRange, _highestCoin - 1);
 
       // Compute board fullness for low-space / full-board checks
       var _totalCapacity = 0, _totalEmpty = 0;
