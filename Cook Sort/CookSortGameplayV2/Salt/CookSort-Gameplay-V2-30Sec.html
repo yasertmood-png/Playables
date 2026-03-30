@@ -549,16 +549,12 @@
       box-sizing: border-box;
     }
     #loadScreenLogo {
-      width: 50%;       /* portrait: % of screen width */
-      max-width: 270px; /* portrait: hard cap */
-      min-height: 80px; /* reserve space — prevents layout shift when image decodes */
+      width: 50%;               /* portrait: % of screen width */
+      max-width: 270px;         /* portrait: hard cap */
+      aspect-ratio: 960 / 951; /* exact logo ratio — reserves correct space before decode */
       height: auto;
       object-fit: contain;
       flex-shrink: 0;
-      visibility: hidden;
-    }
-    #loadScreenLogo.loaded {
-      visibility: visible;
     }
     @media (orientation: landscape) {
       #loadScreenLogo {
@@ -1397,7 +1393,7 @@
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
-    const CTA_SHOW_DELAY_MS = 60000;
+    const CTA_SHOW_DELAY_MS = 30000;
     const CTA_PULSE_START_DELAY_MS = 260;
     const CTA_TEXT_FILL_RATIO = 0.5; // text height as fraction of button height
     const STORE_URL_ANDROID = 'https://play.google.com/store/apps/details?id=com.MoodGames.CookSort';
@@ -1717,11 +1713,7 @@
       _logoDecodePromise = (_loadScreenLogoEl.decode ? _loadScreenLogoEl.decode() : new Promise(function (res) {
         _loadScreenLogoEl.onload = res; _loadScreenLogoEl.onerror = res;
         if (_loadScreenLogoEl.complete && _loadScreenLogoEl.naturalWidth > 0) res();
-      })).then(function () {
-        _loadScreenLogoEl.classList.add('loaded');
-      }).catch(function () {
-        _loadScreenLogoEl.classList.add('loaded');
-      });
+      })).catch(function () {});
     }
     function updateBodyBg() {
       var _ls = window.innerWidth > window.innerHeight;
