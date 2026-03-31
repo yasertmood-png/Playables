@@ -3084,6 +3084,19 @@
         tutorialHandEl.classList.add('visible', 'pulsing');
         return;
       }
+      // Board > 50% full → hint the Free slot as a buffer if one exists.
+      if (_hintSlotsFill() > 0.50) {
+        var freePair = findFreeSlotHintPair();
+        if (freePair) {
+          idleHintActive = true;
+          idleHintPhase = 'pickup';
+          idleHintSourceSlot = freePair.source;
+          idleHintTargetSlot = freePair.target;
+          positionIdleHintHand(freePair.source);
+          tutorialHandEl.classList.add('visible', 'pulsing');
+          return;
+        }
+      }
       // Slots under 30% full → hint deal button.
       if (isHintSlotsUnder30PercentFull() && IsDealOpen && dealButtonEnabled && !dealTutorialActive) {
         startDealTutorial();
@@ -3491,6 +3504,39 @@
       return totalCap > 0 ? totalFilled / totalCap : 0;
     }
     function isHintSlotsUnder30PercentFull() { return _hintSlotsFill() < 0.30; }
+
+    // Find a (source → Free-slot) hint pair, used when the board is crowded.
+    function findFreeSlotHintPair() {
+      // Find a Free slot with available space.
+      var freeTargetIdx = -1;
+      for (var _fti = 0; _fti < HintEligibleSlots.length; _fti++) {
+        var _ftIdx = HintEligibleSlots[_fti];
+        var _ft = slots[_ftIdx];
+        if (!_ft || _ft.hidden) continue;
+        if (_ft.type !== SlotType.Free) continue;
+        if (transferringSlots.has(_ftIdx) || mergingSlots.has(_ftIdx)) continue;
+        if (_ft.coins.length >= _ft.capacity) continue;
+        freeTargetIdx = _ftIdx;
+        break;
+      }
+      if (freeTargetIdx === -1) return null;
+      // Find any non-empty source slot; if the Free slot already has coins, match the type.
+      var _freeSlot = slots[freeTargetIdx];
+      var matchType = _freeSlot.coins.length > 0
+        ? _freeSlot.coins[_freeSlot.coins.length - 1].userData.coinNumber : -1;
+      for (var _fsi = 0; _fsi < HintEligibleSlots.length; _fsi++) {
+        var _fsIdx = HintEligibleSlots[_fsi];
+        if (_fsIdx === freeTargetIdx) continue;
+        var _fs = slots[_fsIdx];
+        if (!_fs || _fs.hidden || _fs.coins.length === 0) continue;
+        if (_fs.type === SlotType.Closed || _fs.type === SlotType.Free) continue;
+        if (transferringSlots.has(_fsIdx) || mergingSlots.has(_fsIdx)) continue;
+        var srcTop = _fs.coins[_fs.coins.length - 1].userData.coinNumber;
+        if (matchType !== -1 && srcTop !== matchType) continue;
+        return { source: _fsIdx, target: freeTargetIdx };
+      }
+      return null;
+    }
 
     function hasMergeableSlot() {
       var _counts = {};
