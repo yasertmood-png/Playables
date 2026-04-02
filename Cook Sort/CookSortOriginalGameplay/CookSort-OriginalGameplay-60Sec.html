@@ -2457,7 +2457,7 @@
     const BuyableBadgeTextSize = 0.15;                        // fraction of badge width
     const BuyableBadgeTextOffset = { x: 0, y: 0 };           // fraction of badge size
     const BuyableBadgeTextOutlineColor = '#000000';
-    const BuyableBadgeTextOutlineWidth = 0.05;                // fraction of font size
+    const BuyableBadgeTextOutlineWidth = 0.07;                // fraction of font size
 
     // Free slot — ASSETS.badge overlay (same badge as progress bar)
     const FreeBadgeSize   = { width: 0.55, height: 0.45 }; // world units
@@ -3681,22 +3681,26 @@
       let done = 0;
       const total = coinsArray.length;
       coinsArray.forEach(function (coin) {
-        const ox = coin.position.x;
-        if (coin.userData.activeTween) coin.userData.activeTween.stop();
-        const t4 = new TWEEN.Tween(coin.position)
-          .to({ x: ox }, S).easing(TWEEN.Easing.Quadratic.Out)
+        if (coin.userData.shakeTween) coin.userData.shakeTween.stop();
+        coin.userData.shakeX = 0;
+        const t4 = new TWEEN.Tween(coin.userData)
+          .to({ shakeX: 0 }, S).easing(TWEEN.Easing.Quadratic.Out)
           .onComplete(function () { if (++done === total && onComplete) onComplete(); });
-        const t3 = new TWEEN.Tween(coin.position)
-          .to({ x: ox + A * 0.4 }, S).easing(TWEEN.Easing.Quadratic.InOut).chain(t4);
-        const t2 = new TWEEN.Tween(coin.position)
-          .to({ x: ox - A }, S).easing(TWEEN.Easing.Quadratic.InOut).chain(t3);
-        const t1 = new TWEEN.Tween(coin.position)
-          .to({ x: ox + A }, S).easing(TWEEN.Easing.Quadratic.Out).chain(t2);
-        coin.userData.activeTween = t1;
+        const t3 = new TWEEN.Tween(coin.userData)
+          .to({ shakeX: A * 0.4 }, S).easing(TWEEN.Easing.Quadratic.InOut).chain(t4);
+        const t2 = new TWEEN.Tween(coin.userData)
+          .to({ shakeX: -A }, S).easing(TWEEN.Easing.Quadratic.InOut).chain(t3);
+        const t1 = new TWEEN.Tween(coin.userData)
+          .to({ shakeX: A }, S).easing(TWEEN.Easing.Quadratic.Out).chain(t2);
+        coin.userData.shakeTween = t1;
         t1.start();
       });
     }
-    function shakeHeldCoins(onComplete) { shakeCoins(heldCoins, onComplete); }
+    function shakeHeldCoins() {
+      var coins = heldCoins.slice();
+      cancelHold(true);
+      shakeCoins(coins);
+    }
 
     function pickUpCoins(slotIdx) {
       const slot = slots[slotIdx];
@@ -3825,9 +3829,10 @@
       }
       updateProgressBar(_progressOverflow);
 
-      // First merge — update states; deal button is enabled by endMergeTutorial (part 2→3)
+      updateMergeButtonState();
+
+      // First merge — deal button is enabled by endMergeTutorial (part 2→3)
       if (mergeCount === 1) {
-        updateMergeButtonState();
         if (!TutorialEnabled) {
           // Tutorial disabled: enable deal button immediately after first merge
           dealButtonEnabled = true;
@@ -4046,7 +4051,12 @@
       var sourceSlot = slots[sourceSlotIdx];
       var closedSlot = slots[target.slotIdx];
       var fillBarData = closedSlotFillBars[target.slotIdx];
-      if (!fillBarData) { mergingSlots.delete(sourceSlotIdx); return; }
+      if (!fillBarData) {
+        mergingSlots.delete(sourceSlotIdx);
+        updateDealButtonState();
+        updateMergeButtonState();
+        return;
+      }
 
       isAnimating = true;
       mergingSlots.add(target.slotIdx);
@@ -4314,6 +4324,8 @@
                     _settled++;
                     if (_settled >= ClosedSlotOpenResultCount) {
                       mergingSlots.delete(target.slotIdx);
+                      updateDealButtonState();
+                      updateMergeButtonState();
                       scheduleDealHint();
                     }
                   });
@@ -4559,7 +4571,11 @@
 
       // Safety fallback: guarantee slot unlocks even if a TWEEN callback is missed
       var _safeUnlock = Math.max(16, CoinMergeDuration * 0.6) + CoinMergeSpawnDuration + (CoinMergeResult - 1) * (CoinMergeStepDuration * 0.3) + 800;
-      setTimeout(function () { mergingSlots.delete(slotIdx); }, _safeUnlock);
+      setTimeout(function () {
+        mergingSlots.delete(slotIdx);
+        updateDealButtonState();
+        updateMergeButtonState();
+      }, _safeUnlock);
 
       setTimeout(function () {
         slot.coins = [];
@@ -4580,6 +4596,8 @@
                 landed++;
                 if (landed >= CoinMergeResult) {
                   mergingSlots.delete(slotIdx);
+                  updateDealButtonState();
+                  updateMergeButtonState();
                   resetIdleTimer(true);
                 }
               });
@@ -4609,13 +4627,14 @@
           const transferred = transferCoins(slotIdx);
           if (transferred === 'mismatch' || transferred === 'full') {
             if (tutorialActive) return;
-            shakeCoins(slots[slotIdx].coins, function () { cancelHold(true); }); // shake target then drop
+            cancelHold(true);
+            shakeCoins(slots[slotIdx].coins); // drop held + shake target simultaneously
           } else if (transferred === 'closed') {
             if (tutorialActive) return;
             cancelHold(true); // non-interactive slot — just drop
           } else if (!transferred) {
             if (tutorialActive) return;
-            shakeHeldCoins(function () { cancelHold(true); }); // shake held then drop
+            shakeHeldCoins(); // drop + shake simultaneously
           } else if (tutorialActive) {
             advanceTutorial();
           }
@@ -5489,7 +5508,7 @@
       var scaleFactor = Math.min(coin.scale ? coin.scale.x : 1, coin.scale ? coin.scale.y : 1);
       if (scaleFactor <= 0.01) return;
       var sz = COIN_PX * scaleFactor;
-      var sx = w2sx(coin.position.x);
+      var sx = w2sx(coin.position.x + (coin.userData.shakeX || 0));
       var sy = w2sy(coin.position.z, coin.position.y);
       ctx.save();
       ctx.translate(sx, sy);
