@@ -3014,6 +3014,7 @@
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           tutorialActive = true;
+          tutorialInputEnabled = true;
           updateTutorialHandPosition();
           tutorialHandEl.classList.add('visible', 'pulsing');
         });
@@ -3022,6 +3023,7 @@
 
     // Starts the next slot group after a merge tutorial completes.
     function startNextTutorialGroup() {
+      tutorialTransitioning = false;
       _activeTutorialSteps = _activeTutorialGroups[tutorialGroupIndex] || [];
       tutorialStepIndex = 0;
       tutorialSubStep = 0;
@@ -3036,6 +3038,7 @@
         return;
       }
       tutorialActive = true;
+      tutorialInputEnabled = true;
       updateTutorialHandPosition();
       if (tutorialHandEl) tutorialHandEl.classList.add('visible', 'pulsing');
     }
@@ -3048,7 +3051,9 @@
         tutorialSubStep = 0;
         tutorialStepIndex++;
         if (tutorialStepIndex >= _activeTutorialSteps.length) {
-          endTutorial();
+          // Defer endTutorial until the drop arc finishes so the gate stays
+          // active and the user cannot click wrong slots mid-arc.
+          _tutorialEndPending = true;
           return;
         }
       }
@@ -3057,11 +3062,16 @@
         tutorialHandUpdateRaf = 0;
         if (!tutorialActive) return;
         updateTutorialHandPosition();
+        // Only open input here for the drop sub-step; after a drop the arc must
+        // finish first, so input is re-opened by onTransferComplete instead.
+        if (tutorialSubStep === 1) tutorialInputEnabled = true;
       });
     }
 
     function endTutorial() {
       tutorialActive = false;
+      tutorialInputEnabled = false;
+      _tutorialEndPending = false;
       if (tutorialHandUpdateRaf) {
         cancelAnimationFrame(tutorialHandUpdateRaf);
         tutorialHandUpdateRaf = 0;
@@ -3069,6 +3079,7 @@
       tutorialHandEl.classList.remove('visible', 'pulsing');
       // Part 1 done — move to part 2 (merge button tutorial)
       if (mergeReadySlots.size > 0) {
+        tutorialTransitioning = true;
         setTimeout(startMergeTutorial, TutorialPartDelay);
       } else {
         mergeTutorialPrimed = true; // will fire when first slot becomes merge-ready
@@ -3086,6 +3097,7 @@
     }
 
     function startMergeTutorial() {
+      tutorialTransitioning = false;
       if (!tutorialHandEl || !mergeButton) return;
       mergeTutorialActive = true;
       updateMergeTutorialHandPosition();
@@ -3099,6 +3111,7 @@
       idleHintTimer = null;
 
       tutorialGroupIndex++;
+      tutorialTransitioning = true;
       if (tutorialGroupIndex < _activeTutorialGroups.length) {
         // More slot groups remain — start the next one
         setTimeout(startNextTutorialGroup, TutorialPartDelay);
@@ -3309,6 +3322,9 @@
     var mergeTutorialActive = false; // merge-button tutorial (part 2) is active
     var mergeTutorialPrimed = false; // true after slot tutorial ends — start merge tutorial on first ready slot
     var dealTutorialActive = false;  // deal-button tutorial (part 3) is active
+    var tutorialTransitioning = false; // true during TutorialPartDelay gaps between tutorial phases
+    var tutorialInputEnabled = false;  // true only while hand is shown and waiting for the next click
+    var _tutorialEndPending = false;   // true when last slot step dropped — defer endTutorial until arc lands
     var _dealHintTimer = null;  // timer for the non-forced idle deal hint
     var idleHintTimer = null;  // setTimeout ref for idle hint
     var idleHintActive = false; // is idle hint hand currently shown
@@ -3784,6 +3800,13 @@
         }
 
         checkMerge(targetSlotIdx);
+        // Handle tutorial arc completion.
+        if (_tutorialEndPending) {
+          _tutorialEndPending = false;
+          endTutorial(); // arc done — safe to end tutorial now
+        } else if (tutorialActive) {
+          tutorialInputEnabled = true; // open gate for next pickup
+        }
       }
 
       for (let i = 0; i < toTransfer.length; i++) {
@@ -3849,6 +3872,7 @@
     }
 
     function startDealTutorial() {
+      tutorialTransitioning = false;
       if (!tutorialHandEl || !dealButton) return;
       dealTutorialActive = true;
       var rect = dealButton.getBoundingClientRect();
@@ -4617,14 +4641,18 @@
     canvas.addEventListener('pointerdown', function (e) {
       markFirstInteraction();
       resetIdleTimer();
-      if (mergeTutorialActive) return; // part 2: only merge button is interactive
-      if (tutorialActive && transferringSlots.size > 0) return; // block all input while tutorial arc is in flight
+      // ── Tutorial gate: block ALL canvas input unless the gate is explicitly open ──
+      if (tutorialActive || tutorialTransitioning || mergeTutorialActive) {
+        if (!tutorialInputEnabled) return;
+      }
+      if (mergeTutorialActive) return; // canvas is never the right target during merge tutorial
       if (mergingSlots.size > 0) return; // freeze board input while any merge is active
       const slotIdx = getClickedSlotIndex(e);
       if (tutorialActive) {
         var _tStep = _activeTutorialSteps[tutorialStepIndex];
         var _expectedSlot = _tStep ? (tutorialSubStep === 0 ? _tStep[0] : _tStep[1]) : -1;
         if (slotIdx !== _expectedSlot) return;
+        tutorialInputEnabled = false; // close gate immediately on valid click
       }
       if (slotIdx !== -1 && transferringSlots.has(slotIdx)) { if (heldCoins.length > 0 && !tutorialActive) shakeHeldCoins(); return; } // slot is mid-transfer
       if (slotIdx !== -1 && mergingSlots.has(slotIdx))      { if (heldCoins.length > 0 && !tutorialActive) shakeHeldCoins(); return; } // slot is mid-merge
