@@ -2539,6 +2539,8 @@
     const MergeTutorialHandOffsetX = 30; // % of button width,  positive = right
     const MergeTutorialHandOffsetY = 40;   // % of button height, positive = down
 
+    const ButtonTutorialHandLeadMs = 0; // no extra delay before tutorial button becomes active
+
     const TutorialPartDelay = 600; // ms delay between tutorial parts (slots→merge, merge→slots, merge→deal)
 
     const IdleHintDelay = 1500; // ms of no-touch before idle hint activates
@@ -3080,7 +3082,7 @@
       // Part 1 done — move to part 2 (merge button tutorial)
       if (mergeReadySlots.size > 0) {
         tutorialTransitioning = true;
-        setTimeout(startMergeTutorial, TutorialPartDelay);
+        startMergeTutorial();
       } else {
         mergeTutorialPrimed = true; // will fire when first slot becomes merge-ready
         resetIdleTimer();           // allow idle hints to guide the player meanwhile
@@ -3102,6 +3104,7 @@
       mergeTutorialActive = true;
       updateMergeTutorialHandPosition();
       tutorialHandEl.classList.add('visible', 'pulsing');
+      updateMergeButtonState();
     }
 
     function endMergeTutorial() {
@@ -3114,12 +3117,13 @@
       tutorialTransitioning = true;
       if (tutorialGroupIndex < _activeTutorialGroups.length) {
         // More slot groups remain — start the next one
+        updateMergeButtonState();
         setTimeout(startNextTutorialGroup, TutorialPartDelay);
       } else {
-        // All groups done — enable deal button and start deal tutorial (part 3)
-        dealButtonEnabled = true;
+        // All groups done — start deal tutorial (part 3), then enable the button after a short hand lead-in
+        dealButtonTutorialAwaitingActivation = true;
         updateDealButtonState();
-        setTimeout(startDealTutorial, TutorialPartDelay);
+        startDealTutorial();
       }
     }
 
@@ -3325,6 +3329,8 @@
     var tutorialTransitioning = false; // true during TutorialPartDelay gaps between tutorial phases
     var tutorialInputEnabled = false;  // true only while hand is shown and waiting for the next click
     var _tutorialEndPending = false;   // true when last slot step dropped — defer endTutorial until arc lands
+    var dealButtonTutorialAwaitingActivation = false;  // keep deal button disabled until tutorial hand leads in
+    var _dealButtonTutorialActivateTimer = null;
     var _dealHintTimer = null;  // timer for the non-forced idle deal hint
     var idleHintTimer = null;  // setTimeout ref for idle hint
     var idleHintActive = false; // is idle hint hand currently shown
@@ -3866,7 +3872,7 @@
           // Tutorial disabled: enable deal button immediately after first merge
           dealButtonEnabled = true;
           updateDealButtonState();
-          setTimeout(startDealTutorial, TutorialPartDelay);
+          startDealTutorial();
         }
       }
     }
@@ -3881,10 +3887,32 @@
       tutorialHandEl.style.left = (btnCx + rect.width * DealTutorialHandOffsetX / 100) + 'px';
       tutorialHandEl.style.top = (btnCy + rect.height * DealTutorialHandOffsetY / 100) + 'px';
       tutorialHandEl.classList.add('visible', 'pulsing');
+      if (!dealButtonEnabled) {
+        dealButtonTutorialAwaitingActivation = true;
+        updateDealButtonState();
+        if (ButtonTutorialHandLeadMs <= 0) {
+          dealButtonEnabled = true;
+          dealButtonTutorialAwaitingActivation = false;
+          updateDealButtonState();
+        } else {
+          if (_dealButtonTutorialActivateTimer !== null) clearTimeout(_dealButtonTutorialActivateTimer);
+          _dealButtonTutorialActivateTimer = setTimeout(function () {
+            _dealButtonTutorialActivateTimer = null;
+            dealButtonEnabled = true;
+            dealButtonTutorialAwaitingActivation = false;
+            updateDealButtonState();
+          }, ButtonTutorialHandLeadMs);
+        }
+      }
     }
 
     function endDealTutorial() {
       dealTutorialActive = false;
+      if (_dealButtonTutorialActivateTimer !== null) {
+        clearTimeout(_dealButtonTutorialActivateTimer);
+        _dealButtonTutorialActivateTimer = null;
+      }
+      dealButtonTutorialAwaitingActivation = false;
       if (tutorialHandEl) tutorialHandEl.classList.remove('visible', 'pulsing');
       scheduleDealHint();
     }
@@ -4819,7 +4847,7 @@
       }
       dealButton.classList.add('visible');
       // Transparent / non-interactive until deal tutorial unlocks it
-      if (!dealButtonEnabled) {
+      if (!dealButtonEnabled || dealButtonTutorialAwaitingActivation) {
         dealButton.classList.add('disabled');
         dealButton.style.backgroundImage = 'url("' + ASSETS.dealButtonEnabled + '")';
         return;
@@ -4858,14 +4886,23 @@
       if (!mergeButtonShown) {
         mergeButton.classList.remove('shown');
         mergeButton.classList.remove('enabled');
+        mergeButton.disabled = true;
+        mergeButton.setAttribute('aria-disabled', 'true');
+        mergeButton.tabIndex = -1;
         return;
       }
       mergeButton.classList.add('shown');
       mergeButton.style.backgroundImage = 'url("' + ASSETS.mergeButton + '")';
       if (mergingSlots.size === 0 && mergeReadySlots.size > 0) {
         mergeButton.classList.add('enabled');
+        mergeButton.disabled = false;
+        mergeButton.setAttribute('aria-disabled', 'false');
+        mergeButton.tabIndex = 0;
       } else {
         mergeButton.classList.remove('enabled');
+        mergeButton.disabled = true;
+        mergeButton.setAttribute('aria-disabled', 'true');
+        mergeButton.tabIndex = -1;
       }
     }
 
