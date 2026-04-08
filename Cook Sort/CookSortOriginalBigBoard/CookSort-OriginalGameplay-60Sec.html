@@ -2130,7 +2130,7 @@
 
     // Default slot types for landscape (2 rows x 8 cols, 16 slots — row-major in LANDSCAPE_SLOT_MAP order)
     const DefaultSlotTypesLandscape = [
-      SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed,SlotType.Closed, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
+      SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed, SlotType.Closed,SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
       SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
       SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
     ];
@@ -3070,10 +3070,12 @@
         updateMergeButtonState();
         setTimeout(startNextTutorialGroup, TutorialPartDelay);
       } else {
-        // All groups done — start deal tutorial (part 3), then enable the button after a short hand lead-in
-        dealButtonTutorialAwaitingActivation = true;
+        // All groups done — enable the deal button without auto-starting its tutorial.
+        tutorialTransitioning = false;
+        dealButtonTutorialAwaitingActivation = false;
+        dealButtonEnabled = true;
         updateDealButtonState();
-        startDealTutorial();
+        resetIdleTimer();
       }
     }
 
@@ -3109,6 +3111,21 @@
       }
       var targetIdx = idleHintPhase === 'pickup' ? idleHintSourceSlot : idleHintTargetSlot;
       if (targetIdx !== -1) positionIdleHintHand(targetIdx);
+    }
+
+    function showMergeButtonActivationHint() {
+      if (!tutorialHandEl || !mergeButton || !mergeButtonShown) return;
+      if (tutorialActive || mergeTutorialActive) return;
+      if (!tutorialHandEl.getAttribute('src') && ASSETS.hand) tutorialHandEl.src = ASSETS.hand;
+      clearTimeout(idleHintTimer);
+      idleHintTimer = null;
+      if (dealTutorialActive) endDealTutorial();
+      idleHintActive = true;
+      idleHintPhase = 'merge';
+      idleHintSourceSlot = -1;
+      idleHintTargetSlot = -1;
+      updateIdleHintHandPosition();
+      tutorialHandEl.classList.add('visible', 'pulsing');
     }
 
     function hideIdleHint() {
@@ -3828,10 +3845,11 @@
       // First merge — deal button is enabled by endMergeTutorial (part 2→3)
       if (mergeCount === 1) {
         if (!TutorialEnabled) {
-          // Tutorial disabled: enable deal button immediately after first merge
+          // Tutorial disabled: enable deal button immediately after first merge.
           dealButtonEnabled = true;
+          dealButtonTutorialAwaitingActivation = false;
           updateDealButtonState();
-          startDealTutorial();
+          resetIdleTimer();
         }
       }
     }
@@ -4833,6 +4851,7 @@
 
     function updateMergeButtonState() {
       if (!mergeButton) return;
+      var wasEnabled = mergeButton.classList.contains('enabled') && !mergeButton.disabled;
       if (mergingSlots.size === 0) mergeButtonLocked = false;
       // Re-validate mergeReadySlots — remove any that are no longer valid
       mergeReadySlots.forEach(function (idx) {
@@ -4863,6 +4882,9 @@
         mergeButton.disabled = true;
         mergeButton.setAttribute('aria-disabled', 'true');
         mergeButton.tabIndex = -1;
+      }
+      if (!wasEnabled && mergeButton.classList.contains('enabled') && !mergeButton.disabled) {
+        showMergeButtonActivationHint();
       }
     }
 
