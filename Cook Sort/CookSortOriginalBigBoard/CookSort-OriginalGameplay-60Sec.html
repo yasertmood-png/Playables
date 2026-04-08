@@ -2284,7 +2284,7 @@
     };
 
     // Coin size (scale on each axis)
-    const CoinSize = { x: 0.3, y: 0.3, z: 0.3 };
+    const CoinSize = { x: 1.05, y: 1.05, z: 0.4 };
 
     // Coin draw size as a fraction of the slot image width (1.0 = fills slot exactly)
     const CoinSlotFitRatio = 0.95;
@@ -5503,27 +5503,30 @@
       var img = coinImages[coin.userData.coinNumber];
       if (!img || !img.complete || !img.naturalWidth) return;
       _updateCoinPx();
-      var scaleFactor = Math.min(coin.scale ? coin.scale.x : 1, coin.scale ? coin.scale.y : 1);
-      if (scaleFactor <= 0.01) return;
-      var sz = COIN_PX * scaleFactor;
+      var scaleX = (coin.scale ? coin.scale.x : 1) * CoinSize.x;
+      var scaleY = (coin.scale ? coin.scale.y : 1) * CoinSize.y;
+      var minScale = Math.min(scaleX, scaleY);
+      if (minScale <= 0.01) return;
+      var drawW = COIN_PX * scaleX;
+      var drawH = COIN_PX * scaleY;
       var sx = w2sx(coin.position.x + (coin.userData.shakeX || 0));
       var sy = w2sy(coin.position.z, coin.position.y);
       ctx.save();
       ctx.translate(sx, sy);
       if (coin.rotation && Math.abs(coin.rotation.z) > 0.01)
         ctx.rotate(coin.rotation.z * COIN_TILT_FACTOR);
-      ctx.drawImage(img, -sz * 0.5, -sz * 0.5, sz, sz);
+      ctx.drawImage(img, -drawW * 0.5, -drawH * 0.5, drawW, drawH);
       var num = coin.userData.coinNumber;
-      var fontSize = Math.round(sz * 0.45);
+      var fontSize = Math.round(Math.min(drawW, drawH) * 0.45);
       ctx.font = '800 ' + fontSize + 'px "Baloo2"';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.lineJoin = 'round';
       ctx.lineWidth = fontSize * 0.12;
       ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.strokeText(num, 0, sz * 0.07);
+      ctx.strokeText(num, 0, drawH * 0.07);
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(num, 0, sz * 0.07);
+      ctx.fillText(num, 0, drawH * 0.07);
       ctx.restore();
     }
 
@@ -5591,4 +5594,3 @@
 </body>
 
 </html>
-
