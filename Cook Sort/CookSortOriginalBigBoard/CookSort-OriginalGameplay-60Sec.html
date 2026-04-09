@@ -4833,6 +4833,8 @@
       if (eligible.length === 0) {
         dealButton.classList.add('disabled');
         dealButton.style.backgroundImage = 'url("' + ASSETS.dealButtonEnabled + '")';
+        dealButton.style.opacity = '';
+        checkBoardFull();
         return;
       }
       dealButton.classList.remove('disabled');
