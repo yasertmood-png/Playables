@@ -4651,7 +4651,6 @@
         if (!tutorialInputEnabled) return;
       }
       if (mergeTutorialActive) return; // canvas is never the right target during merge tutorial
-      if (mergingSlots.size > 0) return; // freeze board input while any merge is active
       const slotIdx = getClickedSlotIndex(e);
       if (tutorialActive) {
         var _tStep = _activeTutorialSteps[tutorialStepIndex];
