@@ -2271,7 +2271,7 @@
     const DealButtonBoardGapPxPortrait = 25;   // minimum gap between board bottom and deal button – portrait
     const DealButtonBoardGapPxLandscape = 0;   // minimum gap between board bottom and deal button – landscape
     const DealButtonViewportBottomPadPx = 12; // keep a small margin from the bottom edge
-    const DealButtonWidthSlotsPortrait = 2.5;   // button width (portrait) as a multiple of slot width
+    const DealButtonWidthSlotsPortrait = 2.6;   // button width (portrait) as a multiple of slot width
     const DealButtonWidthSlotsLandscape = 2.1;  // button width (landscape) as a multiple of slot width
 
     // Directional light position, target, intensity and color
@@ -4787,7 +4787,7 @@
       return slots.filter(function (s, idx) {
         if (s.hidden || !isSlotOnScreen(s)) return false;
         if (s.type !== SlotType.Empty || s.coins.length >= s.capacity) return false;
-        if (transferringSlots.has(idx) || mergingSlots.has(idx)) return false;
+        if (mergingSlots.has(idx)) return false;
         if (excludedIndices && excludedIndices.indexOf(idx) !== -1) return false;
         return true;
       });
@@ -4831,17 +4831,10 @@
         return;
       }
       var eligible = getEligibleDealSlots();
-      // Disable when total coins across all empty visible slots reaches the threshold
-      var _totalCoins = 0, _totalCap = 0;
-      for (var _ei = 0; _ei < slots.length; _ei++) {
-        var _es = slots[_ei];
-        if (_es.hidden || (_es.type !== SlotType.Empty && _es.type !== SlotType.RentOpened)) continue;
-        var _inSlotCoins = 0;
-        for (var _ci = 0; _ci < _es.coins.length; _ci++) {
-          if (!_es.coins[_ci].userData || !_es.coins[_ci].userData.inArc) _inSlotCoins++;
-        }
-        _totalCoins += _inSlotCoins;
-        _totalCap += _es.capacity;
+      if (eligible.length === 0) {
+        dealButton.classList.add('disabled');
+        dealButton.style.backgroundImage = 'url("' + ASSETS.dealButtonEnabled + '")';
+        return;
       }
       dealButton.classList.remove('disabled');
       dealButton.style.backgroundImage = 'url("' + ASSETS.dealButtonEnabled + '")';
@@ -5001,12 +4994,9 @@
       // before any coin lands — avoids on-the-fly createBufferSource() calls.
       _fillPool('drop');
       // Capture excluded slots BEFORE cancelling hold.
-      // Exclude: active hold source + any slot mid-transfer, mid-merge, or mid-open.
+      // Exclude: active hold source + any slot mid-merge.
       var _dealExcluded = [];
       if (heldFromSlot !== null) _dealExcluded.push(heldFromSlot);
-      transferringSlots.forEach(function (idx) {
-        if (_dealExcluded.indexOf(idx) === -1) _dealExcluded.push(idx);
-      });
       mergingSlots.forEach(function (idx) {
         if (_dealExcluded.indexOf(idx) === -1) _dealExcluded.push(idx);
       });
@@ -5147,6 +5137,8 @@
       dealButton.addEventListener('pointerdown', function (event) {
         event.stopPropagation();
         markFirstInteraction();
+
+        if (dealButton.classList.contains('disabled')) return;
 
         // Click animation: add class, remove after animation completes
         dealButton.classList.remove('clicking'); // reset if already mid-animation
