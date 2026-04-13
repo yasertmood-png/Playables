@@ -2530,6 +2530,8 @@
     // Tutorial hand offset from slot center (% of slot size — consistent on all screens/orientations)
     const TutorialHandOffsetX = 30;   // % of slot width,  positive = right
     const TutorialHandOffsetY = 35;   // % of slot height, positive = down
+    const BigSlotTutorialHandOffsetX = 30; // % of slot width, positive = right
+    const BigSlotTutorialHandOffsetY = 20; // % of slot height, positive = down
 
     // Deal button tutorial hand offset (% of button size — 0,0 = button center)
     const DealTutorialHandOffsetX = 45;  // % of button width,  positive = right
@@ -2984,8 +2986,9 @@
       if (!slot) return;
       var screenX = w2sx(slot.x);
       var screenY = w2sy(slot.z);
-      var offsetX = slot.slotW * TutorialHandOffsetX / 100;
-      var offsetY = slot.slotH * TutorialHandOffsetY / 100;
+      var _isBigSlot = targetSlotIdx === bigSlotIndex || slot.type === SlotType.BigSlot;
+      var offsetX = slot.slotW * (_isBigSlot ? BigSlotTutorialHandOffsetX : TutorialHandOffsetX) / 100;
+      var offsetY = slot.slotH * (_isBigSlot ? BigSlotTutorialHandOffsetY : TutorialHandOffsetY) / 100;
       tutorialHandEl.style.left = (screenX + offsetX) + 'px';
       tutorialHandEl.style.top = (screenY + offsetY) + 'px';
     }
@@ -3135,8 +3138,11 @@
       if (!slot || !tutorialHandEl) return;
       var screenX = w2sx(slot.x);
       var screenY = w2sy(slot.z);
-      tutorialHandEl.style.left = (screenX + slot.slotW * TutorialHandOffsetX / 100) + 'px';
-      tutorialHandEl.style.top = (screenY + slot.slotH * TutorialHandOffsetY / 100) + 'px'; // offsets are from slot center
+      var _isBigSlot = slotIdx === bigSlotIndex || slot.type === SlotType.BigSlot;
+      var offsetX = slot.slotW * (_isBigSlot ? BigSlotTutorialHandOffsetX : TutorialHandOffsetX) / 100;
+      var offsetY = slot.slotH * (_isBigSlot ? BigSlotTutorialHandOffsetY : TutorialHandOffsetY) / 100;
+      tutorialHandEl.style.left = (screenX + offsetX) + 'px';
+      tutorialHandEl.style.top = (screenY + offsetY) + 'px'; // offsets are from slot center
     }
 
     function updateIdleHintHandPosition() {
