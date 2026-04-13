@@ -1,0 +1,716 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Obfuscator — Playable Hub</title>
+  <style>
+    :root{
+      --bg:#0c1016;
+      --panel:#151b24;
+      --panel-2:#1b2230;
+      --panel-3:#20293a;
+      --text:#e8edf2;
+      --muted:#92a2b4;
+      --accent:#5ad0a6;
+      --accent-2:#45a3ff;
+      --border:#2a3445;
+      --shadow:0 20px 60px rgba(0,0,0,.35);
+      --danger:#ff6b6b;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family:"Space Grotesk","Segoe UI",Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 90% -20%,#1b2a45 0%,transparent 55%),
+        radial-gradient(900px 500px at 5% 0%,#1f2d2a 0%,transparent 45%),
+        var(--bg);
+      min-height:100vh;
+      padding:28px clamp(16px,4vw,48px) 60px;
+    }
+    .page{max-width:720px;margin:0 auto;}
+
+    .back{
+      display:inline-flex;align-items:center;gap:6px;
+      color:var(--muted);text-decoration:none;font-size:13px;
+      margin-bottom:24px;transition:color .15s;
+    }
+    .back:hover{color:var(--text);}
+    .back svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+    .eyebrow{color:var(--accent);letter-spacing:.2em;text-transform:uppercase;font-size:11px;font-weight:700;margin-bottom:8px;}
+    h1{margin:0 0 6px;font-size:26px;line-height:1.2;}
+    .subtitle{color:var(--muted);font-size:14px;margin:0 0 28px;}
+
+    .card{
+      background:var(--panel);border:1px solid var(--border);
+      border-radius:16px;padding:20px 24px;margin-bottom:16px;
+      box-shadow:var(--shadow);
+    }
+    .card-title{
+      font-size:11px;font-weight:700;letter-spacing:.1em;
+      text-transform:uppercase;color:var(--muted);margin:0 0 16px;
+    }
+
+    /* Drop zone */
+    .drop-zone{
+      border:2px dashed var(--border);border-radius:12px;
+      padding:36px 24px;text-align:center;cursor:pointer;
+      transition:border-color .2s,background .2s;position:relative;
+    }
+    .drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(90,208,166,.05);}
+    .drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+    .drop-icon{margin-bottom:12px;color:var(--muted);}
+    .drop-icon svg{width:34px;height:34px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;}
+    .drop-primary{font-size:14px;font-weight:600;margin-bottom:4px;}
+    .drop-hint{font-size:12px;color:var(--muted);}
+
+    /* File info */
+    .file-info{
+      display:flex;align-items:center;gap:12px;
+      padding:10px 14px;background:var(--panel-2);
+      border:1px solid var(--border);border-radius:10px;margin-bottom:12px;
+    }
+    .fi-icon{color:var(--accent);}
+    .fi-icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:block;}
+    .fi-name{font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .fi-size{font-size:12px;color:var(--muted);flex-shrink:0;}
+    .fi-clear{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px;display:flex;align-items:center;}
+    .fi-clear:hover{color:var(--danger);}
+    .fi-clear svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+
+    /* Detection badges */
+    .detection{display:flex;flex-wrap:wrap;gap:8px;}
+    .det-badge{padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid;}
+    .det-badge.lib{background:rgba(69,163,255,.12);border-color:rgba(69,163,255,.35);color:#7dc4ff;}
+    .det-badge.game{background:rgba(90,208,166,.12);border-color:rgba(90,208,166,.35);color:#7de0bc;}
+    .det-badge.asset{background:rgba(242,193,78,.12);border-color:rgba(242,193,78,.35);color:#f5d07a;}
+    .det-badge.warn{background:rgba(255,107,107,.1);border-color:rgba(255,107,107,.3);color:#ff9b9b;}
+
+    /* Options */
+    .options{display:grid;gap:8px;}
+    .option{
+      display:flex;align-items:flex-start;gap:12px;padding:11px 14px;
+      background:var(--panel-2);border:1px solid var(--border);
+      border-radius:10px;cursor:pointer;transition:border-color .15s;
+    }
+    .option:hover{border-color:#3c4d69;}
+    .option.selected{border-color:var(--accent-2);background:rgba(69,163,255,.07);}
+    .option input[type="radio"]{accent-color:var(--accent-2);margin-top:3px;flex-shrink:0;}
+    .opt-label{font-size:13px;font-weight:600;margin-bottom:3px;}
+    .opt-desc{font-size:12px;color:var(--muted);line-height:1.4;}
+    .opt-tag{font-size:10px;font-weight:600;color:var(--accent);margin-left:6px;vertical-align:middle;}
+
+    /* Progress */
+    .progress-wrap{margin-top:16px;}
+    .progress-header{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px;}
+    .progress-bar{height:8px;background:var(--panel-3);border-radius:999px;overflow:hidden;}
+    .progress-fill{
+      height:100%;border-radius:999px;
+      background:linear-gradient(90deg,var(--accent),var(--accent-2));
+      transition:width .35s ease;width:0%;
+    }
+    .progress-fill.indeterminate{
+      width:40%;
+      animation:indeterminate 1.4s ease-in-out infinite;
+    }
+    @keyframes indeterminate{
+      0%{transform:translateX(-150%);}
+      100%{transform:translateX(400%);}
+    }
+    .status-msg{font-size:12px;color:var(--muted);margin-top:8px;min-height:18px;}
+
+    /* Result sizes */
+    .result-sizes{
+      display:flex;align-items:center;gap:12px;
+      padding:14px 18px;background:var(--panel-2);
+      border:1px solid var(--border);border-radius:12px;
+      margin-bottom:16px;flex-wrap:wrap;
+    }
+    .size-block{text-align:center;flex:1;min-width:80px;}
+    .size-val{font-size:20px;font-weight:700;margin-bottom:2px;}
+    .size-lbl{font-size:11px;color:var(--muted);}
+    .size-arrow{color:var(--muted);font-size:18px;flex-shrink:0;}
+    .size-delta{font-size:12px;font-weight:700;padding:4px 12px;border-radius:999px;flex-shrink:0;}
+    .size-delta.smaller{background:rgba(90,208,166,.15);color:var(--accent);}
+    .size-delta.larger{background:rgba(255,107,107,.15);color:var(--danger);}
+
+    /* Buttons */
+    .btn{
+      background:var(--accent);color:#0b1513;border:none;
+      padding:10px 18px;border-radius:10px;font-weight:700;cursor:pointer;
+      font-size:13px;transition:transform .15s,box-shadow .15s;
+      display:inline-flex;align-items:center;gap:7px;
+    }
+    .btn:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(90,208,166,.25);}
+    .btn:disabled{opacity:.4;cursor:not-allowed;transform:none !important;box-shadow:none !important;}
+    .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border);box-shadow:none;}
+    .btn.ghost:hover{box-shadow:none;border-color:#3c4d69;}
+    .btn.blue{background:var(--accent-2);color:#06111f;}
+    .btn.blue:hover{box-shadow:0 8px 20px rgba(69,163,255,.25);}
+    .btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+
+    .btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+
+    .error-box{
+      padding:11px 14px;background:rgba(255,107,107,.1);
+      border:1px solid rgba(255,107,107,.3);border-radius:10px;
+      color:#ff9b9b;font-size:13px;margin-top:12px;line-height:1.4;
+    }
+
+    .divider{height:1px;background:var(--border);margin:18px 0;}
+
+    [hidden]{display:none !important;}
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <a href="index.html" class="back">
+    <svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 5l-7 7 7 7"/></svg>
+    Back to Hub
+  </a>
+
+  <div class="eyebrow">Playable Hub</div>
+  <h1>Obfuscator</h1>
+  <p class="subtitle">Upload a playable HTML file, choose protection settings, and download the result.</p>
+
+  <!-- Step 1: Upload -->
+  <div class="card">
+    <div class="card-title">1 — Upload</div>
+
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" accept=".html" />
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+      </div>
+      <div class="drop-primary">Drop an HTML file here</div>
+      <div class="drop-hint">or click to browse — .html only</div>
+    </div>
+
+    <div id="file-loaded" hidden>
+      <div class="file-info">
+        <span class="fi-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span>
+        <span class="fi-name" id="fi-name"></span>
+        <span class="fi-size" id="fi-size"></span>
+        <button class="fi-clear" id="fi-clear" title="Remove file">
+          <svg viewBox="0 0 24 24"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="detection" id="detection"></div>
+    </div>
+
+    <div class="error-box" id="upload-error" hidden></div>
+  </div>
+
+  <!-- Step 2: Mode -->
+  <div class="card">
+    <div class="card-title">2 — What to obfuscate</div>
+    <div class="options" id="mode-options">
+      <label class="option selected">
+        <input type="radio" name="mode" value="base" checked />
+        <div>
+          <div class="opt-label">Base code only</div>
+          <div class="opt-desc">Obfuscate game logic. Libraries (Three.js, TWEEN, etc.) and embedded assets are left intact.</div>
+        </div>
+      </label>
+      <label class="option">
+        <input type="radio" name="mode" value="base-assets" />
+        <div>
+          <div class="opt-label">Base code + assets</div>
+          <div class="opt-desc">Also splits and encodes embedded base64 asset strings so they can't be extracted directly.</div>
+        </div>
+      </label>
+      <label class="option">
+        <input type="radio" name="mode" value="all">
+        <div>
+          <div class="opt-label">Everything</div>
+          <div class="opt-desc">Obfuscate all JavaScript including libraries. Slowest option, largest output.</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="divider"></div>
+    <div class="card-title">Strength</div>
+    <div class="options" id="strength-options">
+      <label class="option selected">
+        <input type="radio" name="strength" value="balanced" checked />
+        <div>
+          <div class="opt-label">Balanced <span class="opt-tag">recommended</span></div>
+          <div class="opt-desc">Identifier renaming + string encoding. Fast, minimal size increase. Best for ad delivery.</div>
+        </div>
+      </label>
+      <label class="option">
+        <input type="radio" name="strength" value="aggressive" />
+        <div>
+          <div class="opt-label">Aggressive</div>
+          <div class="opt-desc">Adds control flow flattening and dead code injection. Slower, output ~2–3× larger.</div>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <!-- Step 3: Process -->
+  <div class="card">
+    <div class="card-title">3 — Process</div>
+    <div class="btn-row">
+      <button class="btn" id="start-btn" disabled>
+        <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Start
+      </button>
+    </div>
+
+    <div id="progress-section" hidden>
+      <div class="progress-wrap" style="margin-top:16px;">
+        <div class="progress-header">
+          <span id="progress-text">Processing…</span>
+          <span id="progress-pct"></span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="status-msg" id="status-msg"></div>
+      </div>
+    </div>
+
+    <div class="error-box" id="process-error" hidden></div>
+  </div>
+
+  <!-- Step 4: Result -->
+  <div class="card" id="result-card" hidden>
+    <div class="card-title">4 — Result</div>
+    <div class="result-sizes">
+      <div class="size-block">
+        <div class="size-val" id="size-before">—</div>
+        <div class="size-lbl">Original</div>
+      </div>
+      <div class="size-arrow">→</div>
+      <div class="size-block">
+        <div class="size-val" id="size-after">—</div>
+        <div class="size-lbl">Obfuscated</div>
+      </div>
+      <div class="size-delta" id="size-delta"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn blue" id="download-btn">
+        <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+        Download
+      </button>
+      <button class="btn ghost" id="reset-btn">Process another</button>
+    </div>
+  </div>
+
+</div>
+<script>
+(() => {
+  // ── State ──────────────────────────────────────────────────────────────
+  let fileContent = null;
+  let fileName = null;
+  let detectionResult = null;
+  let processedContent = null;
+  let activeWorker = null;
+
+  // ── DOM ────────────────────────────────────────────────────────────────
+  const dropZone      = document.getElementById('drop-zone');
+  const fileInput     = document.getElementById('file-input');
+  const fileLoaded    = document.getElementById('file-loaded');
+  const fiName        = document.getElementById('fi-name');
+  const fiSize        = document.getElementById('fi-size');
+  const fiClear       = document.getElementById('fi-clear');
+  const detectionEl   = document.getElementById('detection');
+  const uploadError   = document.getElementById('upload-error');
+  const startBtn      = document.getElementById('start-btn');
+  const progressSec   = document.getElementById('progress-section');
+  const progressFill  = document.getElementById('progress-fill');
+  const progressText  = document.getElementById('progress-text');
+  const progressPct   = document.getElementById('progress-pct');
+  const statusMsg     = document.getElementById('status-msg');
+  const processError  = document.getElementById('process-error');
+  const resultCard    = document.getElementById('result-card');
+  const sizeBefore    = document.getElementById('size-before');
+  const sizeAfter     = document.getElementById('size-after');
+  const sizeDelta     = document.getElementById('size-delta');
+  const downloadBtn   = document.getElementById('download-btn');
+  const resetBtn      = document.getElementById('reset-btn');
+
+  // ── Option highlight ───────────────────────────────────────────────────
+  document.querySelectorAll('.options').forEach(group => {
+    group.querySelectorAll('.option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        group.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+      });
+    });
+  });
+
+  // ── File handling ──────────────────────────────────────────────────────
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) loadFile(f);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) loadFile(fileInput.files[0]); });
+  fiClear.addEventListener('click', clearFile);
+
+  function loadFile(file) {
+    if (!file.name.toLowerCase().endsWith('.html')) {
+      showErr(uploadError, 'Only .html files are supported.');
+      return;
+    }
+    hideErr(uploadError);
+    const reader = new FileReader();
+    reader.onload = e => {
+      fileContent = e.target.result;
+      fileName = file.name;
+      fiName.textContent = file.name;
+      fiSize.textContent = fmtSize(fileContent.length);
+      dropZone.hidden = true;
+      fileLoaded.hidden = false;
+      detectionResult = analyzeHTML(fileContent);
+      renderDetection(detectionResult);
+      startBtn.disabled = false;
+      resultCard.hidden = true;
+      processedContent = null;
+    };
+    reader.readAsText(file);
+  }
+
+  function clearFile() {
+    fileContent = fileName = detectionResult = processedContent = null;
+    dropZone.hidden = false;
+    fileLoaded.hidden = true;
+    fileInput.value = '';
+    startBtn.disabled = true;
+    progressSec.hidden = true;
+    resultCard.hidden = true;
+    if (activeWorker) { activeWorker.terminate(); activeWorker = null; }
+    hideErr(uploadError); hideErr(processError);
+  }
+
+  function showErr(el, msg) { el.textContent = msg; el.hidden = false; }
+  function hideErr(el) { el.hidden = true; }
+
+  // ── Section detection ──────────────────────────────────────────────────
+  const LIB_SIGS = [
+    { re: /three\.js/i,    name: 'Three.js'  },
+    { re: /tween\.js/i,    name: 'TWEEN.js'  },
+    { re: /\bgsap\b/i,     name: 'GSAP'      },
+    { re: /pixi\.js/i,     name: 'Pixi.js'   },
+    { re: /stats\.js/i,    name: 'Stats.js'  },
+    { re: /matter\.js/i,   name: 'Matter.js' },
+    { re: /howler/i,       name: 'Howler'    },
+    { re: /phaser/i,       name: 'Phaser'    },
+    { re: /cannon\.js/i,   name: 'Cannon.js' },
+    { re: /\bspine\b/i,    name: 'Spine'     },
+  ];
+
+  function analyzeHTML(html) {
+    const re = /<script(?:\s[^>]*)?>[\s\S]*?<\/script>/gi;
+    const scripts = [];
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const full = m[0];
+      const openTag = full.match(/<script[^>]*>/i)[0];
+      if (/\ssrc\s*=/i.test(openTag)) continue; // skip external scripts
+      const content = full.slice(openTag.length, -'</script>'.length);
+      if (!content.trim()) continue;
+      scripts.push({
+        openTag,
+        content,
+        start: m.index,
+        end: m.index + full.length,
+        info: classifyScript(content),
+      });
+    }
+    const libCount    = scripts.filter(s => s.info.type === 'library').length;
+    const gameCount   = scripts.filter(s => s.info.type === 'game').length;
+    const totalAssets = scripts.reduce((n, s) => n + s.info.assetCount, 0);
+    return { scripts, libCount, gameCount, totalAssets };
+  }
+
+  function classifyScript(content) {
+    const head = content.slice(0, 2500);
+    for (const sig of LIB_SIGS) {
+      if (sig.re.test(head)) {
+        return { type: 'library', name: sig.name, assetCount: countAssets(content) };
+      }
+    }
+    // Size heuristic: unlabelled scripts > 350 KB are likely bundled libraries
+    if (content.length > 350000) {
+      return { type: 'library', name: 'Bundled Library', assetCount: countAssets(content) };
+    }
+    return { type: 'game', name: 'Game Code', assetCount: countAssets(content) };
+  }
+
+  function countAssets(content) {
+    return (content.match(/"[A-Za-z0-9+/]{2000,}={0,2}"/g) || []).length;
+  }
+
+  function renderDetection({ scripts, libCount, gameCount, totalAssets }) {
+    detectionEl.innerHTML = '';
+    const add = (cls, text) => {
+      const b = document.createElement('span');
+      b.className = 'det-badge ' + cls;
+      b.textContent = text;
+      detectionEl.appendChild(b);
+    };
+    if (libCount)      add('lib',   libCount  + ' librar' + (libCount === 1 ? 'y' : 'ies') + ' detected');
+    if (gameCount)     add('game',  gameCount + ' game script' + (gameCount !== 1 ? 's' : ''));
+    if (totalAssets)   add('asset', totalAssets + ' embedded asset' + (totalAssets !== 1 ? 's' : ''));
+    if (!scripts.length) add('warn', 'No inline scripts found');
+  }
+
+  // ── Processing ─────────────────────────────────────────────────────────
+  startBtn.addEventListener('click', startProcessing);
+
+  function startProcessing() {
+    if (!fileContent || !detectionResult) return;
+    hideErr(processError);
+    startBtn.disabled = true;
+    resultCard.hidden = true;
+    progressSec.hidden = false;
+    setProgress(0, 'Starting…', true);
+
+    const mode     = document.querySelector('input[name="mode"]:checked').value;
+    const strength = document.querySelector('input[name="strength"]:checked').value;
+
+    // Build sections for the worker
+    const sections = detectionResult.scripts.map((s, i) => {
+      const isLib = s.info.type === 'library';
+      const shouldObfuscate = mode === 'all' ? true : !isLib;
+      const encodeAssets    = (mode === 'base-assets' || mode === 'all') && !isLib;
+      const { cleaned, blobs } = extractBase64(s.content);
+      return {
+        index: i,
+        openTag: s.openTag,
+        cleaned,
+        blobs,
+        shouldObfuscate,
+        encodeAssets,
+        name: s.info.name,
+      };
+    });
+
+    const obfOptions = buildObfOptions(strength);
+
+    if (activeWorker) activeWorker.terminate();
+    activeWorker = spawnWorker();
+
+    activeWorker.onmessage = ({ data: msg }) => {
+      switch (msg.type) {
+        case 'status':
+          setStatus(msg.text);
+          break;
+        case 'ready':
+          setProgress(10, 'Obfuscating…', false);
+          activeWorker.postMessage({ type: 'process', sections, obfOptions });
+          break;
+        case 'progress': {
+          const pct = 10 + Math.round((msg.done / msg.total) * 82);
+          setProgress(pct, 'Processing: ' + msg.name + '…', false);
+          break;
+        }
+        case 'done':
+          setProgress(100, 'Done!', false);
+          finalizeOutput(msg.results);
+          break;
+        case 'error':
+          showErr(processError, msg.text);
+          startBtn.disabled = false;
+          break;
+      }
+    };
+
+    activeWorker.onerror = err => {
+      showErr(processError, 'Worker error: ' + (err.message || err));
+      startBtn.disabled = false;
+    };
+
+    activeWorker.postMessage({ type: 'init' });
+  }
+
+  function finalizeOutput(results) {
+    // Reassemble HTML — process in reverse so positions stay valid
+    let output = fileContent;
+    const origScripts = detectionResult.scripts;
+    [...results].sort((a, b) => b.index - a.index).forEach(r => {
+      const orig = origScripts[r.index];
+      const newTag = orig.openTag + r.processed + '</script>';
+      output = output.slice(0, orig.start) + newTag + output.slice(orig.end);
+    });
+    processedContent = output;
+
+    const before = fileContent.length;
+    const after  = output.length;
+    sizeBefore.textContent = fmtSize(before);
+    sizeAfter.textContent  = fmtSize(after);
+    const diff = after - before;
+    const pct  = Math.abs(Math.round((diff / before) * 100));
+    sizeDelta.textContent = (diff < 0 ? '−' : '+') + pct + '%';
+    sizeDelta.className   = 'size-delta ' + (diff < 0 ? 'smaller' : 'larger');
+
+    resultCard.hidden = false;
+    startBtn.disabled = false;
+    resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── Download ───────────────────────────────────────────────────────────
+  downloadBtn.addEventListener('click', () => {
+    if (!processedContent) return;
+    const outName = fileName.replace(/\.html$/i, '') + '.obf.html';
+    const blob = new Blob([processedContent], { type: 'text/html' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = outName; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+  resetBtn.addEventListener('click', clearFile);
+
+  // ── Base64 extraction ──────────────────────────────────────────────────
+  function extractBase64(code) {
+    const blobs = [];
+    let idx = 0;
+    const cleaned = code.replace(/"([A-Za-z0-9+/]{2000,}={0,2})"/g, (match, b64) => {
+      const token = '__ASSET_' + (idx++) + '_PLACEHOLDER__';
+      blobs.push({ token, original: match, b64 });
+      return '"' + token + '"';
+    });
+    return { cleaned, blobs };
+  }
+
+  // ── Obfuscator config ──────────────────────────────────────────────────
+  function buildObfOptions(strength) {
+    const base = {
+      compact: true,
+      controlFlowFlattening: false,
+      deadCodeInjection: false,
+      debugProtection: false,
+      disableConsoleOutput: false,
+      identifierNamesGenerator: 'hexadecimal',
+      log: false,
+      renameGlobals: false,
+      rotateStringArray: true,
+      selfDefending: false,
+      splitStrings: false,
+      stringArray: true,
+      stringArrayEncoding: ['base64'],
+      stringArrayThreshold: 0.75,
+      unicodeEscapeSequence: false,
+      reservedStrings: ['__ASSET_\\d+_PLACEHOLDER__'],
+    };
+    if (strength !== 'aggressive') return base;
+    return {
+      ...base,
+      controlFlowFlattening: true,
+      controlFlowFlatteningThreshold: 0.4,
+      deadCodeInjection: true,
+      deadCodeInjectionThreshold: 0.1,
+      stringArrayEncoding: ['rc4'],
+      stringArrayThreshold: 0.85,
+      selfDefending: true,
+    };
+  }
+
+  // ── Web Worker ─────────────────────────────────────────────────────────
+  function spawnWorker() {
+    const src = `
+const CDN = 'https://cdn.jsdelivr.net/npm/javascript-obfuscator@4/dist/index.browser.js';
+
+self.onmessage = function(e) {
+  var msg = e.data;
+
+  if (msg.type === 'init') {
+    self.postMessage({ type: 'status', text: 'Loading obfuscator library…' });
+    try {
+      importScripts(CDN);
+      self.postMessage({ type: 'ready' });
+    } catch(err) {
+      self.postMessage({ type: 'error', text: 'Could not load obfuscator: ' + (err.message || err) });
+    }
+    return;
+  }
+
+  if (msg.type === 'process') {
+    var sections   = msg.sections;
+    var obfOptions = msg.obfOptions;
+    var results    = [];
+    var done       = 0;
+
+    for (var i = 0; i < sections.length; i++) {
+      var sec = sections[i];
+      self.postMessage({ type: 'progress', done: done, total: sections.length, name: sec.name });
+
+      var processed = sec.cleaned;
+
+      if (sec.shouldObfuscate && sec.cleaned.trim().length > 10) {
+        try {
+          processed = JavaScriptObfuscator.obfuscate(sec.cleaned, obfOptions).getObfuscatedCode();
+        } catch(err) {
+          // fallback: keep original if obfuscation fails (e.g. syntax error in input)
+          processed = sec.cleaned;
+        }
+      }
+
+      // Restore / encode asset blobs
+      for (var j = 0; j < sec.blobs.length; j++) {
+        var blob = sec.blobs[j];
+        var token = '"' + blob.token + '"';
+        var replacement = sec.encodeAssets ? splitBlob(blob.b64) : blob.original;
+        processed = processed.split(token).join(replacement);
+      }
+
+      results.push({ index: sec.index, processed: processed });
+      done++;
+    }
+
+    self.postMessage({ type: 'done', results: results });
+  }
+};
+
+function splitBlob(b64) {
+  var SIZE = 8192;
+  if (b64.length <= SIZE) return '"' + b64 + '"';
+  var chunks = [];
+  for (var i = 0; i < b64.length; i += SIZE) {
+    chunks.push('"' + b64.slice(i, i + SIZE) + '"');
+  }
+  return '[' + chunks.join(',') + '].join("")';
+}
+`;
+    const blob = new Blob([src], { type: 'application/javascript' });
+    const url  = URL.createObjectURL(blob);
+    const w    = new Worker(url);
+    URL.revokeObjectURL(url); // safe to revoke after Worker is created
+    return w;
+  }
+
+  // ── Progress ───────────────────────────────────────────────────────────
+  function setProgress(pct, text, indeterminate) {
+    progressText.textContent = text;
+    progressPct.textContent  = indeterminate ? '' : pct + '%';
+    if (indeterminate) {
+      progressFill.classList.add('indeterminate');
+      progressFill.style.width = '';
+    } else {
+      progressFill.classList.remove('indeterminate');
+      progressFill.style.width = pct + '%';
+    }
+  }
+  function setStatus(text) { statusMsg.textContent = text; }
+
+  // ── Utils ──────────────────────────────────────────────────────────────
+  function fmtSize(bytes) {
+    if (bytes < 1024)        return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+})();
+</script>
+</body>
+</html>
