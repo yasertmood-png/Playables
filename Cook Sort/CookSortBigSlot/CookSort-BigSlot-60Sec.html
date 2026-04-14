@@ -2534,6 +2534,7 @@
       ? TutorialStepsGroupsLandscape.length > 0
       : TutorialStepsGroups.length > 0;
     const TutorialSecondStepCtaEnabled = false; // if true, the second guided tutorial click opens CTA and redirects to store
+    const MergeTutorialEnabled = false; // set true to show the merge-button hand tutorial
 
     // Tutorial hand offset from slot center (% of slot size — consistent on all screens/orientations)
     const TutorialHandOffsetX = 30;   // % of slot width,  positive = right
@@ -3103,7 +3104,7 @@
     }
 
     function startMergeTutorial() {
-      return; // hidden — merge button removed
+      if (!MergeTutorialEnabled) { endMergeTutorial(); return; }
       tutorialTransitioning = false;
       if (!tutorialHandEl || !mergeButton) return;
       mergeTutorialActive = true;
