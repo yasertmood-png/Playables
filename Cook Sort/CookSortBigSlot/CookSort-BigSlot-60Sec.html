@@ -1472,6 +1472,10 @@
     let webglAvailable = true;
     const CTA_SHOW_DELAY_MS = 60000;
     const CTA_FILL_THRESHOLD = 1.01; // >1 disables fill-based CTA auto-open
+
+    // ── Transfer-count store redirect ────────────────────────────────
+    const TransferCounterEnabled = false; // set false to disable
+    const TransferCounterTarget  = 5;    // redirect to store after this many transfers
     const CTA_PULSE_START_DELAY_MS = 260;
     const CTA_TEXT_FILL_RATIO = 0.5; // text height as fraction of button height
     const STORE_URL_ANDROID = 'https://play.google.com/store/apps/details?id=com.MoodGames.CookSort';
@@ -2027,8 +2031,8 @@
     const ProgressStartFill = 0;     // initial fill amount on load (0–1)
     if (_progressLevelText) _progressLevelText.textContent = ProgressStartLevel;
 
-    // Grid layout (5 columns x 3 rows)
-    const GRID_COLS = 9;
+    // Portrait grid: GRID_COLS_LEFT + BigSlot + GRID_COLS_RIGHT = GRID_COLS total, GRID_ROWS rows
+    const GRID_COLS = 7;  // 3 left + 1 BigSlot + 3 right
     const GRID_ROWS = 4;
 
     // Slot size per type (width, height in world units)
@@ -2065,20 +2069,25 @@
 
     // ── Big Slot (tall center slot) ──────────────────────────────────────────
     const BigSlotEnabled  = true;
-    const BigSlotWidth    = 0.68;   // world units (same as normal slot for now)
     const BigSlotOffsetX  = 0;      // horizontal offset from board center
-    const BigSlotOffsetZ  = 0.1;      // vertical offset from board center
-    const BigSlotCapacity = 40;     // max coins the big slot can hold
+    const BigSlotOffsetZ  = 0.1;    // vertical offset from board center
+    const BigSlotCapacityPortrait  = 60;  // max coins — portrait
+    const BigSlotCapacityLandscape = 40;  // max coins — landscape
     // Portrait: how many columns go left / right of the big slot (must sum to GRID_COLS - 1)
-    const GRID_COLS_LEFT  = 4;
-    const GRID_COLS_RIGHT = 4;
+    const GRID_COLS_LEFT  = 3;
+    const GRID_COLS_RIGHT = 3;
     // Landscape: same split
     const LS_GRID_COLS_LEFT  = 5;
     const LS_GRID_COLS_RIGHT = 5;
-    // Height spans the full portrait board (computed after SLOT_HEIGHT / SlotVerticallySpacing)
-    const BigSlotHeight = (GRID_ROWS * SLOT_HEIGHT + (GRID_ROWS - 1) * SlotVerticallySpacing)*0.9; // ≈7.36
-    // Patch the slot size/offset tables with BigSlot entries
-    SlotSize[SlotType.BigSlot]   = { width: BigSlotWidth, height: BigSlotHeight };
+    // Big slot size — portrait
+    const BigSlotWidthPortrait   = 0.68;
+    const BigSlotHeightPortrait  = (GRID_ROWS * SLOT_HEIGHT + (GRID_ROWS - 1) * SlotVerticallySpacing) * 1.15;
+    // Big slot size — landscape
+    const BigSlotWidthLandscape  = 0.68;
+    const BigSlotHeightLandscape = (LS_GRID_ROWS * SLOT_HEIGHT + (LS_GRID_ROWS - 1) * SlotVerticallySpacing) * 0.9;
+    // Alias used by BigSlotCoinStackStartZ (portrait-based; adequate for both orientations)
+    const BigSlotHeight = BigSlotHeightPortrait;
+    // SlotSize[SlotType.BigSlot] is set in the orientation branch below (before _makeSlot)
     SlotOffset[SlotType.BigSlot] = { x: BigSlotOffsetX, z: BigSlotOffsetZ };
     // BigSlot uses the normal Empty slot image (ASSETS.bigSlot can replace it later)
     // slotImages[SlotType.BigSlot] is set below, after slotImages are loaded
@@ -2086,25 +2095,24 @@
     // Per-row Z position modifier (world units, one entry per row: row 0 = top, row 2 = bottom)
     const RowZOffset = [0, 0, 0, 0];
 
-    // Pre-defined coin layout — portrait: (GRID_COLS_LEFT + GRID_COLS_RIGHT) × GRID_ROWS = 32 slots
-    // Row-major: left-half cols first, then right-half cols, per row. Col 4 (center) is the BigSlot.
-    // Pre-placed coins for portrait: 15 left filled + 15 right filled (1 empty each side).
-    // Occupied slots are filled to the normal 10-coin capacity.
-    // Coin-6 total: 55 — player sorts these into the BigSlot to trigger the merge.
-    // Most occupied slots use 3-type / 4-type stacks; no lone coins.
+    // Pre-defined coin layout — portrait: (GRID_COLS_LEFT + GRID_COLS_RIGHT) × GRID_ROWS = 24 slots
+    // Row-major: left-half cols 0-2 first, then right-half cols 0-2, per row. Center column is the BigSlot.
+    // 23 filled slots (10 coins each) + 1 empty slot (row 0, right col 0) = 230 coins total.
+    // Coin-6 total: 41 — player sorts these into the BigSlot (capacity 40) to trigger the merge.
+    // Most occupied slots use 3–4 coin types per stack; no lone coins.
     const DefaultCoinLayout = [
-      // Row 0 — left cols 0-3, right cols 4-7
-      [1,1,1,2,2,2,2,5,5,5], [3,3,3,3,2,2,2,4,4,4], [6,6,6,4,4,4,2,2,2,2], [],
-      [6,6,4,4,4,1,1,1,5,5], [2,2,2,2,2,1,1,1,1,1], [3,3,3,1,1,1,1,1,1,1], [6,6,6,3,3,3,3,4,4,4],
-      // Row 1 — left cols 0-3, right cols 4-7
-      [6,6,6,6,5,5,5,1,1,1], [3,3,3,5,5,5,6,6,6,6], [6,6,2,2,2,3,3,3,4,4], [2,2,2,2,2,5,5,5,5,5],
-      [5,5,5,2,2,2,2,2,2,2], [6,6,6,1,1,1,1,3,3,3], [4,4,4,4,3,3,3,1,1,1], [6,6,6,4,4,4,2,2,2,2],
-      // Row 2 — left cols 0-3, right cols 4-7
-      [6,6,5,5,5,1,1,1,3,3], [1,1,1,1,1,2,2,2,2,2], [6,6,6,5,5,5,5,5,5,5], [4,4,4,5,5,5,5,6,6,6],
-      [1,1,1,1,6,6,6,5,5,5], [6,6,6,1,1,1,4,4,4,4], [3,3,4,4,4,5,5,5,2,2], [6,6,6,6,6,5,5,5,5,5],
-      // Row 3 — left cols 0-3, right cols 4-7
-      [6,6,6,2,2,2,2,2,2,2], [3,3,3,1,1,1,1,5,5,5], [6,6,6,6,3,3,3,1,1,1], [4,4,4,5,5,5,3,3,3,3],
-      [6,6,5,5,5,1,1,1,3,3], [4,4,4,4,4,5,5,5,5,5], [6,6,6,2,2,2,2,2,2,2], [],
+      // Row 0 — left cols 0-2, right cols 0-2
+      [1,1,1,6,6,6,6,6,6,6], [3,3,3,3,2,2,2,4,4,4], [6,6,6,4,4,4,2,2,2,2],
+      [3,3,3,5,5,5,6,6,6,6], [6,6,4,4,4,1,1,1,5,5], [2,2,2,2,2,1,1,1,1,1],
+      // Row 1 — left cols 0-2, right cols 0-2
+      [6,6,6,6,5,5,5,1,1,1], [3,3,3,5,5,5,6,6,6,6], [2,2,2,3,3,3,4,4,6,6],
+      [5,5,5,2,2,2,2,2,2,2], [6,6,6,1,1,1,1,3,3,3], [4,4,4,4,3,3,3,1,1,1],
+      // Row 2 — left cols 0-2, right cols 0-2
+      [6,6,5,5,5,1,1,1,3,3], [1,1,1,1,1,6,6,6,6,6], [6,6,6,5,5,5,5,5,5,5],
+      [1,1,1,1,5,5,5,6,6,6], [6,6,6,1,1,1,4,4,4,4], [3,3,4,4,4,5,5,5,2,2],
+      // Row 3 — left cols 0-2, right cols 0-2
+      [6,6,6,2,2,2,2,2,2,2], [3,3,3,1,1,1,1,5,5,5], [3,3,3,1,1,1,6,6,6,6],
+      [6,6,5,5,5,1,1,1,3,3], [4,4,4,4,4,5,5,5,5,5], [6,6,6,6,6,2,2,2,2,2],
     ];
 
     // Landscape coin layout — (LS_GRID_COLS_LEFT + LS_GRID_COLS_RIGHT) × LS_GRID_ROWS = 30 slots
@@ -2124,16 +2132,16 @@
       [3,3,3,3,2,2,2,5,5,5], [6,6,6,4,4,4,2,2,2,2], [3,3,6,6,6,2,2,2,1,1], [6,6,6,6,6,5,5,5,5,5], [2,2,2,4,4,4,4,4,4,4],
     ];
 
-    // Default slot types — portrait: 32 slots (left 4 + right 4) × 4 rows
+    // Default slot types — portrait: 24 slots (left 3 + right 3) × 4 rows
     const DefaultSlotTypes = [
-      // Row 0: left 4 Closed + right 4 Closed
-      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
-      // Row 1: left 4 Closed + right 4 Empty
-      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
-      // Row 2: all Empty
-      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
-      // Row 3: all Empty
-      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
+      // Row 0: left 3 + right 3
+      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
+      // Row 1: left 3 + right 3
+      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
+      // Row 2: left 3 + right 3
+      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
+      // Row 3: left 3 + right 3
+      SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty, SlotType.Empty,
     ];
 
     // Default slot types — landscape: 30 slots (left 5 + right 5) × 3 rows
@@ -2178,7 +2186,7 @@
     const SlotEdgeRotation = { x: -45, y: 0, z: 0 };       // degrees (flat on ground, same as slot)
 
     // Camera - portrait orientation
-    const CameraPortraitPosition = { x: 0, y: 0, z: 0.5 };
+    const CameraPortraitPosition = { x: 0, y: 0, z: 0.3};
 
     // Camera - landscape orientation
     const CameraLandscapePosition = { x: 0, y: 0, z: -0.25 };
@@ -2508,7 +2516,7 @@
     const TutorialStepsGroups = [
       // Group 1 — first slots phase
       [
-        [31, 32],
+        [15, 24],
       ],
       // Group 2 — second slots phase (add steps here)
     ];
@@ -2735,13 +2743,13 @@
     // Board total dimensions (portrait) — left half + gap + BigSlot + gap + right half
     const TABLE_WIDTH  = (GRID_COLS_LEFT + GRID_COLS_RIGHT) * SLOT_W
                        + (GRID_COLS_LEFT + GRID_COLS_RIGHT) * SlotHorizontallySpacing
-                       + BigSlotWidth;
+                       + BigSlotWidthPortrait;
     const TABLE_HEIGHT = GRID_ROWS * SLOT_H + (GRID_ROWS - 1) * SlotVerticallySpacing;
 
     // Board total dimensions (landscape)
     const LS_TABLE_WIDTH  = (LS_GRID_COLS_LEFT + LS_GRID_COLS_RIGHT) * SLOT_W
                           + (LS_GRID_COLS_LEFT + LS_GRID_COLS_RIGHT) * SlotHorizontallySpacing
-                          + BigSlotWidth;
+                          + BigSlotWidthLandscape;
     const LS_TABLE_HEIGHT = LS_GRID_ROWS * SLOT_H + (LS_GRID_ROWS - 1) * SlotVerticallySpacing;
 
     // Portrait grid origin (used only if BigSlotEnabled is false — kept for reference)
@@ -2802,16 +2810,16 @@
     // Portrait
     const _pBigX     = BigSlotOffsetX;
     const _pLeftW    = GRID_COLS_LEFT  * SLOT_W + (GRID_COLS_LEFT  - 1) * SlotHorizontallySpacing;
-    const _pLeftStartX  = _pBigX - BigSlotWidth / 2 - SlotHorizontallySpacing - _pLeftW + SLOT_W / 2;
-    const _pRightStartX = _pBigX + BigSlotWidth / 2 + SlotHorizontallySpacing  + SLOT_W / 2;
+    const _pLeftStartX  = _pBigX - BigSlotWidthPortrait / 2 - SlotHorizontallySpacing - _pLeftW + SLOT_W / 2;
+    const _pRightStartX = _pBigX + BigSlotWidthPortrait / 2 + SlotHorizontallySpacing  + SLOT_W / 2;
     const _pGridH    = GRID_ROWS * SLOT_H + (GRID_ROWS - 1) * SlotVerticallySpacing;
     const _pGridOffZ = -_pGridH / 2;
 
     // Landscape
     const _lsBigX     = BigSlotOffsetX;
     const _lsLeftW    = LS_GRID_COLS_LEFT  * SLOT_W + (LS_GRID_COLS_LEFT  - 1) * SlotHorizontallySpacing;
-    const _lsLeftStartX  = _lsBigX - BigSlotWidth / 2 - SlotHorizontallySpacing - _lsLeftW + SLOT_W / 2;
-    const _lsRightStartX = _lsBigX + BigSlotWidth / 2 + SlotHorizontallySpacing  + SLOT_W / 2;
+    const _lsLeftStartX  = _lsBigX - BigSlotWidthLandscape / 2 - SlotHorizontallySpacing - _lsLeftW + SLOT_W / 2;
+    const _lsRightStartX = _lsBigX + BigSlotWidthLandscape / 2 + SlotHorizontallySpacing  + SLOT_W / 2;
     const _lsGridH    = LS_GRID_ROWS * SLOT_H + (LS_GRID_ROWS - 1) * SlotVerticallySpacing;
     const _lsGridOffZ = -_lsGridH / 2;
 
@@ -2837,8 +2845,9 @@
         }
       }
       // Big slot centered on the board
+      SlotSize[SlotType.BigSlot] = { width: BigSlotWidthLandscape, height: BigSlotHeightLandscape };
       bigSlotIndex = slots.length;
-      slots.push(_makeSlot(LS_GRID_COLS_LEFT, -1, _lsBigX, BigSlotOffsetZ, SlotType.BigSlot, BigSlotCapacity));
+      slots.push(_makeSlot(LS_GRID_COLS_LEFT, -1, _lsBigX, BigSlotOffsetZ, SlotType.BigSlot, BigSlotCapacityLandscape));
 
     } else {
       // ── Portrait: left half + right half + big slot ──────────────────────
@@ -2859,8 +2868,9 @@
         }
       }
       // Big slot centered on the board
+      SlotSize[SlotType.BigSlot] = { width: BigSlotWidthPortrait, height: BigSlotHeightPortrait };
       bigSlotIndex = slots.length;
-      slots.push(_makeSlot(GRID_COLS_LEFT, -1, _pBigX, BigSlotOffsetZ, SlotType.BigSlot, BigSlotCapacity));
+      slots.push(_makeSlot(GRID_COLS_LEFT, -1, _pBigX, BigSlotOffsetZ, SlotType.BigSlot, BigSlotCapacityPortrait));
     }
 
     _prevOrientationIsLandscape = _initIsLandscape;
@@ -3340,6 +3350,7 @@
     let heldCoins = [];
     var allCoinMeshes = [];
     var mergeCount = 0;     // total merges completed
+    var _transferCount = 0; // total completed transfers (for store redirect)
     var rentCountBadge = RentCountBadgeInitialCount; // remaining rent uses shown on badge
     var progressLevel = ProgressStartLevel;
     var progressFill = ProgressStartFill;    // 0–1 fill amount
@@ -3814,6 +3825,12 @@
         checkFillThreshold();
         if (completedTransfers < toTransfer.length) return;
 
+        // Transfer-count store redirect
+        if (TransferCounterEnabled) {
+          _transferCount++;
+          if (_transferCount >= TransferCounterTarget) openStore();
+        }
+
         // Unlock slots
         transferringSlots.delete(_srcSlot);
         transferringSlots.delete(targetSlotIdx);
@@ -4073,15 +4090,18 @@
 
       updateMergeButtonState();
 
-      // Auto-trigger merge without button press
+      // Auto-trigger merge without button press; retries until any ongoing merge finishes
       ;(function(idx) {
-        setTimeout(function() {
-          if (!mergeReadySlots.has(idx) || mergingSlots.size > 0) return;
+        function tryAutoMerge() {
+          if (!mergeReadySlots.has(idx)) return; // slot was invalidated (coins moved away etc.)
+          if (mergingSlots.size > 0) { setTimeout(tryAutoMerge, 200); return; }
           _stopMergeReadyFx(idx);
           mergeReadySlots.delete(idx);
           updateMergeButtonState();
+          playSound(SFX.merge1);
           _doMergeSlot(idx);
-        }, 400);
+        }
+        setTimeout(tryAutoMerge, 400);
       })(slotIdx);
     }
 
