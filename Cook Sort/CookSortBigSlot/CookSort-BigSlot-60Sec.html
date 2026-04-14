@@ -2084,8 +2084,8 @@
     const BigSlotHeightPortrait  = (GRID_ROWS * SLOT_HEIGHT + (GRID_ROWS - 1) * SlotVerticallySpacing) * 1.15;
     // Big slot size — landscape
     const BigSlotWidthLandscape  = 0.68;
-    const BigSlotHeightLandscape = (LS_GRID_ROWS * SLOT_HEIGHT + (LS_GRID_ROWS - 1) * SlotVerticallySpacing) * 0.9;
-    // Alias used by BigSlotCoinStackStartZ (portrait-based; adequate for both orientations)
+    const BigSlotHeightLandscape = (LS_GRID_ROWS * SLOT_HEIGHT + (LS_GRID_ROWS - 1) * SlotVerticallySpacing) * 1.2;
+    // Alias used by any legacy references to BigSlotHeight
     const BigSlotHeight = BigSlotHeightPortrait;
     // SlotSize[SlotType.BigSlot] is set in the orientation branch below (before _makeSlot)
     SlotOffset[SlotType.BigSlot] = { x: BigSlotOffsetX, z: BigSlotOffsetZ };
@@ -2332,8 +2332,9 @@
     const CoinStackStartY = 0.46;
 
     // BigSlot coin stacking — start near the slot bottom, same bottom margin as a normal slot
-    const _normalSlotBottomMargin = SLOT_HEIGHT / 2 + CoinStackStartZ+0.44; // = 0.40 world units
-    const BigSlotCoinStackStartZ  = -(BigSlotHeight / 2) + _normalSlotBottomMargin;
+    const _normalSlotBottomMargin        = SLOT_HEIGHT / 2 + CoinStackStartZ + 0.44; // = 0.40 world units
+    const BigSlotCoinStackStartZ         = -(BigSlotHeightPortrait  / 2) + _normalSlotBottomMargin;
+    const BigSlotCoinStackStartZLandscape = -(BigSlotHeightLandscape / 2) + _normalSlotBottomMargin;
 
     // Dynamic coin X offset: projects slot center through camera to coin Y plane
     // so coins appear visually centered on their slot regardless of screen/orientation
@@ -2535,6 +2536,7 @@
       : TutorialStepsGroups.length > 0;
     const TutorialSecondStepCtaEnabled = false; // if true, the second guided tutorial click opens CTA and redirects to store
     const MergeTutorialEnabled = false; // set true to show the merge-button hand tutorial
+    const MergeHintEnabled     = false; // set true to show idle hint pointing at the merge button
 
     // Tutorial hand offset from slot center (% of slot size — consistent on all screens/orientations)
     const TutorialHandOffsetX = 30;   // % of slot width,  positive = right
@@ -2849,6 +2851,7 @@
       SlotSize[SlotType.BigSlot] = { width: BigSlotWidthLandscape, height: BigSlotHeightLandscape };
       bigSlotIndex = slots.length;
       slots.push(_makeSlot(LS_GRID_COLS_LEFT, -1, _lsBigX, BigSlotOffsetZ, SlotType.BigSlot, BigSlotCapacityLandscape));
+      slots[bigSlotIndex].coinStackStartZ = BigSlotCoinStackStartZLandscape;
 
     } else {
       // ── Portrait: left half + right half + big slot ──────────────────────
@@ -3173,6 +3176,7 @@
     }
 
     function showMergeButtonActivationHint() {
+      if (!MergeHintEnabled) return;
       if (!tutorialHandEl || !mergeButton || !mergeButtonShown) return;
       if (tutorialActive || mergeTutorialActive) return;
       if (!tutorialHandEl.getAttribute('src') && ASSETS.hand) tutorialHandEl.src = ASSETS.hand;
