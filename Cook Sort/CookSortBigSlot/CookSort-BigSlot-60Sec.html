@@ -3098,23 +3098,22 @@
         var coin = createCoin(BigSlotInitialCoinNumber);
         var pos = getCoinPosition(slot, i);
         coin.position.set(pos.x, pos.y, pos.z);
-        coin.scale.set(0, 0, 0);
         slot.coins.push(coin);
         introCoins.push(coin);
       }
-      // Staggered pop-in animation
+      // Staggered pop pulse — coins already visible at scale 1, just bounce slightly
       introCoins.forEach(function (coin, idx) {
         setTimeout(function () {
-          var _punchDur = BigSlotIntroCoinPopDuration * 0.6;
-          var _settleDur = BigSlotIntroCoinPopDuration * 0.4;
-          var _s = { v: 0 };
+          var _punchDur = BigSlotIntroCoinPopDuration * 0.45;
+          var _settleDur = BigSlotIntroCoinPopDuration * 0.55;
+          var _s = { v: 1 };
           new TWEEN.Tween(_s)
             .to({ v: BigSlotIntroCoinPopOvershoot }, _punchDur)
             .easing(TWEEN.Easing.Quadratic.Out)
             .onUpdate(function () { coin.scale.set(_s.v, _s.v, _s.v); })
             .chain(new TWEEN.Tween(_s)
               .to({ v: 1 }, _settleDur)
-              .easing(TWEEN.Easing.Quadratic.In)
+              .easing(TWEEN.Easing.Quadratic.Out)
               .onUpdate(function () { coin.scale.set(_s.v, _s.v, _s.v); })
               .onComplete(function () { coin.scale.set(1, 1, 1); }))
             .start();
