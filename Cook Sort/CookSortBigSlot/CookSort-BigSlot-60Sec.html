@@ -1474,7 +1474,7 @@
     const CTA_FILL_THRESHOLD = 1.01; // >1 disables fill-based CTA auto-open
 
     // ── BigSlot full → lid pop + immediate end card ──────────────────
-    const LidPopDuration = 1000;  // ms total for the lid close sequence (store opens when it finishes)
+    const LidPopDuration = 600;  // ms total for the lid close sequence (store opens when it finishes)
     const BigSlotFullCoinPopScale = 1.12;
     const BigSlotFullCoinPopInDuration = 130;
     const BigSlotFullCoinPopOutDuration = 110;
@@ -2297,20 +2297,25 @@
     const SlotShadowOffset = { x: 0.05, y: 0.08 };               // world units offset from slot center
 
     // Bread BigSlot 3-slice size multipliers (1.0 = same as slot, >1 = larger, <1 = smaller)
-    const BreadShadowScaleX  = 1.2;
-    const BreadShadowScaleY  = 0.80;
+    const BreadShadowScaleX  = 1.25;
+    const BreadShadowScaleY  = 0.79;
     const BreadBodyScaleX    = 1.25;
     const BreadBodyScaleY    = 0.80;
     const BreadLidScaleX     = 0.97;
-    const BreadLidScaleY     = 0.765;
+    const BreadLidScaleYPortrait  = 0.775;
+    const BreadLidScaleYLandscape = 0.765;
     const BreadShadowOpacity = 0.4; // 0=invisible, 1=fully opaque black shadow
     // Bread BigSlot 3-slice offsets (screen pixels, positive = right/down)
-    const BreadShadowOffsetX = 7;   // tune later
-    const BreadShadowOffsetY = 0;   // tune later
+    const BreadShadowOffsetX = 4;   // tune later
+    const BreadShadowOffsetY = 2;   // tune later
     const BreadBodyOffsetX   = 0;
     const BreadBodyOffsetY   = -10;
-    const BreadLidOffsetX    = 0;
-    const BreadLidOffsetY    = -15;
+    const BreadLidDebugForceShow = false; // DEBUG: always show lid regardless of game state
+    const BreadLidOffsetX    = 1;
+    const BreadLidOffsetY    = -14;
+    const BreadCenterOffsetX = 0;   // pixels — shift center slice left(-) / right(+) relative to top/bottom caps
+    const BreadCenterOffsetY = -10;   // pixels — shift center slice up(-) / down(+) relative to top/bottom caps
+    const BreadCenterTileScale = 1; // <1 = shorter tiles (repeats more), >1 = taller tiles (repeats less)
 
     const SlotBottomEnabled = false;                           // set true to show slot bottom strip
     const SlotBottomSize = { width: 0.697, height: 0.4 };   // world units
@@ -2389,8 +2394,8 @@
 
     // BigSlot coin stacking — base world position plus rendered bread-body screen offset compensation
     const _normalSlotBottomMargin = SLOT_HEIGHT / 2 + CoinStackStartZ + 0.44; // = 0.40 world units
-    const BigSlotCoinStackStartAdjustPortrait = 0.38;
-    const BigSlotCoinStackStartAdjustLandscape = 0.2;
+    const BigSlotCoinStackStartAdjustPortrait = 0.55;
+    const BigSlotCoinStackStartAdjustLandscape = 0.35;
     const BigSlotCoinStackStartBaseZPortrait = -(BigSlotHeightPortrait / 2) + _normalSlotBottomMargin + BigSlotCoinStackStartAdjustPortrait;
     const BigSlotCoinStackStartBaseZLandscape = -(BigSlotHeightLandscape / 2) + _normalSlotBottomMargin + BigSlotCoinStackStartAdjustLandscape;
 
@@ -2585,8 +2590,11 @@
     const TutorialStepsGroups = [
       // Group 1 — first slots phase
       [
-        [14, 13 ],
+        [14, 13],
       ],
+      [
+        [13, 24]
+      ]
       // Group 2 — second slots phase (add steps here)
     ];
 
@@ -5320,7 +5328,7 @@
         }
       }
       // 5e. Bread lid — drawn over BigSlot coins when merge-ready or slot is full
-      if (bigSlotIndex >= 0 && (_bigSlotFull || mergeReadySlots.has(bigSlotIndex))) {
+      if (bigSlotIndex >= 0 && (BreadLidDebugForceShow || _bigSlotFull || mergeReadySlots.has(bigSlotIndex))) {
         var _bSlot = slots[bigSlotIndex];
         if (_bSlot && !_bSlot.hidden) {
           var _bsc = _bSlot.scaleAnim !== undefined ? _bSlot.scaleAnim : 1;
@@ -5328,8 +5336,9 @@
             var _lidAnim = _bigSlotFull ? _bigSlotLidScale : 1;
             var _lidScaleX = _bigSlotFull ? _bigSlotLidScaleX : 1;
             var _lidOffsetY = _bigSlotFull ? _bigSlotLidOffsetY : 0;
+            var _lidScaleY = _isLandscape ? BreadLidScaleYLandscape : BreadLidScaleYPortrait;
             var _bsw = _bSlot.slotW * _bsc * BreadLidScaleX * _lidAnim * _lidScaleX;
-            var _bsh = _bSlot.slotH * _bsc * BreadLidScaleY * _lidAnim;
+            var _bsh = _bSlot.slotH * _bsc * _lidScaleY * _lidAnim;
             var _bsx = w2sx(_bSlot.x);
             var _bsy = w2sy(_bSlot.z) - (_bSlot.elevY || 0) * W2S_SCALE * ELEV_WORLD_RATIO;
             _drawVSlice(breadLidBottomImg, breadLidCenterImg, breadLidBottomImg,
@@ -5396,7 +5405,7 @@
     }
 
     // Draws a vertical 3-slice: top cap (natural aspect), stretched center, bottom cap (natural aspect).
-    function _drawVSlice(top, center, bottom, x, y, w, h, _ctx, flipTopX) {
+    function _drawVSlice(top, center, bottom, x, y, w, h, _ctx, flipTopX, centerOffsetX, centerOffsetY, centerTileScale) {
       if (!top || !top.complete || !top.naturalWidth) return;
       var _c = _ctx || ctx;
       var tH = top.naturalHeight    * (w / top.naturalWidth);
@@ -5413,12 +5422,14 @@
       }
       // Tile center vertically — scale each tile to slot width, crop last tile if needed
       if (cH > 0 && center && center.complete && center.naturalWidth) {
-        var tileH = center.naturalHeight * (w / center.naturalWidth);
+        var tileH = center.naturalHeight * (w / center.naturalWidth) * (centerTileScale || 1);
+        var _cOffY = centerOffsetY || 0;
+        var fillH = cH - Math.min(0, _cOffY); // extend loop when offset shifts tiles up
         var drawn = 0;
-        while (drawn < cH) {
-          var drawH = Math.min(tileH, cH - drawn);
+        while (drawn < fillH) {
+          var drawH = Math.min(tileH, fillH - drawn);
           var srcH  = Math.round(drawH * center.naturalHeight / tileH);
-          _c.drawImage(center, 0, 0, center.naturalWidth, srcH, x, y + tH + drawn, w, drawH);
+          _c.drawImage(center, 0, 0, center.naturalWidth, srcH, x + (centerOffsetX || 0), y + tH + drawn + _cOffY, w, drawH);
           drawn += tileH;
         }
       }
@@ -5486,7 +5497,7 @@
         }
         var _bodyW = sw * BreadBodyScaleX, _bodyH = sh * BreadBodyScaleY;
         _drawVSlice(breadTopImg, breadCenterImg, breadBottomImg,
-          sx - _bodyW * 0.5 + BreadBodyOffsetX, sy - _bodyH * 0.5 + BreadBodyOffsetY, _bodyW, _bodyH);
+          sx - _bodyW * 0.5 + BreadBodyOffsetX, sy - _bodyH * 0.5 + BreadBodyOffsetY, _bodyW, _bodyH, undefined, false, BreadCenterOffsetX, BreadCenterOffsetY, BreadCenterTileScale);
       } else {
         ctx.drawImage(img, sx - sw * 0.5, sy - sh * 0.5, sw, sh);
       }
