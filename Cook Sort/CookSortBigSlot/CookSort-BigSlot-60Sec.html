@@ -3629,6 +3629,8 @@
             // Coin landed while its slot is mid-merge — stop any fold tween and stay clean.
             if (coin.userData.scaleTween) { coin.userData.scaleTween.stop(); coin.userData.scaleTween = null; }
             coin.scale.set(1, 1, 1);
+          } else if (coin.userData.isPopping) {
+            // Coin landed while big-slot full-pop is running — let the pop animation continue uninterrupted.
           } else {
             if (coin.userData.scaleTween) { coin.userData.scaleTween.stop(); coin.userData.scaleTween = null; }
             coin.userData.squishActive = true;
@@ -4195,6 +4197,7 @@
       var total = coins.length;
       for (var i = 0; i < total; i++) {
         (function (coin, delayMs) {
+          coin.userData.isPopping = true; // guard: arc landing must not interrupt this animation
           if (coin.userData.scaleTween) { coin.userData.scaleTween.stop(); coin.userData.scaleTween = null; }
           coin.scale.set(1, 1, 1);
           var grow = new TWEEN.Tween(coin.scale)
@@ -4207,6 +4210,7 @@
             .onComplete(function () {
               coin.scale.set(1, 1, 1);
               coin.userData.scaleTween = null;
+              coin.userData.isPopping = false;
               finished++;
               if (finished === total && onComplete) onComplete();
             });
