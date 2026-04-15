@@ -2060,6 +2060,9 @@
     // Top-line strip height as fraction of canvas height (covers game icon / progress bar area)
     const UpLineHeightPortrait = 0.10;  // portrait  - fraction of screen height
     const UpLineHeightLandscape = 0.15;  // landscape - fraction of screen height
+    // Bottom reserved area fraction (CTA button + safe area)
+    const BottomReservedPortrait  = 0.12;
+    const BottomReservedLandscape = 0.12;
 
     const ProgressFillPerMerge = 0.40; // fraction of bar filled per merge (0–1)
     const ProgressStartLevel = 3;    // level shown on first load
@@ -2694,10 +2697,14 @@
       var _tH = _isLs ? LS_TABLE_HEIGHT : TABLE_HEIGHT;
       var paddedW = _tW * (1 + _fitPad * 2);
       var paddedH = _tH * (1 + _fitPad * 2);
-      W2S_SCALE = CameraFixedScale > 0 ? CameraFixedScale : Math.min(cw / paddedW, (ch * 0.88) / paddedH);
+      var _topFrac = !_isLs ? UpLineHeightPortrait  : UpLineHeightLandscape;
+      var _botFrac = !_isLs ? BottomReservedPortrait : BottomReservedLandscape;
+      var _usableH  = ch * (1 - _topFrac - _botFrac);
+      var _usableTop = ch * _topFrac;
+      W2S_SCALE = CameraFixedScale > 0 ? CameraFixedScale : Math.min(cw / paddedW, _usableH / paddedH);
       var _cam = _isLs ? CameraLandscapePosition : CameraPortraitPosition;
       ORIGIN_X = cw * 0.5 - _cam.x * W2S_SCALE;
-      ORIGIN_Y = ch * 0.5 - _cam.z * W2S_SCALE;
+      ORIGIN_Y = _usableTop + _usableH * 0.5 - _cam.z * W2S_SCALE;
       if (typeof slots !== 'undefined') {
         for (var _li = 0; _li < slots.length; _li++) {
           var _ls = slots[_li];
