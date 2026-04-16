@@ -2344,12 +2344,14 @@
 
     // BigSlot hint board — small board drawn above the big slot with a coin6 icon inside
     const HintBoardEnabled     = true;
-    const HintBoardScaleX      = 0.045;  // board width as fraction of min(canvasW, canvasH)
-    const HintBoardOffsetX     = 0.04;  // horizontal offset from slot center as fraction of min(canvasW, canvasH)
-    const HintBoardOffsetY     = 0.06;  // vertical offset from slot top as fraction of min(canvasW, canvasH)
-    const HintBoardIconScale   = 0.55;  // coin icon size relative to board width
-    const HintBoardIconOffsetX = 0;     // icon horizontal offset as fraction of board width
-    const HintBoardIconOffsetY = 0;     // icon vertical offset as fraction of board height
+    const HintBoardScaleX      = 0.5;   // board width as fraction of slot width
+    const HintBoardAnchorX     = 1.0;   // 0=slot left, 0.5=slot center, 1=slot right
+    const HintBoardAnchorY     = 0.0;   // 0=slot top, 0.5=slot center, 1=slot bottom
+    const HintBoardOffsetX     = -0.09;     // horizontal nudge from anchor as fraction of slot width
+    const HintBoardOffsetY     = 0.00;     // vertical nudge from anchor as fraction of slot height
+    const HintBoardIconScale   = 0.5;   // coin icon size as fraction of board width
+    const HintBoardIconOffsetX = 0;     // icon horizontal offset from board center as fraction of board width
+    const HintBoardIconOffsetY = 0;     // icon vertical offset from board center as fraction of board height
     const HintBoardRotation    = 35;     // rotation in degrees (positive = clockwise)
 
     const SlotBottomEnabled = false;                           // set true to show slot bottom strip
@@ -5421,20 +5423,29 @@
       if (HintBoardEnabled && bigSlotIndex >= 0 && bigSlotHintBoardImg && bigSlotHintBoardImg.complete && bigSlotHintBoardImg.naturalWidth) {
         var _hbSlot = slots[bigSlotIndex];
         if (_hbSlot && !_hbSlot.hidden) {
-          var _hbsc  = _hbSlot.scaleAnim !== undefined ? _hbSlot.scaleAnim : 1;
-          var _hbsx  = w2sx(_hbSlot.x);
-          var _hbsy  = w2sy(_hbSlot.z) - (_hbSlot.elevY || 0) * W2S_SCALE * ELEV_WORLD_RATIO;
-          var _hbBase = Math.min(cw, ch);
-          var _hbW   = _hbBase * HintBoardScaleX;
-          var _hbH   = _hbW * (bigSlotHintBoardImg.naturalHeight / bigSlotHintBoardImg.naturalWidth);
-          var _hbX   = _hbsx - _hbW * 0.5 + _hbBase * HintBoardOffsetX;
-          var _hbY   = _hbsy - _hbSlot.slotH * _hbsc * 0.5 + _hbBase * HintBoardOffsetY;
-          var _hbCx = _hbX + _hbW * 0.5, _hbCy = _hbY + _hbH * 0.5;
+          var _hbsc     = _hbSlot.scaleAnim !== undefined ? _hbSlot.scaleAnim : 1;
+          var _hbsx     = w2sx(_hbSlot.x);
+          var _hbsy     = w2sy(_hbSlot.z) - (_hbSlot.elevY || 0) * W2S_SCALE * ELEV_WORLD_RATIO;
+          var _slotW    = _hbSlot.slotW * _hbsc;
+          var _slotH    = _hbSlot.slotH * _hbsc;
+          // Use visual bread body bounds as anchor reference (matches drawSlot exactly)
+          var _breadOffY = _prevOrientationIsLandscape ? BreadBodyOffsetYLandscape : BreadBodyOffsetYPortrait;
+          var _visW     = _slotW * BreadBodyScaleX;
+          var _visH     = _slotH * BreadBodyScaleY;
+          var _visLeft  = _hbsx - _visW * 0.5 + BreadBodyOffsetX;
+          var _visTop   = _hbsy - _visH * 0.5 + _breadOffY;
+          // Board — sized and anchored to chosen corner of the visual bread body
+          var _hbW    = _visW * HintBoardScaleX;
+          var _hbH    = _hbW * (bigSlotHintBoardImg.naturalHeight / bigSlotHintBoardImg.naturalWidth);
+          var _anchorX = _visLeft + _visW * HintBoardAnchorX;
+          var _anchorY = _visTop  + _visH * HintBoardAnchorY;
+          var _hbX    = _anchorX - _hbW * 0.5 + _visW * HintBoardOffsetX;
+          var _hbY    = _anchorY - _hbH * 0.5 + _visH * HintBoardOffsetY;
           ctx.save();
-          ctx.translate(_hbCx, _hbCy);
+          ctx.translate(_hbX + _hbW * 0.5, _hbY + _hbH * 0.5);
           ctx.rotate(HintBoardRotation * Math.PI / 180);
           ctx.drawImage(bigSlotHintBoardImg, -_hbW * 0.5, -_hbH * 0.5, _hbW, _hbH);
-          // Coin6 icon centered inside the board
+          // Coin icon — sized and positioned relative to board
           var _coinImg = coinImages[6];
           if (_coinImg && _coinImg.complete && _coinImg.naturalWidth) {
             var _icW = _hbW * HintBoardIconScale;
