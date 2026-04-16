@@ -2338,7 +2338,7 @@
     const BreadBodyOffsetYLandscape  = -0.15;
     const BreadLidDebugForceShow = false; // DEBUG: always show lid regardless of game state
     const BreadLidOffsetX    = 0;
-    const BreadLidOffsetY    = -0.12;
+    const BreadLidOffsetY    = -0.16;
     const BreadCenterOffsetX = 0;   // world units — shift center slice left(-) / right(+) relative to top/bottom caps
     const BreadCenterOffsetY = -0.10;   // world units — shift center slice up(-) / down(+) relative to top/bottom caps
     const BreadCenterTileScale = 1; // <1 = shorter tiles (repeats more), >1 = taller tiles (repeats less)
@@ -2442,6 +2442,23 @@
       var _base = isLandscape ? BigSlotCoinStackStartBaseZLandscape : BigSlotCoinStackStartBaseZPortrait;
       var _bodyOffsetWorld = isLandscape ? BreadBodyOffsetYLandscape : BreadBodyOffsetYPortrait;
       return _base + _bodyOffsetWorld;
+    }
+
+    function getBigSlotBodyDrawRect(slot, sc, sx, sy, isLandscape) {
+      var _bodyW = slot.slotW * sc * BreadBodyScaleX;
+      var _bodyH = slot.slotH * sc * BreadBodyScaleY;
+      var _bodyOffsetX = BreadBodyOffsetX * W2S_SCALE * sc;
+      var _bodyOffsetY = (isLandscape ? BreadBodyOffsetYLandscape : BreadBodyOffsetYPortrait) * W2S_SCALE * sc;
+      return {
+        left: sx - _bodyW * 0.5 + _bodyOffsetX,
+        top: sy - _bodyH * 0.5 + _bodyOffsetY,
+        width: _bodyW,
+        height: _bodyH,
+        centerX: sx + _bodyOffsetX,
+        centerY: sy + _bodyOffsetY,
+        offsetX: _bodyOffsetX,
+        offsetY: _bodyOffsetY,
+      };
     }
 
     // Dynamic coin X offset: projects slot center through camera to coin Y plane
@@ -5468,19 +5485,20 @@
         if (_bSlot && !_bSlot.hidden) {
           var _bsc = _bSlot.scaleAnim !== undefined ? _bSlot.scaleAnim : 1;
           if (_bsc > 0) {
+            var _bsx = w2sx(_bSlot.x);
+            var _bsy = w2sy(_bSlot.z) - (_bSlot.elevY || 0) * W2S_SCALE * ELEV_WORLD_RATIO;
+            var _bodyRect = getBigSlotBodyDrawRect(_bSlot, _bsc, _bsx, _bsy, _isLandscape);
             var _lidAnim = _bigSlotFull ? _bigSlotLidScale : 1;
             var _lidScaleX = _bigSlotFull ? _bigSlotLidScaleX : 1;
             var _lidOffsetY = _bigSlotFull ? _bigSlotLidOffsetY : 0;
             var _lidScaleY = _isLandscape ? BreadLidScaleYLandscape : BreadLidScaleYPortrait;
-            var _bsw = _bSlot.slotW * _bsc * BreadLidScaleX * _lidAnim * _lidScaleX;
-            var _bsh = _bSlot.slotH * _bsc * _lidScaleY * _lidAnim;
-            var _bsx = w2sx(_bSlot.x);
-            var _bsy = w2sy(_bSlot.z) - (_bSlot.elevY || 0) * W2S_SCALE * ELEV_WORLD_RATIO;
-            // Stretched 3-slice: top cap + stretched center + bottom cap (no tiling)
-            var _lidOffsetX = BreadLidOffsetX * W2S_SCALE * _bsc;
-            var _lidOffsetYPx = BreadLidOffsetY * W2S_SCALE * _bsc;
-            var _lx  = _bsx - _bsw * 0.5 + _lidOffsetX;
-            var _ly  = _bsy - _bsh * 0.5 + _lidOffsetYPx + _lidOffsetY;
+            var _bsw = _bodyRect.width * (BreadLidScaleX / BreadBodyScaleX) * _lidAnim * _lidScaleX;
+            var _bsh = _bodyRect.height * (_lidScaleY / BreadBodyScaleY) * _lidAnim;
+            var _lidOffsetX = (BreadLidOffsetX - BreadBodyOffsetX) * W2S_SCALE * _bsc;
+            var _lidOffsetYPx = (BreadLidOffsetY - (_isLandscape ? BreadBodyOffsetYLandscape : BreadBodyOffsetYPortrait)) * W2S_SCALE * _bsc;
+            // Anchor the lid to the rendered bread body so it behaves as the slot's actual cover.
+            var _lx  = _bodyRect.left + (_bodyRect.width - _bsw) * 0.5 + _lidOffsetX;
+            var _ly  = _bodyRect.top + (_bodyRect.height - _bsh) * 0.5 + _lidOffsetYPx + _lidOffsetY;
             var _ltH = breadLidTopImg.naturalHeight    * (_bsw / breadLidTopImg.naturalWidth);
             var _lbH = breadLidBottomImg.naturalHeight * (_bsw / breadLidBottomImg.naturalWidth);
             var _lcH = Math.max(0, _bsh - _ltH - _lbH);
@@ -5499,15 +5517,11 @@
           var _hbsc     = _hbSlot.scaleAnim !== undefined ? _hbSlot.scaleAnim : 1;
           var _hbsx     = w2sx(_hbSlot.x);
           var _hbsy     = w2sy(_hbSlot.z) - (_hbSlot.elevY || 0) * W2S_SCALE * ELEV_WORLD_RATIO;
-          var _slotW    = _hbSlot.slotW * _hbsc;
-          var _slotH    = _hbSlot.slotH * _hbsc;
-          // Use visual bread body bounds as anchor reference (matches drawSlot exactly)
-          var _breadOffX = BreadBodyOffsetX * W2S_SCALE * _hbsc;
-          var _breadOffY = (_prevOrientationIsLandscape ? BreadBodyOffsetYLandscape : BreadBodyOffsetYPortrait) * W2S_SCALE * _hbsc;
-          var _visW     = _slotW * BreadBodyScaleX;
-          var _visH     = _slotH * BreadBodyScaleY;
-          var _visLeft  = _hbsx - _visW * 0.5 + _breadOffX;
-          var _visTop   = _hbsy - _visH * 0.5 + _breadOffY;
+          var _bodyRect = getBigSlotBodyDrawRect(_hbSlot, _hbsc, _hbsx, _hbsy, _prevOrientationIsLandscape);
+          var _visW     = _bodyRect.width;
+          var _visH     = _bodyRect.height;
+          var _visLeft  = _bodyRect.left;
+          var _visTop   = _bodyRect.top;
           // Board — sized and anchored to chosen corner of the visual bread body
           var _hbW    = _visW * HintBoardScaleX;
           var _hbH    = _hbW * (bigSlotHintBoardImg.naturalHeight / bigSlotHintBoardImg.naturalWidth);
@@ -5704,13 +5718,11 @@
           ctx.drawImage(_breadShadowCache[_shadKey], sx - _shadW * 0.5 + _shadowOffsetX, sy - _shadH * 0.5 + _shadowOffsetY);
           ctx.restore();
         }
-        var _bodyW = sw * BreadBodyScaleX, _bodyH = sh * BreadBodyScaleY;
-        var _bodyOffsetX = BreadBodyOffsetX * W2S_SCALE * sc;
-        var _bodyOffsetY = (_prevOrientationIsLandscape ? BreadBodyOffsetYLandscape : BreadBodyOffsetYPortrait) * W2S_SCALE * sc;
+        var _bodyRect = getBigSlotBodyDrawRect(slot, sc, sx, sy, _prevOrientationIsLandscape);
         var _centerOffsetX = BreadCenterOffsetX * W2S_SCALE * sc;
         var _centerOffsetY = BreadCenterOffsetY * W2S_SCALE * sc;
         _drawVSlice(breadTopImg, breadCenterImg, breadBottomImg,
-          sx - _bodyW * 0.5 + _bodyOffsetX, sy - _bodyH * 0.5 + _bodyOffsetY, _bodyW, _bodyH, undefined, false, _centerOffsetX, _centerOffsetY, BreadCenterTileScale);
+          _bodyRect.left, _bodyRect.top, _bodyRect.width, _bodyRect.height, undefined, false, _centerOffsetX, _centerOffsetY, BreadCenterTileScale);
       } else {
         ctx.drawImage(img, sx - sw * 0.5, sy - sh * 0.5, sw, sh);
       }
