@@ -2324,10 +2324,10 @@
     const BreadShadowScaleX  = 1.25;
     const BreadShadowScaleY  = 0.79;
     const BreadBodyScaleX    = 1.1;
-    const BreadBodyScaleY    = 0.8;
+    const BreadBodyScaleY    = 0.795;
     const BreadLidScaleX     = 1;
-    const BreadLidScaleYPortrait  = 0.79;
-    const BreadLidScaleYLandscape = 0.782;
+    const BreadLidScaleYPortrait  = 0.78;
+    const BreadLidScaleYLandscape = 0.78;
     const BreadShadowOpacity = 0.4; // 0=invisible, 1=fully opaque black shadow
     // Bread BigSlot 3-slice offsets (world units, positive = right/down).
     // Using world-space offsets keeps the bread slot aligned consistently as the board scale changes per device.
@@ -2458,6 +2458,20 @@
         centerY: sy + _bodyOffsetY,
         offsetX: _bodyOffsetX,
         offsetY: _bodyOffsetY,
+      };
+    }
+
+    function getBigSlotLidDrawRect(bodyRect, sc, isLandscape, lidAnim, lidScaleX, lidOffsetYAnimPx) {
+      var _lidScaleY = isLandscape ? BreadLidScaleYLandscape : BreadLidScaleYPortrait;
+      var _lidW = bodyRect.width * BreadLidScaleX * lidAnim * lidScaleX;
+      var _lidH = bodyRect.height * (_lidScaleY / BreadBodyScaleY) * lidAnim;
+      var _lidOffsetX = (BreadLidOffsetX - BreadBodyOffsetX) * W2S_SCALE * sc;
+      var _lidOffsetY = (BreadLidOffsetY - (isLandscape ? BreadBodyOffsetYLandscape : BreadBodyOffsetYPortrait)) * W2S_SCALE * sc;
+      return {
+        left: bodyRect.left + (bodyRect.width - _lidW) * 0.5 + _lidOffsetX,
+        top: bodyRect.top + _lidOffsetY + lidOffsetYAnimPx,
+        width: _lidW,
+        height: _lidH,
       };
     }
 
@@ -5491,14 +5505,11 @@
             var _lidAnim = _bigSlotFull ? _bigSlotLidScale : 1;
             var _lidScaleX = _bigSlotFull ? _bigSlotLidScaleX : 1;
             var _lidOffsetY = _bigSlotFull ? _bigSlotLidOffsetY : 0;
-            var _lidScaleY = _isLandscape ? BreadLidScaleYLandscape : BreadLidScaleYPortrait;
-            var _bsw = _bodyRect.width * (BreadLidScaleX / BreadBodyScaleX) * _lidAnim * _lidScaleX;
-            var _bsh = _bodyRect.height * (_lidScaleY / BreadBodyScaleY) * _lidAnim;
-            var _lidOffsetX = (BreadLidOffsetX - BreadBodyOffsetX) * W2S_SCALE * _bsc;
-            var _lidOffsetYPx = (BreadLidOffsetY - (_isLandscape ? BreadBodyOffsetYLandscape : BreadBodyOffsetYPortrait)) * W2S_SCALE * _bsc;
-            // Anchor the lid to the rendered bread body so it behaves as the slot's actual cover.
-            var _lx  = _bodyRect.left + (_bodyRect.width - _bsw) * 0.5 + _lidOffsetX;
-            var _ly  = _bodyRect.top + (_bodyRect.height - _bsh) * 0.5 + _lidOffsetYPx + _lidOffsetY;
+            var _lidRect = getBigSlotLidDrawRect(_bodyRect, _bsc, _isLandscape, _lidAnim, _lidScaleX, _lidOffsetY);
+            var _lx  = _lidRect.left;
+            var _ly  = _lidRect.top;
+            var _bsw = _lidRect.width;
+            var _bsh = _lidRect.height;
             var _ltH = breadLidTopImg.naturalHeight    * (_bsw / breadLidTopImg.naturalWidth);
             var _lbH = breadLidBottomImg.naturalHeight * (_bsw / breadLidBottomImg.naturalWidth);
             var _lcH = Math.max(0, _bsh - _ltH - _lbH);
