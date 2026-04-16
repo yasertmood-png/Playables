@@ -2344,13 +2344,12 @@
 
     // BigSlot hint board — small board drawn above the big slot with a coin6 icon inside
     const HintBoardEnabled     = true;
-    const HintBoardScaleX      = 0.57;   // width relative to big slot width
-    const HintBoardScaleY      = 0.65;   // height relative to big slot width
-    const HintBoardOffsetX     = 35;     // horizontal offset in screen pixels
-    const HintBoardOffsetY     = 45;    // vertical offset from the top edge of the slot (positive = down)
+    const HintBoardScaleX      = 0.045;  // board width as fraction of min(canvasW, canvasH)
+    const HintBoardOffsetX     = 0.04;  // horizontal offset from slot center as fraction of min(canvasW, canvasH)
+    const HintBoardOffsetY     = 0.06;  // vertical offset from slot top as fraction of min(canvasW, canvasH)
     const HintBoardIconScale   = 0.55;  // coin icon size relative to board width
-    const HintBoardIconOffsetX = 0;     // icon horizontal offset within board
-    const HintBoardIconOffsetY = 0;     // icon vertical offset within board
+    const HintBoardIconOffsetX = 0;     // icon horizontal offset as fraction of board width
+    const HintBoardIconOffsetY = 0;     // icon vertical offset as fraction of board height
     const HintBoardRotation    = 35;     // rotation in degrees (positive = clockwise)
 
     const SlotBottomEnabled = false;                           // set true to show slot bottom strip
@@ -5425,10 +5424,11 @@
           var _hbsc  = _hbSlot.scaleAnim !== undefined ? _hbSlot.scaleAnim : 1;
           var _hbsx  = w2sx(_hbSlot.x);
           var _hbsy  = w2sy(_hbSlot.z) - (_hbSlot.elevY || 0) * W2S_SCALE * ELEV_WORLD_RATIO;
-          var _hbW   = _hbSlot.slotW * _hbsc * HintBoardScaleX;
-          var _hbH   = _hbW * (bigSlotHintBoardImg.naturalHeight / bigSlotHintBoardImg.naturalWidth) * (HintBoardScaleY / HintBoardScaleX);
-          var _hbX   = _hbsx - _hbW * 0.5 + HintBoardOffsetX;
-          var _hbY   = _hbsy - _hbSlot.slotH * _hbsc * 0.5 + HintBoardOffsetY;
+          var _hbBase = Math.min(cw, ch);
+          var _hbW   = _hbBase * HintBoardScaleX;
+          var _hbH   = _hbW * (bigSlotHintBoardImg.naturalHeight / bigSlotHintBoardImg.naturalWidth);
+          var _hbX   = _hbsx - _hbW * 0.5 + _hbBase * HintBoardOffsetX;
+          var _hbY   = _hbsy - _hbSlot.slotH * _hbsc * 0.5 + _hbBase * HintBoardOffsetY;
           var _hbCx = _hbX + _hbW * 0.5, _hbCy = _hbY + _hbH * 0.5;
           ctx.save();
           ctx.translate(_hbCx, _hbCy);
@@ -5439,7 +5439,7 @@
           if (_coinImg && _coinImg.complete && _coinImg.naturalWidth) {
             var _icW = _hbW * HintBoardIconScale;
             var _icH = _icW * (_coinImg.naturalHeight / _coinImg.naturalWidth);
-            ctx.drawImage(_coinImg, -_icW * 0.5 + HintBoardIconOffsetX, -_icH * 0.5 + HintBoardIconOffsetY, _icW, _icH);
+            ctx.drawImage(_coinImg, -_icW * 0.5 + _hbW * HintBoardIconOffsetX, -_icH * 0.5 + _hbH * HintBoardIconOffsetY, _icW, _icH);
           }
           ctx.restore();
         }
