@@ -138,9 +138,9 @@
       --cta-bottom-portrait: 25vh;
       --cta-left-landscape: 50%;
       --cta-bottom-landscape: 25vh;
-      --gameTitleImage-bottom-portrait: 60vh;
-      --gameTitleImage-bottom-landscape: 60vh;
-      --icon-size: 12vmin;
+      --gameTitleImage-bottom-portrait: 55vh;
+      --gameTitleImage-bottom-landscape: 50vh;
+      --icon-size: 6vmax;
       --icon-margin: 1.5vmin
     }
 
@@ -176,7 +176,7 @@
       bottom: var(--gameTitleImage-bottom-portrait);
       left: 50%;
       transform: translateX(-50%);
-      width: 45vh;
+      width: 100vw;
       height: auto;
       object-fit: contain;
       pointer-events: none;
@@ -192,7 +192,7 @@
     @media (orientation: landscape) {
       #ctaGameName {
         bottom: var(--gameTitleImage-bottom-landscape);
-        width: 70vh
+        width: 40vw
       }
     }
 
@@ -208,7 +208,7 @@
       justify-content: center;
       border: 0;
       border-radius: 0;
-      width: 24vh;
+      width: 40vw;
       height: auto;
       aspect-ratio: 490 / 223;
       padding: 0 0 12px 0;
@@ -254,7 +254,7 @@
       #ctaInstall {
         left: var(--cta-left-landscape);
         bottom: var(--cta-bottom-landscape);
-        width: 35vh;
+        width: 17vw;
         height: auto;
         aspect-ratio: 490 / 223
       }
