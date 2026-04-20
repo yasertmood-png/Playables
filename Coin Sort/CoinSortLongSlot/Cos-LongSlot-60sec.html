@@ -3265,7 +3265,6 @@
           if (tutorialActive) return; // block cancel during tutorial
           cancelHold();
         } else {
-          if (slots[slotIdx].type === SlotType.LongSlot) { cancelHold(); return; }
           if (tutorialActive && !isTutorialTargetSlot(slotIdx)) return;
           const transferred = transferCoins(slotIdx);
           if (!transferred) {
