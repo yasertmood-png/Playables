@@ -1819,7 +1819,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const CoinTransferDuration = 350;    // transfer duration for all transfers in ms
     const CoinTransferStartDelay = 40;     // delay between starting each transferred coin (ms)
     const CoinMergeDuration = 120;    // merge animation duration in ms
-    const CoinMergeStepDuration = 120;    // merge animation duration in ms
+    const CoinMergeStepDuration = 200;    // merge animation duration in ms
     const CoinHoldEasing = TWEEN.Easing.Cubic.Out;
     const CoinTransferEasing = TWEEN.Easing.Cubic.InOut;
     const CoinTransferUniformMotion = true; // force same transfer style across all slot pairs
@@ -1870,42 +1870,36 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const DealHintDelay = 500;          // ms before deal hint appears
 
     // Pre-defined coin layout (indexed by slot 0Ã¢â‚¬â€œ14, each is array of coin numbers)
-    const DefaultCoinLayout = [
-      // Row 0
-      [4,4,4,4,3,3,2,2,1,1],[3,3,6,6,6,6,5,5,6,6],[4,4,4,4,5,5,2,2,2,2],[4,4,4,4,2,2,1,1,3,3],[6,6,6,6,5,5,4,4,6,6],[4,4,4,4,1,1,2,2,3,3],
-
-      // Row 1
-      [6,6,6,6,3,3,2,2,5,5],[2,2,3,3,2,2,3,3,3,3],[3,3,4,4,5,5,5,6,6,6],[6,6,6,6,2,2,1,1,3,3],[2,2,3,3,3,3,2,2,2,2],[1,1,4,4,6,6,6,6,2,2],
-
-      // Row 2
-      [5,5,5,5,4,4,4,2,1,1], [6,6,6,6,3,3,6,6,4,4],[2,2,5,5,5,5,5,5,3,3],[4,4,2,2,4,4,4,6,6,6],[2,2,2,5,5,5,3,3,3,3],[3,3,4,4,4,4,3,3,1,1],
-
-      // Row 3
-      [1,1,4,4,4,4,3,3,2,2],[4,4,5,5,2,2,2,6,6,6],[4,4,4,4,2,2,1,1,4,4],[2,2,3,3,2,2,6,6,6,6],[4,4,5,5,2,2,2,6,6,6],[6,6,6,6,2,2,5,5,1,1],
-      []
+const DefaultCoinLayout = [
+      // Row 0 — left cols 0-2, right cols 0-2
+      [1,1,1,6,6,6,6,6,6,6], [3,3,3,3,2,2,2,4,4,4], [6,6,6,4,4,4,3,3,3,3],
+      [3,3,3,5,5,5,6,6,6,6], [6,6,4,4,4,1,1,1,5,5], [2,2,2,2,2,1,1,6,6,6],
+      // Row 1 — left cols 0-2, right cols 0-2
+      [6,6,6,6,5,5,5,1,1,1], [5,5,5,6,6,6,6], [5,5,5,3,3,3,4,4,6,6],
+      [5,5,5,2,2,2,5,5,5,5], [6,6,6,1,1,1,1,3,3,3], [4,4,4,4,3,3,3,1,1,1],
+      // Row 2 — left cols 0-2, right cols 0-2
+      [6,6,5,5,5,1,1,1,3,3], [4,4,4,4,4,6,6,6,6,6], [5,5,5,5,5,5],
+      [5,5,5,1,5,5,5,6,6,6], [6,6,6,5,5,5,4,4,4,4], [3,3,4,4,4,5,5,5,2,2],
+      // Row 3 — left cols 0-2, right cols 0-2
+      [6,6,6,2,2,2,2,5,5,5], [3,3,3,1,1,1,1,5,5,5], [3,3,3,1,1,1,6,6,6,6],
+      [6,6,6,6,6,5,5,5,4,4], [4,4,4,4,4,5,5,5,5,5], [6,6,6,6,6,2,2,2,2,2],
     ];
+
     // Landscape coin layout — (LS_GRID_COLS_LEFT + LS_GRID_COLS_RIGHT) × LS_GRID_ROWS = 30 slots
     // Col 5 (center) of each row is the BigSlot.
     // Pre-placed coins for landscape: 15 left filled + 15 right filled (all side slots filled).
     // Occupied slots are filled to the normal 10-coin capacity.
     // Coin-6 total: 62. Most occupied slots use 3-type / 4-type stacks; no lone coins.
     const DefaultCoinLayoutLandscape = [
-      // Row 0
-      [4,4,4,4,3,3,2,2,1,1],[3,3,6,6,6,6,5,5,6,6],[4,4,4,4,1,1,1,1,2,2],[4,4,4,4,2,2,1,1,3,3],[6,6,6,6,5,5,4,4,6,6],
-      [4,4,4,4,1,1,2,2,3,3],[6,6,6,6,3,3,5,5,5,5],[2,2,3,3,2,2,3,3,3,3],[3,3,4,4,5,5,6,6,6,6],[6,6,6,6,2,2,1,1,3,3],
-
-      // Row 1
-      [2,2,3,3,3,3,3,2,2,2],[1,1,5,5,6,6,6,6,2,2],[5,5,5,5,4,4,2,2,1,1],[6,6,6,6,3,3,6,6,4,4],[2,2,4,4,5,5,5,3,3,3],
-      [4,4,4,4,4,4,4,4,6,6],[2,2,3,3,3,3,3,3,3,3],[3,3,4,4,4,4,3,3,1,1],[1,1,4,4,4,4,3,3,2,2],[4,4,5,5,5,2,2,6,6,6],
-      // Row 2
-      
-
-      // Row 3
-      [4,4,4,4,2,2,1,1,5,5],[2,2,3,3,2,2,2,6,6,6],[4,4,5,5,2,2,2,2,2,2],[6,6,6,6,2,2,5,5,1,1],[1,1,4,4,6,6,5,5,4,4],
-      [6,6,5,5,1,1,1,1,1,1],[4,4,4,4,5,5,3,3,3,3],[1,1,5,5,3,3,3,3,3,3], [5,5,5,5,1,1,1,1],[4,4,3,3,1,1,3,3],
-      // Extra landscape slots (empty)
-      
-      [],
+      // Row 0 — left cols 0-4, right cols 5-9
+      [2,2,2,2,5,5,5], [3,3,3,3,5,5,5,5,5,5], [4,4,4,2,2,2,2], [6,6,1,1,5,5], [2,2,2,2,6,6,6,6],
+      [4,4,4,3,3,3,3,3,3,3], [4,4,4,3,3,3,3], [5,5,5,5,2,2,2], [1,1,1,3,3,3,3], [4,4,3,3,3,5,5,5,1,1],
+      // Row 1 — left cols 0-4, right cols 5-9
+      [2,2,2,2,2], [1,1,1,3,3,3,3,3,3,3], [3,3,3,3,2,2,2,4,4,4], [5,5,5,5,5], [1,1,1,1,5,5,5,5,5],
+      [2,2,5,5,5,5,5], [4,4,4,4,6,6,6,6], [3,3,3,2,2,2,2,2,2,2], [5,5,5], [1,1,1,1,4,4,4],
+      // Row 2 — left cols 0-4, right cols 5-9
+      [1,1,5,5,5,5,5], [3,3,2,2,2,4,4,4,5,5], [6,6,4,4,4,4,4], [4,4,4,2,2,5,5,5,5,5], [5,5,5,3,3],
+      [3,3,3,3,5,5], [4,4,4,2,2,2,2], [3,3,6,6,6,2,2,2], [5,5,5,5], [2,2,2,4,4,4,4,4,4,4],
     ];
 
     // Portrait: 4 rows × 6 normal cols (left+right), then 1 LongSlot at end
@@ -1937,9 +1931,32 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     // ---- Tutorial Configuration ----
     // Each entry is [pickupSlotIndex, dropSlotIndex].
     // Use 'LONG_SLOT' so tutorial targets resolve correctly in both portrait and landscape.
-    const TutorialSteps = [
-      [1, 'LONG_SLOT']
+    const TutorialStepsGroups = [
+      // Group 1 — first slots phase
+      [
+        [14, 13],
+      ],
+      [
+        [13, 24]
+      ]
+      // Group 2 — second slots phase (add steps here)
     ];
+
+    // Landscape version — same structure
+    const TutorialStepsGroupsLandscape = [
+      // Group 1
+      [
+        [14, 13],
+      ],
+      // Group 2 (add steps here)
+      [
+        [13,30]
+      ]
+    ];
+    // Flatten the correct orientation's groups into a single steps array
+    const _tutIsLandscape = window.innerWidth > window.innerHeight;
+    const TutorialSteps = (_tutIsLandscape ? TutorialStepsGroupsLandscape : TutorialStepsGroups)
+      .reduce(function(acc, group) { return acc.concat(group); }, []);
     const TutorialEnabled = TutorialSteps.length > 0;
 
     // ============================================================
@@ -2983,8 +3000,18 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       const slot = slots[slotIdx];
       if (!slot || slot.sealed) return;
       if (slot.coins.length < slot.capacity) return;
-      if (slot.type !== SlotType.LongSlot && !areAllCoinsSameNumber(slot)) return;
-      sealSlot(slotIdx, countAsProgress);
+      // LongSlot: seal with lid + CTA as before
+      if (slot.type === SlotType.LongSlot) {
+        sealSlot(slotIdx, countAsProgress);
+        return;
+      }
+      // Normal slot: merge instead of sealing (no lid)
+      if (!areAllCoinsSameNumber(slot)) return;
+      var oldNumber = slot.coins[0].userData.coinNumber;
+      var oldCoins = slot.coins.slice();
+      mergingSlots.add(slotIdx);
+      if (countAsProgress !== false) playSound(SFX.merge);
+      finishMerge(slotIdx, oldNumber, oldCoins);
     }
 
     function refreshAllSlotCompletionStates(countAsProgress) {
@@ -3132,10 +3159,22 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     function finishMerge(slotIdx, oldNumber, oldCoins) {
       const slot = slots[slotIdx];
 
+      // Scale down old coins one by one (bottom to top) with a stagger
+      var shrinkPerCoin = CoinMergeStepDuration * 0.9;
+      var shrinkStagger = CoinMergeStepDuration * 0.25;
+      var totalShrinkTime = shrinkPerCoin + (oldCoins.length - 1) * shrinkStagger;
+      for (var _si = 0; _si < oldCoins.length; _si++) {
+        new TWEEN.Tween(oldCoins[_si].scale)
+          .to({ x: 0, y: 0, z: 0 }, shrinkPerCoin)
+          .easing(TWEEN.Easing.Cubic.In)
+          .delay((oldCoins.length - 1 - _si) * shrinkStagger)
+          .start();
+      }
+
       setTimeout(function () {
         // Unlock slot at start of merge finish
         mergingSlots.delete(slotIdx);
-        
+
         for (var i = 0; i < oldCoins.length; i++) {
           releaseCoin(oldCoins[i]);
         }
@@ -3171,7 +3210,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
             .delay(fogDelay + i * spawnStagger)
             .start();
         }
-      }, Math.max(16, CoinMergeDuration * 0.6));
+      }, totalShrinkTime + 16);
       onMergeComplete();
     }
 
