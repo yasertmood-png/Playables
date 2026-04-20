@@ -3265,6 +3265,7 @@
           if (tutorialActive) return; // block cancel during tutorial
           cancelHold();
         } else {
+          if (slots[slotIdx].type === SlotType.LongSlot) { cancelHold(); return; }
           if (tutorialActive && !isTutorialTargetSlot(slotIdx)) return;
           const transferred = transferCoins(slotIdx);
           if (!transferred) {
@@ -3283,6 +3284,7 @@
       } else {
         // Nothing held Ã¢â‚¬â€ try to pick up
         if (slotIdx !== -1 && slots[slotIdx].coins.length > 0) {
+          if (slots[slotIdx].type === SlotType.LongSlot) return;
           if (slots[slotIdx].sealed) return;
           if (transferringSlots.has(slotIdx) || mergingSlots.has(slotIdx)) return;
           if (tutorialActive && !isTutorialTargetSlot(slotIdx)) return;
