@@ -19,7 +19,13 @@
       "Bash(node obfuscate.js)",
       "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --remove-redundant-attributes --use-short-doctype \"Cos-OriginalGameplay-BigBoard-60sec.html\" -o \"Cos-OriginalGameplay-BigBoard-60sec.min.html\")",
       "Bash(node -e \":*)",
-      "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --remove-redundant-attributes --use-short-doctype \"Cos-OriginalGameplay-BigBoard-2clk.html\" -o \"Cos-OriginalGameplay-BigBoard-2clk.min.html\")"
+      "Bash(npx html-minifier-terser --collapse-whitespace --remove-comments --minify-css true --minify-js true --remove-attribute-quotes --remove-optional-tags --remove-redundant-attributes --use-short-doctype \"Cos-OriginalGameplay-BigBoard-2clk.html\" -o \"Cos-OriginalGameplay-BigBoard-2clk.min.html\")",
+      "Bash(node -e \"require\\(''javascript-obfuscator''\\); console.log\\(''obfuscator ok''\\)\")",
+      "Bash(node -e \"require\\(''html-minifier-terser''\\); console.log\\(''html-minifier-terser ok''\\)\")",
+      "Bash(node build.js)",
+      "Bash(node build.js \"Cos-LongSlotV2-30sec .html\")",
+      "Bash(node build.js \"Cos-LongSlotV2-2clk.html\")",
+      "Bash(node build.js \"Cos-LongSlotV2-ByTransfer.html\")"
     ]
   }
 }
