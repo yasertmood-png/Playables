@@ -1868,7 +1868,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const DealButtonSafeMarginPortrait  = 20;  // pixels safety margin from screen bottom
     const DealButtonSafeMarginLandscape = 15;  // pixels safety margin from screen bottom
     const DealHintDelay = 500;          // ms before deal hint appears
-    const RenderPixelRatioCap = 1.35;   // cap GPU fill-rate cost on high-DPR mobile screens
 
     // Pre-defined coin layout (indexed by slot 0Ã¢â‚¬â€œ14, each is array of coin numbers)
     const DefaultCoinLayout = [
@@ -1962,13 +1961,9 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     }
 
     let renderer = null;
-    var renderDirtyFrames = 2;
-    function requestRender(frames) {
-      renderDirtyFrames = Math.max(renderDirtyFrames || 0, frames || 2);
-    }
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RenderPixelRatioCap));
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setClearColor(0x2a6db5);
       renderer.outputEncoding = THREE.sRGBEncoding;
     } catch (err) {
@@ -2073,7 +2068,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const textureLoader = new THREE.TextureLoader();
 
     function loadB64Texture(dataUrl) {
-      const tex = textureLoader.load(dataUrl, function () { requestRender(2); });
+      const tex = textureLoader.load(dataUrl);
       tex.encoding = THREE.sRGBEncoding;
       tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
@@ -2277,7 +2272,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       const tileH = LongSlotMidRepeatY > 0 ? _lsMidH / LongSlotMidRepeatY : _longW * iH / iW;
       _midTex.repeat.set(1, _lsMidH / tileH);
       _midTex.needsUpdate = true;
-      requestRender(2);
     };
     _midDimImg.src = ASSETS.longSlotMid;
 
@@ -2322,7 +2316,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       const tileH = LongSlotMidRepeatY > 0 ? _lsShadMidH / LongSlotMidRepeatY : _longW * iH / iW;
       _lsShadMidTex.repeat.set(1, _lsShadMidH / tileH);
       _lsShadMidTex.needsUpdate = true;
-      requestRender(2);
     };
     _lsShadMidDimImg.src = ASSETS.longGgrillShadowCenter;
     _makeLSShadow(ASSETS.longGrillShadowUpDown, _lsShadW, _lsShadBotH, _lsZ + _lsShadH / 2 - _lsShadBotH / 2, Math.PI);
@@ -2454,9 +2447,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
 
     var _coinPool    = [];
     var _coinTexCache = {}; // per-number texture, created once, never disposed
-    var _coinMatCache = {};
-    var _textMatCache = {};
-    const _sharedTextGeo = new THREE.PlaneGeometry(CoinTextPlaneSize, CoinTextPlaneSize);
 
     // Pre-bake one text texture per coin number so createCoin never allocates.
     function _warmCoinTextures() {
@@ -2465,79 +2455,41 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       });
     }
 
-    function getCoinMaterial(number) {
-      var key = +number || 0;
-      if (!_coinMatCache[key]) {
-        _coinMatCache[key] = new THREE.MeshLambertMaterial({
-          color: CoinColors[key] || 0xCCCCCC,
-          emissive: 0x111111,
-          toneMapped: coinMaterialTuning.toneMapped,
-          depthWrite: coinMaterialTuning.depthWrite,
-        });
-      }
-      return _coinMatCache[key];
-    }
-
-    function getTextMaterial(number) {
-      var key = +number || 1;
-      if (!_coinTexCache[key]) _coinTexCache[key] = createTextTexture(String(key));
-      if (!_textMatCache[key]) {
-        _textMatCache[key] = new THREE.MeshBasicMaterial({
-          map: _coinTexCache[key],
-          transparent: true,
-          alphaTest: 0.02,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-          toneMapped: false,
-        });
-      }
-      return _textMatCache[key];
-    }
-
-    function setCoinNumber(group, number) {
-      group.userData.coinNumber = number;
-      if (group.userData._coinMesh) group.userData._coinMesh.material = getCoinMaterial(number);
-      if (group.userData._textMesh) group.userData._textMesh.material = getTextMaterial(number);
-    }
-
-    function setCoinDynamic(group) {
-      group.matrixAutoUpdate = true;
-      group.matrixWorldNeedsUpdate = true;
-    }
-
-    function setCoinStatic(group) {
-      group.updateMatrix();
-      group.updateMatrixWorld(true);
-      group.matrixAutoUpdate = false;
-      group.matrixWorldNeedsUpdate = false;
-      requestRender(2);
-    }
-
     // Allocates a brand-new coin group (startup only — never called during gameplay).
     function _buildCoin(number) {
+      var tex = _coinTexCache[number] || (_coinTexCache[number] = createTextTexture(String(number)));
+      const color = CoinColors[number] || 0xCCCCCC;
       const group = new THREE.Group();
 
-      const coinMesh = new THREE.Mesh(coinBaseGeo, getCoinMaterial(number));
+      const coinMat = new THREE.MeshStandardMaterial({
+        color: color,
+        roughness: coinMaterialTuning.roughness,
+        metalness: coinMaterialTuning.metalness,
+        emissiveIntensity: coinMaterialTuning.emissiveIntensity,
+        envMapIntensity: coinMaterialTuning.envMapIntensity,
+        toneMapped: coinMaterialTuning.toneMapped,
+        depthWrite: coinMaterialTuning.depthWrite,
+      });
+      const coinGeo = coinBaseGeo.clone();
+      const coinMesh = new THREE.Mesh(coinGeo, coinMat);
       coinMesh.scale.set(CoinSize.x, CoinSize.y, CoinSize.z);
       coinMesh.rotation.set(
         THREE.MathUtils.degToRad(CoinRotation.x),
         THREE.MathUtils.degToRad(CoinRotation.y),
         THREE.MathUtils.degToRad(CoinRotation.z)
       );
-      coinMesh.updateMatrix();
-      coinMesh.matrixAutoUpdate = false;
       group.add(coinMesh);
 
-      const textMesh = new THREE.Mesh(_sharedTextGeo, getTextMaterial(number));
+      const textGeo = new THREE.PlaneGeometry(CoinTextPlaneSize, CoinTextPlaneSize);
+      const textMat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+      const textMesh = new THREE.Mesh(textGeo, textMat);
       textMesh.position.set(CoinTextOffsetX, CoinTextOffsetY, CoinTextOffsetZ);
       textMesh.rotation.set(CoinTextRotationX, CoinTextRotationY, CoinTextRotationZ);
-      textMesh.updateMatrix();
-      textMesh.matrixAutoUpdate = false;
       group.add(textMesh);
 
-      group.userData._coinMesh = coinMesh;
-      group.userData._textMesh = textMesh;
-      setCoinNumber(group, number);
+      group.userData.coinNumber = number;
+      group.userData._coinMat   = coinMat;
+      group.userData._textMat   = textMat;
       return group;
     }
 
@@ -2560,16 +2512,16 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     function createCoin(number) {
       if (_coinPool.length === 0) {
         console.warn('Coin pool empty — increase CoinPoolSize (currently ' + CoinPoolSize + ')');
-        var fallbackCoin = _buildCoin(number); // graceful fallback, should never happen
-        setCoinDynamic(fallbackCoin);
-        return fallbackCoin;
+        return _buildCoin(number); // graceful fallback, should never happen
       }
       var group = _coinPool.pop();
-      setCoinNumber(group, number);
+      group.userData._coinMat.color.setHex(CoinColors[number] || 0xCCCCCC);
+      group.userData._textMat.map = _coinTexCache[number] || _coinTexCache[1];
+      group.userData._textMat.needsUpdate = true;
+      group.userData.coinNumber = number;
       group.position.set(0, 0, 0);
       group.scale.set(1, 1, 1);
       group.rotation.set(0, 0, 0);
-      setCoinDynamic(group);
       group.visible = true;
       return group;
     }
@@ -2597,7 +2549,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
           const coin = _buildCoin(coinNumbers[i]);
           const pos = getCoinPosition(slot, i);
           coin.position.set(pos.x, pos.y, pos.z);
-          setCoinStatic(coin);
           scene.add(coin);
           slot.coins.push(coin);
         }
@@ -2616,7 +2567,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         const coin = _buildCoin(LongSlotInitialCoinNumber);
         const pos = getCoinPosition(slot, i);
         coin.position.set(pos.x, pos.y, pos.z);
-        setCoinStatic(coin);
         scene.add(coin);
         slot.coins.push(coin);
       }
@@ -2730,18 +2680,12 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     }
 
     function animateCoin(coin, targetX, targetY, targetZ, onComplete, CoinHoldEasing) {
-      setCoinDynamic(coin);
       new TWEEN.Tween(coin.position)
         .to({ x: targetX, y: targetY, z: targetZ }, CoinHoldDuration)
         .easing(CoinHoldEasing)
-        .onComplete(function () {
-          coin.position.set(targetX, targetY, targetZ);
-          setCoinStatic(coin);
-          if (onComplete) onComplete();
-        })
+        .onComplete(function () { if (onComplete) onComplete(); })
         .start();
       isAnimating = true;
-      requestRender(2);
     }
 
     function cubicBezier1D(a, b, c, d, t) {
@@ -2750,7 +2694,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     }
 
     function animateCoinArc(coin, targetX, targetY, targetZ, onComplete, startDelayMs) {
-      setCoinDynamic(coin);
       const startX = coin.position.x;
       const startY = coin.position.y;
       const startZ = coin.position.z;
@@ -2819,12 +2762,10 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         .onComplete(function () {
           coin.position.set(targetX, targetY, targetZ);
           coin.rotation.set(startRotX, startRotY, startRotZ);
-          setCoinStatic(coin);
           if (onComplete) onComplete();
         })
         .start();
       isAnimating = true;
-      requestRender(2);
     }
 
     function getCoinPosition(slot, index) {
@@ -3023,11 +2964,9 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       for (let _ci = 0; _ci < slot.coins.length; _ci++) {
         const _coin = slot.coins[_ci];
         if (!_coin) continue;
-        setCoinDynamic(_coin);
         new TWEEN.Tween(_coin.scale)
           .to({ x: 0, y: 0, z: 0 }, _lidDur)
           .easing(TWEEN.Easing.Cubic.In)
-          .onComplete(function () { setCoinStatic(_coin); })
           .start();
       }
       if (countAsProgress !== false) {
@@ -3080,7 +3019,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       var img = new Image();
       img.src = ASSETS.cloud;
       fogTexture = new THREE.Texture(img);
-      img.onload = function () { fogTexture.needsUpdate = true; requestRender(2); };
+      img.onload = function () { fogTexture.needsUpdate = true; };
       fogTexture.minFilter = THREE.LinearFilter;
       fogTexture.magFilter = THREE.LinearFilter;
       fogTexture.generateMipmaps = false;
@@ -3234,13 +3173,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
             .to({ x: targetPos.x, y: targetPos.y, z: targetPos.z }, popDuration)
             .easing(TWEEN.Easing.Exponential.Out)
             .delay(fogDelay + i * spawnStagger)
-            .onComplete(function (coinRef, posRef) {
-              return function () {
-                coinRef.position.set(posRef.x, posRef.y, posRef.z);
-                coinRef.scale.set(1, 1, 1);
-                setCoinStatic(coinRef);
-              };
-            }(coin, targetPos))
             .start();
         }
       }, Math.max(16, CoinMergeDuration * 0.6));
@@ -3299,12 +3231,10 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       camera.updateMatrixWorld(true);
       updateCtaTextSize();
       if (!webglAvailable) return;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RenderPixelRatioCap));
       renderer.setSize(w, h, false);
       canvas.style.width = '';
       canvas.style.height = '';
       updateTutorialHandPosition();
-      requestRender(3);
     }
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', function () {
@@ -3381,7 +3311,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     }
 
     function animateCoinParabola(coin, targetX, targetY, targetZ, onComplete, delayMs) {
-      setCoinDynamic(coin);
       var sx = coin.position.x, sy = coin.position.y, sz = coin.position.z;
       var startRotX = coin.rotation.x, startRotY = coin.rotation.y, startRotZ = coin.rotation.z;
 
@@ -3410,12 +3339,10 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         .onComplete(function () {
           coin.position.set(targetX, targetY, targetZ);
           coin.rotation.set(startRotX, startRotY, startRotZ);
-          setCoinStatic(coin);
           if (onComplete) onComplete();
         })
         .start();
       isAnimating = true;
-      requestRender(2);
     }
 
     function executeDeal() {
@@ -3645,16 +3572,10 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       requestAnimationFrame(animate);
       TWEEN.update();
       isAnimating = TWEEN.getAll().length > 0;
-      if (wasAnimating && !isAnimating) {
-        if (IsDealOpen) updateDealButtonState();
-        requestRender(2);
-      }
+      if (wasAnimating && !isAnimating && IsDealOpen) updateDealButtonState();
       wasAnimating = isAnimating;
       if (!webglAvailable) return;
-      if (isAnimating || renderDirtyFrames > 0) {
-        renderer.render(scene, camera);
-        if (renderDirtyFrames > 0) renderDirtyFrames--;
-      }
+      renderer.render(scene, camera);
     }
     // Wait for all resources before starting
     (function waitForReady() {
