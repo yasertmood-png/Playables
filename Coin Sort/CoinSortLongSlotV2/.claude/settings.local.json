@@ -35,7 +35,12 @@
       "Bash(pip install fonttools brotli --user)",
       "Bash(pip3 install fonttools brotli --user)",
       "Bash(npm install ttf2woff2 --save-dev)",
-      "Bash(node -e \"const m = require\\(''ttf2woff2''\\); console.log\\(typeof m, Object.keys\\(m\\)\\)\")"
+      "Bash(node -e \"const m = require\\(''ttf2woff2''\\); console.log\\(typeof m, Object.keys\\(m\\)\\)\")",
+      "Bash(npm install sharp --save-dev)",
+      "Bash(node -e \"require\\(''sharp''\\); console.log\\(''sharp ok''\\)\")",
+      "Bash(npm install html-minifier-terser javascript-obfuscator --save-dev)",
+      "Bash(node build.js \"Cos-LongSlotV2-30sec.html\")",
+      "Bash(node build.js \"Cos-LongSlotV2-60sec.html\")"
     ]
   }
 }
