@@ -25,7 +25,17 @@
       "Bash(node build.js)",
       "Bash(node build.js \"Cos-LongSlotV2-30sec .html\")",
       "Bash(node build.js \"Cos-LongSlotV2-2clk.html\")",
-      "Bash(node build.js \"Cos-LongSlotV2-ByTransfer.html\")"
+      "Bash(node build.js \"Cos-LongSlotV2-ByTransfer.html\")",
+      "Bash(ls -la \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV2/\"*.html)",
+      "Read(//c/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV2/**)",
+      "Bash(node -e \"require\\(''ttf2woff2''\\); console.log\\(''ttf2woff2 ok''\\)\")",
+      "Bash(pip install fonttools brotli)",
+      "Bash(pip3 install fonttools brotli)",
+      "Bash(python -c \"from fontTools import ttLib; print\\(''ok''\\)\")",
+      "Bash(pip install fonttools brotli --user)",
+      "Bash(pip3 install fonttools brotli --user)",
+      "Bash(npm install ttf2woff2 --save-dev)",
+      "Bash(node -e \"const m = require\\(''ttf2woff2''\\); console.log\\(typeof m, Object.keys\\(m\\)\\)\")"
     ]
   }
 }
