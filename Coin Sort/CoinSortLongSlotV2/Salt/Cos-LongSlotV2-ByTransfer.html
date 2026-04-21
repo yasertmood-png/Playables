@@ -1726,8 +1726,10 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
 
     // Long slot shadow
     const LongSlotShadowY             = 0.0;    // render depth (below long slot body at 0.2)
-    const LongSlotShadowOffsetX       = 0.012;    // horizontal offset from long slot center
-    const LongSlotShadowOffsetZ       = -0.04;    // vertical offset (shifts all 3 shadow sections)
+    const LongSlotShadowOffsetXPortrait  = 0.012;   // horizontal offset from long slot center (portrait)
+    const LongSlotShadowOffsetXLandscape = 0.012;   // horizontal offset from long slot center (landscape)
+    const LongSlotShadowOffsetZPortrait  = -0.08;   // vertical offset, all 3 shadow sections (portrait)
+    const LongSlotShadowOffsetZLandscape = -0.04;   // vertical offset, all 3 shadow sections (landscape)
     const LongSlotShadowScaleX        = 1.25;    // width multiplier relative to long slot width
     const LongSlotShadowScaleY        = 1.03;    // height multiplier relative to long slot height
     const LongSlotShadowOpacity       = 0.45;    // shadow strength (0 = invisible, 1 = full black)
@@ -2283,6 +2285,17 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       _lsZ + _longH / 2 - _lsBotH / 2);
 
     // Long slot shadow (3-slice, rendered below slot body)
+    // Helpers that return the correct shadow offset for the current orientation
+    function _lsShadOX() { return window.innerWidth > window.innerHeight ? LongSlotShadowOffsetXLandscape : LongSlotShadowOffsetXPortrait; }
+    function _lsShadOZ() { return window.innerWidth > window.innerHeight ? LongSlotShadowOffsetZLandscape : LongSlotShadowOffsetZPortrait; }
+    function _updateLSShadowPositions() {
+      const ox = LongSlotOffsetX + _lsShadOX();
+      const oz = _lsShadOZ();
+      if (_lsShadTopMesh) _lsShadTopMesh.position.set(ox, LongSlotShadowY, _lsZ - _lsShadH / 2 + _lsShadTopH / 2 + oz);
+      if (_lsShadMidMesh) _lsShadMidMesh.position.set(ox, LongSlotShadowY, _lsZ - _lsShadH / 2 + _lsShadTopH + _lsShadMidH / 2 + oz);
+      if (_lsShadBotMesh) _lsShadBotMesh.position.set(ox, LongSlotShadowY, _lsZ + _lsShadH / 2 - _lsShadBotH / 2 + oz);
+    }
+
     const _lsShadW = _longW * LongSlotShadowScaleX;
     const _lsShadTopH = _lsTopH * LongSlotShadowScaleY;
     const _lsShadBotH = _lsBotH * LongSlotShadowScaleY;
@@ -2301,17 +2314,17 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       );
       m.rotation.x = -Math.PI / 2;
       if (rotZ) m.rotation.z = rotZ;
-      m.position.set(LongSlotOffsetX + LongSlotShadowOffsetX, LongSlotShadowY, posZ + LongSlotShadowOffsetZ);
+      m.position.set(LongSlotOffsetX + _lsShadOX(), LongSlotShadowY, posZ + _lsShadOZ());
       scene.add(m);
       return m;
     }
-    _makeLSShadow(ASSETS.longGrillShadowUpDown, _lsShadW, _lsShadTopH, _lsZ - _lsShadH / 2 + _lsShadTopH / 2);
+    const _lsShadTopMesh = _makeLSShadow(ASSETS.longGrillShadowUpDown, _lsShadW, _lsShadTopH, _lsZ - _lsShadH / 2 + _lsShadTopH / 2);
     const _lsShadMidTex = loadB64Texture(ASSETS.longGgrillShadowCenter);
     _lsShadMidTex.wrapT = THREE.RepeatWrapping;
     const _lsShadMidMat = new THREE.MeshBasicMaterial({ map: _lsShadMidTex, color: 0x000000, transparent: true, opacity: LongSlotShadowOpacity, depthWrite: false });
     const _lsShadMidMesh = new THREE.Mesh(new THREE.PlaneGeometry(_lsShadW, _lsShadMidH + 2 * LongSlotShadowPieceOverlap), _lsShadMidMat);
     _lsShadMidMesh.rotation.x = -Math.PI / 2;
-    _lsShadMidMesh.position.set(LongSlotOffsetX + LongSlotShadowOffsetX, LongSlotShadowY, _lsZ - _lsShadH / 2 + _lsShadTopH + _lsShadMidH / 2 + LongSlotShadowOffsetZ);
+    _lsShadMidMesh.position.set(LongSlotOffsetX + _lsShadOX(), LongSlotShadowY, _lsZ - _lsShadH / 2 + _lsShadTopH + _lsShadMidH / 2 + _lsShadOZ());
     scene.add(_lsShadMidMesh);
     const _lsShadMidDimImg = new Image();
     _lsShadMidDimImg.onload = function () {
@@ -2322,7 +2335,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       _lsShadMidTex.needsUpdate = true;
     };
     _lsShadMidDimImg.src = ASSETS.longGgrillShadowCenter;
-    _makeLSShadow(ASSETS.longGrillShadowUpDown, _lsShadW, _lsShadBotH, _lsZ + _lsShadH / 2 - _lsShadBotH / 2, Math.PI);
+    const _lsShadBotMesh = _makeLSShadow(ASSETS.longGrillShadowUpDown, _lsShadW, _lsShadBotH, _lsZ + _lsShadH / 2 - _lsShadBotH / 2, Math.PI);
 
     function _makeLSLidMesh(assetKey, geoW, geoH, posZ) {
       const m = new THREE.Mesh(
@@ -3242,6 +3255,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       applyOrientationCamera();
       camera.updateMatrixWorld(true);
       updateCtaTextSize();
+      _updateLSShadowPositions();
       if (!webglAvailable) return;
       renderer.setSize(w, h, false);
       canvas.style.width = '';
