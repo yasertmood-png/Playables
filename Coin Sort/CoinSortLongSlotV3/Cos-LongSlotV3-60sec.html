@@ -1873,7 +1873,8 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const CoinGroupDifficulty = 0.8;     // coins per slot fill ratio of half-empty (0=1 coin, 1=half empty)
     const DealTopCoinExtraCount = 1;     // extra coins when dealt coin type is the highest on table
     const DealLowSpaceThreshold    = 0.20;  // if empty/total capacity < this, low-space mode activates
-    const DealLowSpaceCoinNumber   = 5;     // coin type forced in low-space mode
+    const DealLowSpaceCoinMin      = 1;     // lowest coin type dealt in low-space mode
+    const DealLowSpaceCoinMax      = 5;     // highest coin type dealt in low-space mode
     const DealLowSpaceFillFraction = 0.10;  // fraction of each slot's empty points to fill in low-space mode
     const DealForce1CoinThreshold  = 0.10;  // if empty/total capacity < this, deal exactly 1 coin per slot (0 = disabled)
     const DealAnimDuration = 400;        // ms per coin parabolic flight
@@ -3753,7 +3754,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
           coinCount  = 1;
           baseNumber = _useSpecific ? DealNumbers[s % DealNumbers.length] : randomCoinNumber();
         } else if (_isLowSpace) {
-          baseNumber = DealLowSpaceCoinNumber;
+          baseNumber = DealLowSpaceCoinMin + Math.floor(Math.random() * (DealLowSpaceCoinMax - DealLowSpaceCoinMin + 1));
           coinCount  = Math.max(1, Math.floor(emptyPoints * DealLowSpaceFillFraction));
         } else {
           var halfEmpty = Math.ceil(emptyPoints / DealSlotEmptySpaceRate);
