@@ -272,7 +272,7 @@
       background-size: 100% 100%;
       background-repeat: no-repeat;
       background-position: center;
-      width: 38vmin;
+      width: 35vmin;
       transition: opacity .24s ease, transform .24s ease;
       z-index: 8;
       cursor: pointer;
@@ -303,12 +303,12 @@
 
     @media (orientation:landscape) {
       #dealButton {
-        width: 23vmin
+        width: 22vmin
       }
     }
     #tutorialHand {
       position: fixed;
-      width: clamp(48px, 10vmin, 80px);
+      width: var(--tutorial-hand-size, clamp(48px, 10vmin, 80px));
       height: auto;
       pointer-events: none;
       z-index: 8;
@@ -1716,7 +1716,24 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const CoinSmallTableRotation    = { x: 0, y: 0, z: -30 }; // offset in degrees on top of camera-facing rotation
     const CoinSmallTableCoinOffsetY   = 0.2;               // coin offset along table normal (toward camera)
     const CoinSmallTableCoinScale     = 0.38;               // display coin scale
-    const CoinSmallTableCoinTextOffset = { x: 0, y: -0.025, z: 0 }; // nudge the "6" text plane on the display coin
+    const CoinSmallTableCoinTextOffset = { x: 0, y: -0.045, z: 0 }; // nudge the "6" text plane on the display coin
+    const CoinSmallTableIntroStartScale = 0;                // intro coin starts invisible at screen center, then scales up
+    const CoinSmallTableIntroPeakScale  =1.5;             // intro coin grows large before flying to the table
+    const CoinSmallTableIntroPopDuration = 350;             // ms for the front-camera scale-up
+    const CoinSmallTableIntroHoldDuration = 700;            // ms to idle in front of camera before moving to table
+    const CoinSmallTableIntroMoveDuration = 600;            // ms for move/scale-down into table
+    const CoinSmallTableIntroOpenDelay = 520;               // startup delay so intro begins after black screen opens
+    const CoinSmallTableLandingPulseScale = 1.16;           // table pop scale when intro coin lands
+    const CoinSmallTableLandingPulseUpDuration = 120;       // ms for table scale-up on landing
+    const CoinSmallTableLandingPulseDownDuration = 180;     // ms for table scale-down after landing
+    const CoinSmallTableIntroCameraDistance = 2.0;          // world units in front of camera
+    const CoinSmallTableIntroRiseOffset = 0;                // 0 = spawn exactly at screen center before flying to table
+    const CoinSmallTableIntroPathLift = 0.65;               // curved-path lift while flying to the table
+    const CoinSmallTableIntroPathSide = 0.0;                // curved-path side bend while flying to the table
+    const CoinSmallTableIntroRotation = { x: 0, y:0, z: -3 }; // extra degrees while coin is in front of camera
+    const CoinSmallTableIntroMoveTilt = { x: -34, y: 24, z: 18 }; // extra degrees at mid-flight while moving to table
+    const CoinSmallTableIntroTextOffset = { x: 0, y: -0.045, z: 0 }; // nudge number while coin is in front of camera
+    const CoinSmallTableRenderOrder = 10000;                // render table coin above all board objects
     const LongSlotTopCapHeight        = 0.7;    // world units for top-cap image height (tune to match image)
     const LongSlotBotCapHeight        = 0.7;    // world units for bottom-cap image height (tune to match image)
     const LongSlotMidRepeatY          = 0;      // 0 = auto-tile (maintains image aspect ratio); >0 = force N tiles
@@ -1886,15 +1903,20 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const DealNumbers = [1, 2];          // coin numbers used when IsSpecificCoinsDeal is true
     const DealSlotEmptySpaceRate = 1.7;  // divisor for empty points when computing coin count
     const DealButtonGapPortrait      = 10;   // pixels gap below board in portrait
-    const DealButtonGapLandscape     = 0;   // pixels gap below board in landscape
+    const DealButtonGapLandscape     = 15;   // pixels gap below board in landscape
     const DealButtonSafeMarginPortrait  = 20;  // pixels safety margin from screen bottom
-    const DealButtonSafeMarginLandscape = 15;  // pixels safety margin from screen bottom
+    const DealButtonSafeMarginLandscape = 12;  // pixels safety margin from screen bottom
     const DealHintDelay = 500;          // ms before deal hint appears
     const LongSlotHintEnabled = true;   // show hand hint when a regular slot fills with the long-slot coin type
     const LongSlotHintDelay   = 1200;   // ms after the slot fills before the hint hand appears
     const EnableSlotMerge = true;       // false = regular slots never merge (long slot wave system unaffected)
     const DealTutorialHandOffsetX = 0.9;  // fraction of button width  (0=left edge, 0.5=center, 1=right edge)
-    const DealTutorialHandOffsetY = 0.3;  // fraction of button height (0=top edge, 0.5=center, 1=bottom edge)
+    const DealTutorialHandOffsetY = 0.1;  // fraction of button height (0=top edge, 0.5=center, 1=bottom edge)
+    const TutorialHandMinScreenRatio = 0.055; // min hand width as fraction of short screen edge
+    const TutorialHandMaxScreenRatio = 0.14;  // max hand width as fraction of short screen edge
+    const TutorialHandSlotHeightRatio = 0.42; // regular slot hand width as fraction of slot screen height
+    const TutorialHandLongSlotWidthRatio = 1.35; // long slot hand width as fraction of long-slot screen width
+    const TutorialHandDealHeightRatio = 0.75; // deal hand width as fraction of deal button height
 
     // Portrait layout mirrors the first 24 entries of DefaultCoinLayoutLandscape.
     // spawnCoins uses DefaultCoinLayoutLandscape for both orientations; this stays in sync for reference.
@@ -2201,6 +2223,8 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     var _longSlotHintTimer   = null;  // pending setTimeout before hint appears
     var cstMesh = null;        // CoinSmallTable mesh (module-level so exit/respawn can access it)
     var _cstBreathTween = null; // active breath tween — stopped before exit scale-down
+    var _cstIntroCoin = null;
+    var _cstIntroTweens = [];
 
     // Helper: create one normal slot mesh and push to slots[]
     function _addSlot(col, row, x, z, slotType) {
@@ -2670,9 +2694,180 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         .start();
     }
 
-    // Build (or rebuild) the CoinSmallTable mesh and add to scene with a pop-in animation.
+    function _playCstLandingPulse(mesh) {
+      if (!mesh || mesh !== cstMesh) return;
+      if (_cstBreathTween) { _cstBreathTween.stop(); _cstBreathTween = null; }
+      mesh.scale.set(1, 1, 1);
+      _cstBreathTween = new TWEEN.Tween(mesh.scale)
+        .to({
+          x: CoinSmallTableLandingPulseScale,
+          y: CoinSmallTableLandingPulseScale,
+          z: CoinSmallTableLandingPulseScale
+        }, CoinSmallTableLandingPulseUpDuration)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .chain(
+          new TWEEN.Tween(mesh.scale)
+            .to({ x: 1, y: 1, z: 1 }, CoinSmallTableLandingPulseDownDuration)
+            .easing(TWEEN.Easing.Back.Out)
+            .onComplete(function() {
+              if (mesh !== cstMesh) return;
+              _cstBreathTween = null;
+              _startCstBreath(mesh);
+            })
+        )
+        .start();
+    }
+
+    function _stopCstIntro() {
+      for (var i = 0; i < _cstIntroTweens.length; i++) {
+        if (_cstIntroTweens[i]) _cstIntroTweens[i].stop();
+      }
+      _cstIntroTweens.length = 0;
+      if (_cstIntroCoin) {
+        scene.remove(_cstIntroCoin);
+        _cstIntroCoin = null;
+      }
+    }
+
+    function _forceRenderOnTop(root, renderOrder) {
+      if (!root) return;
+      var order = renderOrder === undefined ? CoinSmallTableRenderOrder : renderOrder;
+      root.traverse(function (obj) {
+        obj.renderOrder = order;
+        if (!obj.material) return;
+        var mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (var i = 0; i < mats.length; i++) {
+          mats[i].depthTest = false;
+          mats[i].depthWrite = false;
+          mats[i].transparent = true;
+          mats[i].needsUpdate = true;
+        }
+      });
+    }
+
+    function _getCameraFrontPosition() {
+      camera.updateMatrixWorld(true);
+      if (camera.isOrthographicCamera) {
+        return new THREE.Vector3(
+          (camera.left + camera.right) * 0.5,
+          (camera.top + camera.bottom) * 0.5,
+          -CoinSmallTableIntroCameraDistance
+        ).applyMatrix4(camera.matrixWorld);
+      }
+      var forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+      return camera.position.clone().add(forward.multiplyScalar(CoinSmallTableIntroCameraDistance));
+    }
+
+    function _getCameraUpVector() {
+      return new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion).normalize();
+    }
+
+    function _getCameraRightVector() {
+      return new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
+    }
+
+    function _animateCoinSmallTableIntro(coinNumber, displayCoin, tableMesh, startDelayMs) {
+      if (!displayCoin || !tableMesh) return;
+      _stopCstIntro();
+      displayCoin.visible = false;
+      tableMesh.updateMatrixWorld(true);
+
+      var finalPos = new THREE.Vector3(0, 0, CoinSmallTableCoinOffsetY).applyMatrix4(tableMesh.matrixWorld);
+      var finalQuat = new THREE.Quaternion();
+      tableMesh.getWorldQuaternion(finalQuat);
+      var cameraCenterPos = _getCameraFrontPosition();
+      var cameraUp = _getCameraUpVector();
+      var cameraRight = _getCameraRightVector();
+      var startPos = cameraCenterPos.clone().add(cameraUp.clone().multiplyScalar(-CoinSmallTableIntroRiseOffset));
+      var curveControlPos = startPos.clone()
+        .lerp(finalPos, 0.55)
+        .add(cameraUp.clone().multiplyScalar(CoinSmallTableIntroPathLift))
+        .add(cameraRight.clone().multiplyScalar(CoinSmallTableIntroPathSide));
+
+      var introCoin = _buildCoin(coinNumber);
+      introCoin.position.copy(startPos);
+      introCoin.quaternion.copy(camera.quaternion);
+      introCoin.rotateX(THREE.MathUtils.degToRad(CoinSmallTableIntroRotation.x));
+      introCoin.rotateY(THREE.MathUtils.degToRad(CoinSmallTableIntroRotation.y));
+      introCoin.rotateZ(THREE.MathUtils.degToRad(CoinSmallTableIntroRotation.z));
+      var introStartQuat = introCoin.quaternion.clone();
+      var introTextMesh = introCoin.children[1];
+      if (introTextMesh) {
+        introTextMesh.position.x += CoinSmallTableIntroTextOffset.x;
+        introTextMesh.position.y += CoinSmallTableIntroTextOffset.y;
+        introTextMesh.position.z += CoinSmallTableIntroTextOffset.z;
+      }
+      introCoin.scale.setScalar(CoinSmallTableIntroStartScale);
+      introCoin.visible = false;
+      _forceRenderOnTop(introCoin, CoinSmallTableRenderOrder + 2);
+      scene.add(introCoin);
+      _cstIntroCoin = introCoin;
+
+      var popTween = new TWEEN.Tween(introCoin.scale)
+        .to({
+          x: CoinSmallTableIntroPeakScale,
+          y: CoinSmallTableIntroPeakScale,
+          z: CoinSmallTableIntroPeakScale
+        }, CoinSmallTableIntroPopDuration)
+        .delay(Math.max(0, startDelayMs || 0))
+        .onStart(function () {
+          introCoin.visible = true;
+          introCoin.scale.setScalar(CoinSmallTableIntroStartScale);
+        })
+        .easing(TWEEN.Easing.Back.Out);
+
+      var pathState = { t: 0 };
+      var moveTiltEuler = new THREE.Euler(0, 0, 0, 'XYZ');
+      var moveTiltQuat = new THREE.Quaternion();
+      var moveTween = new TWEEN.Tween(pathState)
+        .to({ t: 1 }, CoinSmallTableIntroMoveDuration)
+        .delay(CoinSmallTableIntroHoldDuration)
+        .easing(TWEEN.Easing.Cubic.InOut)
+        .onUpdate(function () {
+          var t = pathState.t;
+          var inv = 1 - t;
+          introCoin.position.set(
+            inv * inv * startPos.x + 2 * inv * t * curveControlPos.x + t * t * finalPos.x,
+            inv * inv * startPos.y + 2 * inv * t * curveControlPos.y + t * t * finalPos.y,
+            inv * inv * startPos.z + 2 * inv * t * curveControlPos.z + t * t * finalPos.z
+          );
+          var tilt = Math.sin(Math.PI * t);
+          moveTiltEuler.set(
+            THREE.MathUtils.degToRad(CoinSmallTableIntroMoveTilt.x * tilt),
+            THREE.MathUtils.degToRad(CoinSmallTableIntroMoveTilt.y * tilt),
+            THREE.MathUtils.degToRad(CoinSmallTableIntroMoveTilt.z * tilt)
+          );
+          moveTiltQuat.setFromEuler(moveTiltEuler);
+          introCoin.quaternion.copy(introStartQuat).slerp(finalQuat, t).multiply(moveTiltQuat);
+        });
+
+      var scaleDownTween = new TWEEN.Tween(introCoin.scale)
+        .to({
+          x: CoinSmallTableCoinScale,
+          y: CoinSmallTableCoinScale,
+          z: CoinSmallTableCoinScale
+        }, CoinSmallTableIntroMoveDuration)
+        .delay(CoinSmallTableIntroHoldDuration)
+        .easing(TWEEN.Easing.Cubic.InOut)
+        .onComplete(function () {
+          if (tableMesh !== cstMesh) return;
+          displayCoin.visible = true;
+          scene.remove(introCoin);
+          if (_cstIntroCoin === introCoin) _cstIntroCoin = null;
+          _cstIntroTweens.length = 0;
+          _playCstLandingPulse(tableMesh);
+        });
+
+      popTween.chain(moveTween, scaleDownTween);
+      _cstIntroTweens = [popTween, moveTween, scaleDownTween];
+      popTween.start();
+    }
+
+    // Build (or rebuild) the CoinSmallTable mesh and fly the display coin into it.
     // Removes any existing cstMesh first.
-    function _buildCoinSmallTable(coinNumber) {
+    function _buildCoinSmallTable(coinNumber, introDelayMs) {
+      _stopCstIntro();
+      if (_cstBreathTween) { _cstBreathTween.stop(); _cstBreathTween = null; }
       if (cstMesh) {
         scene.remove(cstMesh);
         cstMesh = null;
@@ -2684,8 +2879,12 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
           transparent: true,
           alphaTest: 0.01,
           side: THREE.FrontSide,
+          depthTest: false,
+          depthWrite: false,
         })
       );
+      cstMesh.renderOrder = CoinSmallTableRenderOrder;
+      _forceRenderOnTop(cstMesh, CoinSmallTableRenderOrder);
       cstMesh.rotation.set(
         camera.rotation.x + CoinSmallTableRotation.x * Math.PI / 180,
         camera.rotation.y + CoinSmallTableRotation.y * Math.PI / 180,
@@ -2697,7 +2896,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         0.2,
         _lsTopCornerZ + CoinSmallTableOffset.z
       );
-      cstMesh.scale.set(0, 0, 0); // start collapsed for pop-in
+      cstMesh.scale.set(1, 1, 1);
       var _cstDisplayCoin = _buildCoin(coinNumber);
       _cstDisplayCoin.scale.set(CoinSmallTableCoinScale, CoinSmallTableCoinScale, CoinSmallTableCoinScale);
       _cstDisplayCoin.position.set(0, 0, CoinSmallTableCoinOffsetY);
@@ -2708,19 +2907,11 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         _cstTextMesh.position.y += CoinSmallTableCoinTextOffset.y;
         _cstTextMesh.position.z += CoinSmallTableCoinTextOffset.z;
       }
+      _forceRenderOnTop(_cstDisplayCoin, CoinSmallTableRenderOrder + 1);
+      _cstDisplayCoin.visible = false;
       cstMesh.add(_cstDisplayCoin);
       scene.add(cstMesh);
-      var _thisMesh = cstMesh;
-      new TWEEN.Tween(cstMesh.scale)
-        .to({ x: 1.15, y: 1.15, z: 1.15 }, 100)
-        .easing(TWEEN.Easing.Quadratic.Out)
-        .chain(
-          new TWEEN.Tween(cstMesh.scale)
-            .to({ x: 1, y: 1, z: 1 }, 120)
-            .easing(TWEEN.Easing.Back.Out)
-            .onComplete(function() { _startCstBreath(_thisMesh); })
-        )
-        .start();
+      _animateCoinSmallTableIntro(coinNumber, _cstDisplayCoin, cstMesh, introDelayMs);
     }
 
     // Fill the long slot for a wave respawn: same pre-fill count as the initial slot, new coin type.
@@ -2816,7 +3007,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       warmCoinPool();
 
       // CoinSmallTable — plane facing camera, coin parented to it
-      _buildCoinSmallTable(LongSlotInitialCoinNumber);
+      _buildCoinSmallTable(LongSlotInitialCoinNumber, CoinSmallTableIntroOpenDelay);
 
       spawnCoins();
       fillLongSlotInitialCoins();
@@ -2850,6 +3041,57 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     let tutorialSubStep = 0;
     let blockCoinInteractions = false; // block between slot tutorial end and deal tutorial completion
 
+    function _clampValue(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function _setTutorialHandSize(targetPx) {
+      if (!tutorialHandEl) return;
+      var shortEdge = Math.max(1, Math.min(window.innerWidth, window.innerHeight));
+      var minPx = Math.max(36, shortEdge * TutorialHandMinScreenRatio);
+      var maxPx = Math.min(110, shortEdge * TutorialHandMaxScreenRatio);
+      tutorialHandEl.style.setProperty('--tutorial-hand-size', Math.round(_clampValue(targetPx, minPx, maxPx)) + 'px');
+    }
+
+    function _slotScreenBounds(slot) {
+      if (!slot || !camera) return null;
+      var size = SlotSize[slot.type] || { width: SLOT_W, height: SLOT_H };
+      var slotW = slot.type === SlotType.LongSlot ? _longW : size.width;
+      var slotH = slot.type === SlotType.LongSlot ? _longH : size.height;
+      var corners = [
+        new THREE.Vector3(slot.x - slotW / 2, 0.1, slot.z - slotH / 2),
+        new THREE.Vector3(slot.x + slotW / 2, 0.1, slot.z - slotH / 2),
+        new THREE.Vector3(slot.x - slotW / 2, 0.1, slot.z + slotH / 2),
+        new THREE.Vector3(slot.x + slotW / 2, 0.1, slot.z + slotH / 2)
+      ];
+      var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (var i = 0; i < corners.length; i++) {
+        corners[i].project(camera);
+        var sx = (corners[i].x + 1) / 2 * canvas.clientWidth;
+        var sy = (1 - corners[i].y) / 2 * canvas.clientHeight;
+        minX = Math.min(minX, sx);
+        maxX = Math.max(maxX, sx);
+        minY = Math.min(minY, sy);
+        maxY = Math.max(maxY, sy);
+      }
+      return { width: maxX - minX, height: maxY - minY };
+    }
+
+    function _updateTutorialHandSizeForSlot(slot) {
+      var bounds = _slotScreenBounds(slot);
+      if (!bounds) return;
+      var targetPx = slot.type === SlotType.LongSlot
+        ? bounds.width * TutorialHandLongSlotWidthRatio
+        : bounds.height * TutorialHandSlotHeightRatio;
+      _setTutorialHandSize(targetPx);
+    }
+
+    function _updateTutorialHandSizeForDeal() {
+      if (!dealButton) return;
+      var rect = dealButton.getBoundingClientRect();
+      _setTutorialHandSize(rect.height * TutorialHandDealHeightRatio);
+    }
+
     function updateTutorialHandPosition() {
       if (!tutorialActive || !tutorialHandEl) return;
       var step = TutorialSteps[tutorialStepIndex];
@@ -2857,6 +3099,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       var targetSlotIdx = resolveTutorialSlotIndex(tutorialSubStep === 0 ? step[0] : step[1]);
       var slot = slots[targetSlotIdx];
       if (!slot) return;
+      _updateTutorialHandSizeForSlot(slot);
       var vec = new THREE.Vector3(slot.x, 0.1, slot.z);
       vec.project(camera);
       var screenX = (vec.x + 1) / 2 * canvas.clientWidth;
@@ -2891,6 +3134,18 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       if (tutorialHandEl) tutorialHandEl.classList.remove('visible', 'pulsing');
     }
 
+    function _updateLongSlotHintPosition() {
+      if (!_longSlotHintActive || !tutorialHandEl) return;
+      var targetIdx = _longSlotHintPhase === 0 ? _longSlotHintSlotIdx : longSlotIndex;
+      var slot = slots[targetIdx];
+      if (!slot) return;
+      _updateTutorialHandSizeForSlot(slot);
+      var pos = _lsHintScreenPos(targetIdx);
+      if (!pos) return;
+      tutorialHandEl.style.left = pos.x + 'px';
+      tutorialHandEl.style.top  = pos.y + 'px';
+    }
+
     function _showLongSlotHint(slotIdx) {
       _longSlotHintTimer = null;
       if (!LongSlotHintEnabled || !tutorialHandEl) return;
@@ -2903,10 +3158,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       _longSlotHintSlotIdx = slotIdx;
       _longSlotHintPhase   = 0;
       tutorialHandEl.src = ASSETS.hand;
-      var pos = _lsHintScreenPos(slotIdx);
-      if (!pos) return;
-      tutorialHandEl.style.left = pos.x + 'px';
-      tutorialHandEl.style.top  = pos.y + 'px';
+      _updateLongSlotHintPosition();
       tutorialHandEl.classList.add('visible', 'pulsing');
     }
 
@@ -2914,10 +3166,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       if (!_longSlotHintActive || _longSlotHintPhase !== 0) return;
       _longSlotHintPhase = 1;
       if (!tutorialHandEl) return;
-      var pos = _lsHintScreenPos(longSlotIndex);
-      if (!pos) return;
-      tutorialHandEl.style.left = pos.x + 'px';
-      tutorialHandEl.style.top  = pos.y + 'px';
+      _updateLongSlotHintPosition();
     }
 
     function startTutorial() {
@@ -3663,6 +3912,8 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       canvas.style.width = '';
       canvas.style.height = '';
       updateTutorialHandPosition();
+      _updateLongSlotHintPosition();
+      updateDealTutorialHandPosition();
     }
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', function () {
@@ -3954,11 +4205,9 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       dealButton.style.bottom = Math.round(cssBottomPx) + 'px';
     }
 
-    function startDealTutorial() {
-      if (!tutorialHandEl || !dealButton) return;
-      dealTutorialActive = true;
-      blockCoinInteractions = true;
-      _dealTutorialDone  = true;
+    function updateDealTutorialHandPosition() {
+      if (!dealTutorialActive || !tutorialHandEl || !dealButton) return;
+      _updateTutorialHandSizeForDeal();
       var rect = dealButton.getBoundingClientRect();
       // rect.top is unreliable mid-transition (button slides in via translateY).
       // Compute final top from the button's bottom CSS value instead.
@@ -3966,6 +4215,16 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       var finalTop = window.innerHeight - bottomPx - rect.height;
       tutorialHandEl.style.left = (rect.left + rect.width  * DealTutorialHandOffsetX) + 'px';
       tutorialHandEl.style.top  = (finalTop  + rect.height * DealTutorialHandOffsetY) + 'px';
+    }
+
+    function startDealTutorial() {
+      _endLongSlotHint(); // deal tutorial takes over the hand element
+      if (!tutorialHandEl || !dealButton) return;
+      dealTutorialActive = true;
+      blockCoinInteractions = true;
+      _dealTutorialDone  = true;
+      tutorialHandEl.src = ASSETS.hand;
+      updateDealTutorialHandPosition();
       tutorialHandEl.classList.add('visible', 'pulsing');
     }
 
