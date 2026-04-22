@@ -1868,7 +1868,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const IsDealOpen = true;             // master toggle for deal button
     const DealSlotNCount = 2;            // exclude N slots from deal targets (targetCount = eligible - this)
     const DealCoinMinRange = 1;          // minimum coin number for random generation
-    var   DealCoinMaxRange = 2;          // maximum coin number (updated dynamically before each deal)
+    var   DealCoinMaxRange = 6;          // maximum coin number (updated dynamically before each deal)
     const Difficulty = 0.0;              // coin number variation per slot (0=all same, 1=max variety)
     const CoinGroupDifficulty = 0.8;     // coins per slot fill ratio of half-empty (0=1 coin, 1=half empty)
     const DealTopCoinExtraCount = 1;     // extra coins when dealt coin type is the highest on table
@@ -1883,11 +1883,14 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const IsSpecificCoinsDeal = false;   // if true, coin numbers drawn from DealNumbers list
     const DealNumbers = [1, 2];          // coin numbers used when IsSpecificCoinsDeal is true
     const DealSlotEmptySpaceRate = 1.7;  // divisor for empty points when computing coin count
-    const DealButtonGapPortrait      = 0;   // pixels gap below board in portrait
+    const DealButtonGapPortrait      = 10;   // pixels gap below board in portrait
     const DealButtonGapLandscape     = 0;   // pixels gap below board in landscape
     const DealButtonSafeMarginPortrait  = 20;  // pixels safety margin from screen bottom
     const DealButtonSafeMarginLandscape = 15;  // pixels safety margin from screen bottom
     const DealHintDelay = 500;          // ms before deal hint appears
+    const EnableSlotMerge = false;       // false = regular slots never merge (long slot wave system unaffected)
+    const DealTutorialHandOffsetX = 0.9;  // fraction of button width  (0=left edge, 0.5=center, 1=right edge)
+    const DealTutorialHandOffsetY = 0.3;  // fraction of button height (0=top edge, 0.5=center, 1=bottom edge)
 
     // Portrait layout mirrors the first 24 entries of DefaultCoinLayoutLandscape.
     // spawnCoins uses DefaultCoinLayoutLandscape for both orientations; this stays in sync for reference.
@@ -1896,7 +1899,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       [2,2,2,2,5,5,5], [3,3,3,3,5,5,5,5,5,5], [4,4,4,2,2,2,2], [6,6,1,1,5,5], [2,2,2,2,6,6,6,6],
       [4,4,4,3,3,3,3,3,3,3], [4,4,4,3,3,3,3], [5,5,5,5,2,2,2], [1,1,1,3,3,3,3], [4,4,3,3,3,5,5,5,1,1],
       // slots 10-19 (landscape Row 1)
-      [2,2,2,2,2], [1,1,1,3,3,3,3,3,3,3], [3,3,3,3,2,2,2,4,4,4], [5,5,5,5,5], [1,1,1,1,5,5,5,5,5],
+      [2,2,2,2,2], [1,1,1,3,3,3,3,3,3,3], [3,3,3,3,2,2,2,4,4,4], [5,5,5,5,5], [1,1,1,1,6,6,6,6,6],
       [2,2,5,5,5,5,5], [4,4,4,4,6,6,6,6], [3,3,3,2,2,2,2,2,2,2], [5,5,5], [1,1,1,1,4,4,4],
       // slots 20-23 (landscape Row 2, first 4)
       [1,1,5,5,5,5,5], [3,3,2,2,2,4,4,4,5,5], [6,6,4,4,4,4,4], [4,4,4,2,2,5,5,5,5,5],
@@ -1912,7 +1915,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       [2,2,2,2,5,5,5], [3,3,3,3,5,5,5,5,5,5], [4,4,4,2,2,2,2], [6,6,1,1,5,5], [2,2,2,2,6,6,6,6],
       [4,4,4,3,3,3,3,3,3,3], [4,4,4,3,3,3,3], [5,5,5,5,2,2,2], [1,1,1,3,3,3,3], [4,4,3,3,3,5,5,5,1,1],
       // Row 1 — left cols 0-4, right cols 5-9
-      [2,2,2,2,2], [1,1,1,3,3,3,3,3,3,3], [3,3,3,3,2,2,2,4,4,4], [5,5,5,5,5], [1,1,1,1,5,5,5,5,5],
+      [2,2,2,2,2], [1,1,1,3,3,3,3,3,3,3], [3,3,3,3,2,2,2,4,4,4], [5,5,5,5,5], [1,1,1,1,6,6,6,6,6],
       [2,2,5,5,5,5,5], [4,4,4,4,6,6,6,6], [3,3,3,2,2,2,2,2,2,2], [5,5,5], [1,1,1,1,4,4,4],
       // Row 2 — left cols 0-4, right cols 5-9
       [1,1,5,5,5,5,5], [3,3,2,2,2,4,4,4,5,5], [6,6,4,4,4,4,4], [4,4,4,2,2,5,5,5,5,5], [5,5,5,3,3],
@@ -1951,10 +1954,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const TutorialStepsGroups = [
       // Group 1 — first slots phase
       [
-        [14, 13],
-      ],
-      [
-        [13, 24]
+        [14, 24],
       ]
       // Group 2 — second slots phase (add steps here)
     ];
@@ -1963,12 +1963,9 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const TutorialStepsGroupsLandscape = [
       // Group 1
       [
-        [14, 13],
+        [13, 30]
       ],
       // Group 2 (add steps here)
-      [
-        [13,30]
-      ]
     ];
     var TutorialSteps = []; // resolved in startTutorial() based on orientation
     const TutorialEnabled = TutorialStepsGroups.flat().length > 0;
@@ -2814,6 +2811,15 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       }
       animate();
       startTutorial();
+      // If no slot tutorial and merges disabled, unlock deal button immediately.
+      if (IsDealOpen && !EnableSlotMerge && !TutorialEnabled) {
+        dealButtonUnlocked = true;
+        dealButtonEnabled  = true;
+        updateDealButtonState();
+        dealTutorialActive = true;
+        blockCoinInteractions = true;
+        requestAnimationFrame(function() { startDealTutorial(); });
+      }
       var blackScreen = document.getElementById('blackScreen');
       if (blackScreen) blackScreen.classList.add('hidden');
     }
@@ -2877,8 +2883,20 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     function endTutorial() {
       tutorialActive = false;
       tutorialHandEl.classList.remove('visible', 'pulsing');
+      // If merges are disabled, onMergeComplete never fires — unlock deal button here instead.
+      if (IsDealOpen && !EnableSlotMerge && !dealButtonUnlocked) {
+        dealButtonUnlocked = true;
+        dealButtonEnabled  = true;
+      }
       updateDealButtonState();
-      scheduleDealHint();
+      if (IsDealOpen && dealButtonEnabled && !_dealTutorialDone) {
+        // Deal button is now visible — block input immediately and show hand on next frame.
+        dealTutorialActive = true;
+        blockCoinInteractions = true;
+        requestAnimationFrame(function() { startDealTutorial(); });
+      } else {
+        scheduleDealHint(); // fallback: button not enabled yet, hint fires when merge happens
+      }
       // 2-click variant: open store and show end card when tutorial completes
       if (Enable2ClickRedirection) {
         if (ctaRevealTimeoutId !== null) { clearTimeout(ctaRevealTimeoutId); ctaRevealTimeoutId = null; }
@@ -3304,6 +3322,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       if (slot.type === SlotType.LongSlot) {
         sealSlot(slotIdx, countAsProgress);
       } else {
+        if (!EnableSlotMerge) return;
         var _topCoinNum = slot.coins.length > 0 ? slot.coins[0].userData.coinNumber : 0;
         if (_topCoinNum >= 6) return; // level 6+ only merges in the long slot
         mergeSlot(slotIdx, countAsProgress);
@@ -3848,8 +3867,12 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       blockCoinInteractions = true;
       _dealTutorialDone  = true;
       var rect = dealButton.getBoundingClientRect();
-      tutorialHandEl.style.left = (rect.left + rect.width * 0.95) + 'px';
-      tutorialHandEl.style.top  = (rect.top + 10) + 'px';
+      // rect.top is unreliable mid-transition (button slides in via translateY).
+      // Compute final top from the button's bottom CSS value instead.
+      var bottomPx = parseFloat(dealButton.style.bottom) || 0;
+      var finalTop = window.innerHeight - bottomPx - rect.height;
+      tutorialHandEl.style.left = (rect.left + rect.width  * DealTutorialHandOffsetX) + 'px';
+      tutorialHandEl.style.top  = (finalTop  + rect.height * DealTutorialHandOffsetY) + 'px';
       tutorialHandEl.classList.add('visible', 'pulsing');
     }
 
@@ -3880,7 +3903,13 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         dealButtonUnlocked = true;
         dealButtonEnabled = true;
         updateDealButtonState();
-        scheduleDealHint();
+        if (!tutorialActive && !_dealTutorialDone) {
+          // Slot tutorial already finished — start deal tutorial immediately with the button.
+          dealTutorialActive = true;
+          blockCoinInteractions = true;
+          requestAnimationFrame(function() { startDealTutorial(); });
+        }
+        // If slot tutorial is still running, endTutorial() will handle starting the deal tutorial.
       }
     }
 
