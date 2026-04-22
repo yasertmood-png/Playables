@@ -1890,6 +1890,8 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const DealButtonSafeMarginPortrait  = 20;  // pixels safety margin from screen bottom
     const DealButtonSafeMarginLandscape = 15;  // pixels safety margin from screen bottom
     const DealHintDelay = 500;          // ms before deal hint appears
+    const LongSlotHintEnabled = true;   // show hand hint when a regular slot fills with the long-slot coin type
+    const LongSlotHintDelay   = 1200;   // ms after the slot fills before the hint hand appears
     const EnableSlotMerge = true;       // false = regular slots never merge (long slot wave system unaffected)
     const DealTutorialHandOffsetX = 0.9;  // fraction of button width  (0=left edge, 0.5=center, 1=right edge)
     const DealTutorialHandOffsetY = 0.3;  // fraction of button height (0=top edge, 0.5=center, 1=bottom edge)
@@ -2193,6 +2195,10 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     var longSlotIndex = -1;
     var longSlotWaveIndex = 0;  // increments each time the long slot fills; index into LongSlotWaveCoins
     var _longSlotCoinType = LongSlotInitialCoinNumber; // current coin type in the long slot — merges of this type are blocked
+    var _longSlotHintActive  = false; // hint hand is currently showing
+    var _longSlotHintSlotIdx = -1;    // regular slot index that triggered the hint
+    var _longSlotHintPhase   = 0;     // 0 = point at source slot (pick up), 1 = point at long slot (drop here)
+    var _longSlotHintTimer   = null;  // pending setTimeout before hint appears
     var cstMesh = null;        // CoinSmallTable mesh (module-level so exit/respawn can access it)
     var _cstBreathTween = null; // active breath tween — stopped before exit scale-down
 
@@ -2791,6 +2797,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
           )
           .start();
 
+        _endLongSlotHint();                // clear any hint pointing at the old coin type
         _longSlotCoinType = nextCoinCount; // update so merge guard tracks the new wave's coin type
         _fillLongSlotWithCount(nextCoinCount);
         _buildCoinSmallTable(nextCoinCount);
@@ -2862,7 +2869,59 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       tutorialHandEl.style.top = (screenY + offsetY) + 'px';
     }
 
+    // ---- Long-slot fill hint ----
+    function _lsHintScreenPos(slotIdx) {
+      var slot = slots[slotIdx];
+      if (!slot) return null;
+      var vec = new THREE.Vector3(slot.x, 0.1, slot.z);
+      vec.project(camera);
+      var vmin = Math.min(canvas.clientWidth, canvas.clientHeight) / 100;
+      return {
+        x: (vec.x + 1) / 2 * canvas.clientWidth  + 2 * vmin,
+        y: (1 - vec.y)  / 2 * canvas.clientHeight + 5 * vmin,
+      };
+    }
+
+    function _endLongSlotHint() {
+      if (_longSlotHintTimer) { clearTimeout(_longSlotHintTimer); _longSlotHintTimer = null; }
+      if (!_longSlotHintActive) return;
+      _longSlotHintActive  = false;
+      _longSlotHintSlotIdx = -1;
+      _longSlotHintPhase   = 0;
+      if (tutorialHandEl) tutorialHandEl.classList.remove('visible', 'pulsing');
+    }
+
+    function _showLongSlotHint(slotIdx) {
+      _longSlotHintTimer = null;
+      if (!LongSlotHintEnabled || !tutorialHandEl) return;
+      if (tutorialActive || dealTutorialActive) return;
+      // Re-validate: slot must still be full with the current long-slot coin type
+      var slot = slots[slotIdx];
+      if (!slot || slot.coins.length < slot.capacity) return;
+      if (slot.coins[0].userData.coinNumber !== _longSlotCoinType) return;
+      _longSlotHintActive  = true;
+      _longSlotHintSlotIdx = slotIdx;
+      _longSlotHintPhase   = 0;
+      tutorialHandEl.src = ASSETS.hand;
+      var pos = _lsHintScreenPos(slotIdx);
+      if (!pos) return;
+      tutorialHandEl.style.left = pos.x + 'px';
+      tutorialHandEl.style.top  = pos.y + 'px';
+      tutorialHandEl.classList.add('visible', 'pulsing');
+    }
+
+    function _advanceLongSlotHint() {
+      if (!_longSlotHintActive || _longSlotHintPhase !== 0) return;
+      _longSlotHintPhase = 1;
+      if (!tutorialHandEl) return;
+      var pos = _lsHintScreenPos(longSlotIndex);
+      if (!pos) return;
+      tutorialHandEl.style.left = pos.x + 'px';
+      tutorialHandEl.style.top  = pos.y + 'px';
+    }
+
     function startTutorial() {
+      _endLongSlotHint();
       if (!TutorialEnabled || !tutorialHandEl) return;
       TutorialSteps = (_initIsLandscape ? TutorialStepsGroupsLandscape : TutorialStepsGroups).flat();
       tutorialHandEl.src = ASSETS.hand;
@@ -3160,6 +3219,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
 
     function cancelHold() {
       if (heldFromSlot === null) return;
+      if (_longSlotHintActive) _endLongSlotHint(); // coins returned without dropping to long slot
       playSound(SFX.place);
       const sourceIdx = heldFromSlot;
       const source = slots[sourceIdx];
@@ -3336,7 +3396,15 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         sealSlot(slotIdx, countAsProgress);
       } else {
         var _topCoinNum = slot.coins.length > 0 ? slot.coins[0].userData.coinNumber : 0;
-        if (_topCoinNum === _longSlotCoinType) return; // this coin type belongs in the long slot, don't merge
+        if (_topCoinNum === _longSlotCoinType) {
+          // Slot is full of the coin type that belongs in the long slot — show a hint after a short delay.
+          if (LongSlotHintEnabled && !tutorialActive && !dealTutorialActive && !_longSlotHintActive) {
+            if (_longSlotHintTimer) clearTimeout(_longSlotHintTimer);
+            var _hintIdx = slotIdx;
+            _longSlotHintTimer = setTimeout(function() { _showLongSlotHint(_hintIdx); }, LongSlotHintDelay);
+          }
+          return;
+        }
         mergeSlot(slotIdx, countAsProgress);
       }
     }
@@ -3556,6 +3624,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
             if (heldCoins.length > 0) {
               cancelHold();
             }
+            if (_longSlotHintActive) _endLongSlotHint(); // drop succeeded — hide hint
             if (tutorialActive) {
               advanceTutorial();
             }
@@ -3569,6 +3638,14 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
           if (transferringSlots.has(slotIdx) || mergingSlots.has(slotIdx)) return;
           if (tutorialActive && !isTutorialTargetSlot(slotIdx)) return;
           pickUpCoins(slotIdx);
+          // Hint: picking up the hinted slot → advance hand to long slot; picking up other coins → clear hint
+          if (_longSlotHintActive) {
+            if (_longSlotHintPhase === 0 && slotIdx === _longSlotHintSlotIdx) {
+              _advanceLongSlotHint();
+            } else {
+              _endLongSlotHint();
+            }
+          }
           if (tutorialActive) advanceTutorial();
         }
       }
