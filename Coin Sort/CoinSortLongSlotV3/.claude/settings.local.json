@@ -46,7 +46,10 @@
       "Bash(for f in \"Cos-LongSlotV2-2clk.html\" \"Cos-LongSlotV2-30sec.html\" \"Cos-LongSlotV2-60sec.html\" \"Cos-LongSlotV2-ByTransfer.html\")",
       "Bash(do node build.js \"$f\")",
       "Bash(node build.js \"Cos-LongSlotV1-30sec.html\")",
-      "Bash(grep -v \"^[0-9]*:.*var\\\\|//\")"
+      "Bash(grep -v \"^[0-9]*:.*var\\\\|//\")",
+      "Bash(node build.js Cos-LongSlotV3-30sec.html)",
+      "Bash(node build.js Cos-LongSlotV3-ByTransfer.html)",
+      "Bash(node build.js Cos-LongSlotV3-2clk.html)"
     ]
   }
 }
