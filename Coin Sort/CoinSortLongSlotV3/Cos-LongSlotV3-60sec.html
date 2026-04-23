@@ -337,6 +337,54 @@
       transform: translateZ(0);
     }
 
+    #loadingScreen {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(16px, 4vmin, 28px);
+      background:
+        radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.16), transparent 34%),
+        linear-gradient(180deg, #151b1f 0%, #050708 100%);
+      transition: opacity 0.35s ease;
+    }
+    #loadingScreen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #loadingGameName {
+      width: min(72vw, 360px);
+      max-height: 18vh;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+    }
+    #loadingBarShell {
+      width: min(68vw, 340px);
+      height: clamp(12px, 2.8vmin, 18px);
+      padding: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.28);
+      box-shadow: inset 0 1px 5px rgba(0, 0, 0, 0.45), 0 10px 26px rgba(0, 0, 0, 0.22);
+      overflow: hidden;
+    }
+    #loadingBarFill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #00d36f 0%, #94f24a 100%);
+      box-shadow: 0 0 18px rgba(87, 235, 89, 0.45);
+    }
+    #loadingPercent {
+      min-height: 1em;
+      color: rgba(255, 255, 255, 0.78);
+      font: 700 clamp(13px, 3.2vmin, 18px)/1.1 sans-serif;
+      letter-spacing: 0.08em;
+    }
+
     #blackScreen {
       position: fixed;
       inset: 0;
@@ -398,6 +446,11 @@
   <img id="downloadBtn" alt="Download">
   <img id="ctaGameName" alt="">
   <button id="ctaInstall" type="button" aria-label="Download">Download</button>
+  <div id="loadingScreen" aria-live="polite">
+    <img id="loadingGameName" alt="Coin Sort">
+    <div id="loadingBarShell"><div id="loadingBarFill"></div></div>
+    <div id="loadingPercent">0%</div>
+  </div>
   <div id="blackScreen"></div>
   <div id="fallbackUI" aria-live="polite">
     <div class="fallbackCard">
@@ -1601,6 +1654,27 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
 
     var ctaGameNameEl = document.getElementById('ctaGameName');
     if (ctaGameNameEl) ctaGameNameEl.src = ASSETS.gameNameImage;
+    var loadingScreenEl = document.getElementById('loadingScreen');
+    var loadingGameNameEl = document.getElementById('loadingGameName');
+    var loadingBarFillEl = document.getElementById('loadingBarFill');
+    var loadingPercentEl = document.getElementById('loadingPercent');
+    if (loadingGameNameEl) loadingGameNameEl.src = ASSETS.gameNameImage;
+
+    function setLoadingProgress(value) {
+      var progress = Math.max(0, Math.min(1, value || 0));
+      var percentValue = progress * 100;
+      var percent = Math.round(percentValue);
+      if (loadingBarFillEl) loadingBarFillEl.style.width = percentValue.toFixed(2) + '%';
+      if (loadingPercentEl) loadingPercentEl.textContent = percent + '%';
+    }
+
+    function hideLoadingScreen() {
+      if (!loadingScreenEl) return;
+      loadingScreenEl.classList.add('hidden');
+      setTimeout(function () {
+        if (loadingScreenEl) loadingScreenEl.style.display = 'none';
+      }, 400);
+    }
 
 
     function preloadAudio() {
@@ -4739,18 +4813,22 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     }
     // Wait for all resources before starting
     (function waitForReady() {
-      var promises = [];
+      var loadingTasks = [];
+
+      function addLoadingTask(promise) {
+        loadingTasks.push(Promise.resolve(promise).catch(function () {}));
+      }
 
       // Fonts
-      promises.push(document.fonts.ready);
+      addLoadingTask(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve());
 
-      promises.push(_audioReadyPromise);
+      addLoadingTask(_audioReadyPromise);
 
-      // Images (game icon, CTA button bg, tutorial hand)
-      var imgSrcs = [UI_GAME_ICON, UI_BUTTON_IMAGE, ASSETS.hand];
+      // Images shown during loading and initial UI.
+      var imgSrcs = [UI_GAME_ICON, UI_BUTTON_IMAGE, ASSETS.hand, ASSETS.gameNameImage];
       imgSrcs.forEach(function (src) {
         if (!src) return;
-        promises.push(new Promise(function (resolve) {
+        addLoadingTask(new Promise(function (resolve) {
           var img = new Image();
           img.onload = resolve;
           img.onerror = resolve;
@@ -4758,8 +4836,21 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         }));
       });
 
-      Promise.all(promises).then(function () {
-        whenMraidReady(function () { startGame(); });
+      var done = 0;
+      var total = Math.max(1, loadingTasks.length);
+      setLoadingProgress(0);
+
+      Promise.all(loadingTasks.map(function (task) {
+        return task.then(function () {
+          done++;
+          setLoadingProgress(done / total);
+        });
+      })).then(function () {
+        setLoadingProgress(1);
+        whenMraidReady(function () {
+          hideLoadingScreen();
+          startGame();
+        });
       });
     })();
 
