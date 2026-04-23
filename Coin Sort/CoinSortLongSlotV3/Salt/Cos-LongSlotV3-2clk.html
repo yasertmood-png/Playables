@@ -140,14 +140,14 @@
       --cta-bottom-landscape: 25vh;
       --gameTitleImage-bottom-portrait: 55vh;
       --gameTitleImage-bottom-landscape: 50vh;
-      --loadingGameName-width-portrait: 125vw;
+      --loadingGameName-width-portrait: 90vw;
       --loadingGameName-height-portrait: auto;
       --loadingGameName-offset-x-portrait: 0vw;
       --loadingGameName-offset-y-portrait: -15vh;
-      --loadingGameName-width-landscape: 70vw;
+      --loadingGameName-width-landscape: 55vw;
       --loadingGameName-height-landscape: auto;
       --loadingGameName-offset-x-landscape: 0vw;
-      --loadingGameName-offset-y-landscape: -10vh;
+      --loadingGameName-offset-y-landscape: -7vh;
       --icon-size: 6vmax;
       --icon-margin: 1.5vmin
     }
@@ -350,8 +350,10 @@
       inset: 0;
       z-index: 10000;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: clamp(16px, 4vmin, 28px);
       background:
         radial-gradient(circle at 50% 28%, rgba(255, 255, 255, 0.16), transparent 34%),
         linear-gradient(180deg, #151b1f 0%, #050708 100%);
@@ -366,7 +368,6 @@
       flex-direction: column;
       align-items: center;
       gap: clamp(16px, 4vmin, 28px);
-      transform-origin: center center;
     }
     #loadingGameName {
       display: block;
@@ -393,8 +394,7 @@
     #loadingBarBgImg {
       display: block;
       width: 100%;
-      height: 100%;
-      object-fit: fill;
+      height: auto;
     }
     #loadingBarFillClip {
       position: absolute;
@@ -472,8 +472,8 @@
   <img id="ctaGameName" alt="">
   <button id="ctaInstall" type="button" aria-label="Download">Download</button>
   <div id="loadingScreen" aria-live="polite">
+    <img id="loadingGameName" alt="">
     <div id="loadingUIGroup">
-      <img id="loadingGameName" alt="Coin Sort">
       <img id="loadingTextImg" alt="">
       <div id="loadingBarWrap">
         <img id="loadingBarBgImg" alt="">
@@ -1267,7 +1267,8 @@
 
     // ---- Loading bar image settings ----
     const DebugLoadingScreen  = false;  // true = keep loading screen visible at 60% fill for layout adjustment
-    const LoadingUIScale      = 0.75;     // uniform scale for the entire loading UI group
+    const LoadingUIVW_Portrait  = 55;     // loading bar width (vw) in portrait
+    const LoadingUIVW_Landscape = 30;     // loading bar width (vw) in landscape
     const LoadingBarSizeX     = 360;   // bar background width  in px
     const LoadingBarSizeY     = 50;    // bar background height in px
     const LoadingBarOffsetX   = 0;     // horizontal offset from center in px
@@ -1719,33 +1720,32 @@
     if (loadingBarBgImgEl)  loadingBarBgImgEl.src  = ASSETS.loadingBarBg;
     if (loadingBarFillImgEl) loadingBarFillImgEl.src = ASSETS.loadingBarFill;
     if (loadingTextImgEl)   loadingTextImgEl.src   = ASSETS.loadingTextImg;
-    // Apply size and offset settings
-    if (loadingBarWrapEl) {
-      loadingBarWrapEl.style.width  = LoadingBarSizeX + 'px';
-      loadingBarWrapEl.style.height = LoadingBarSizeY + 'px';
-      loadingBarWrapEl.style.transform = 'translate(' + LoadingBarOffsetX + 'px,' + LoadingBarOffsetY + 'px)';
-    }
+    // Fixed (ratio-based) — set once
+    if (loadingBarWrapEl)     loadingBarWrapEl.style.transform     = 'translate(' + LoadingBarOffsetX + 'px,' + LoadingBarOffsetY + 'px)';
     if (loadingBarFillClipEl) {
-      loadingBarFillClipEl.style.top    = LoadingBarFillOffsetY + 'px';
-      loadingBarFillClipEl.style.left   = LoadingBarFillOffsetX + 'px';
-      loadingBarFillClipEl.style.height = LoadingBarFillSizeY + 'px';
+      loadingBarFillClipEl.style.top    = (LoadingBarFillOffsetY / LoadingBarSizeY * 100).toFixed(2) + '%';
+      loadingBarFillClipEl.style.left   = (LoadingBarFillOffsetX / LoadingBarSizeX * 100).toFixed(2) + '%';
+      loadingBarFillClipEl.style.height = (LoadingBarFillSizeY  / LoadingBarSizeY  * 100).toFixed(2) + '%';
     }
     if (loadingBarFillImgEl) {
-      loadingBarFillImgEl.style.width  = LoadingBarFillSizeX + 'px';
-      loadingBarFillImgEl.style.height = LoadingBarFillSizeY + 'px';
+      loadingBarFillImgEl.style.width  = (LoadingBarFillSizeX / LoadingBarSizeX * 100).toFixed(2) + '%';
+      loadingBarFillImgEl.style.height = '100%';
     }
     if (loadingTextImgEl) {
-      loadingTextImgEl.style.width  = LoadingTextSizeX + 'px';
-      loadingTextImgEl.style.height = LoadingTextSizeY + 'px';
+      loadingTextImgEl.style.height = 'auto';
       loadingTextImgEl.style.transform = 'translate(' + LoadingTextOffsetX + 'px,' + LoadingTextOffsetY + 'px)';
     }
-    if (loadingUIGroupEl) {
-      loadingUIGroupEl.style.transform = 'scale(' + LoadingUIScale + ')';
+    // Orientation-sensitive — applied on init and on resize
+    function _applyLoadingUISize() {
+      var vw = window.innerWidth >= window.innerHeight ? LoadingUIVW_Landscape : LoadingUIVW_Portrait;
+      if (loadingBarWrapEl)  loadingBarWrapEl.style.width  = vw + 'vw';
+      if (loadingTextImgEl)  loadingTextImgEl.style.width  = (LoadingTextSizeX / LoadingBarSizeX * vw).toFixed(2) + 'vw';
     }
+    _applyLoadingUISize();
 
     function setLoadingProgress(value) {
       var progress = Math.max(0, Math.min(1, value || 0));
-      if (loadingBarFillClipEl) loadingBarFillClipEl.style.width = (progress * LoadingBarFillSizeX).toFixed(2) + 'px';
+      if (loadingBarFillClipEl) loadingBarFillClipEl.style.width = (progress * LoadingBarFillSizeX / LoadingBarSizeX * 100).toFixed(2) + '%';
     }
 
     function hideLoadingScreen() {
@@ -4504,6 +4504,7 @@
       updateTutorialHandPosition();
       _updateLongSlotHintPosition();
       updateDealTutorialHandPosition();
+      _applyLoadingUISize();
     }
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', function () {

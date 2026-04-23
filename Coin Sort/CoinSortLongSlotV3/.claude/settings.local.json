@@ -49,7 +49,9 @@
       "Bash(grep -v \"^[0-9]*:.*var\\\\|//\")",
       "Bash(node build.js Cos-LongSlotV3-30sec.html)",
       "Bash(node build.js Cos-LongSlotV3-ByTransfer.html)",
-      "Bash(node build.js Cos-LongSlotV3-2clk.html)"
+      "Bash(node build.js Cos-LongSlotV3-2clk.html)",
+      "Bash(for f in \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/Salt/Cos-LongSlotV3-30sec.html\" \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/Salt/Cos-LongSlotV3-2clk.html\" \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/Salt/Cos-LongSlotV3-ByTransfer.html\")",
+      "Bash(node build.js Cos-LongSlotV3-60sec.html)"
     ]
   }
 }
