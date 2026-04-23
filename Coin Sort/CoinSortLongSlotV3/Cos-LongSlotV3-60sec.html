@@ -140,14 +140,14 @@
       --cta-bottom-landscape: 25vh;
       --gameTitleImage-bottom-portrait: 55vh;
       --gameTitleImage-bottom-landscape: 50vh;
-      --loadingGameName-width-portrait: 160vw;
+      --loadingGameName-width-portrait: 125vw;
       --loadingGameName-height-portrait: auto;
       --loadingGameName-offset-x-portrait: 0vw;
       --loadingGameName-offset-y-portrait: -15vh;
       --loadingGameName-width-landscape: 70vw;
       --loadingGameName-height-landscape: auto;
       --loadingGameName-offset-x-landscape: 0vw;
-      --loadingGameName-offset-y-landscape: -15vh;
+      --loadingGameName-offset-y-landscape: -10vh;
       --icon-size: 6vmax;
       --icon-margin: 1.5vmin
     }
@@ -1266,16 +1266,16 @@
     const CTA_SHOW_DELAY_MS = 60000;
 
     // ---- Loading bar image settings ----
-    const DebugLoadingScreen  = false;  // true = keep loading screen visible at 60% fill for layout adjustment
-    const LoadingUIScale      = 0.55;     // uniform scale for the entire loading UI group
-    const LoadingBarSizeX     = 280;   // bar background width  in px
-    const LoadingBarSizeY     = 40;    // bar background height in px
+    const DebugLoadingScreen  = true;  // true = keep loading screen visible at 60% fill for layout adjustment
+    const LoadingUIScale      = 0.75;     // uniform scale for the entire loading UI group
+    const LoadingBarSizeX     = 360;   // bar background width  in px
+    const LoadingBarSizeY     = 50;    // bar background height in px
     const LoadingBarOffsetX   = 0;     // horizontal offset from center in px
     const LoadingBarOffsetY   = 0;     // vertical offset in px
-    const LoadingBarFillSizeX = 264;   // fill image width  in px (can be smaller than bar to inset from edges)
-    const LoadingBarFillSizeY = 28;    // fill image height in px
-    const LoadingBarFillOffsetX = 8.4;   // fill horizontal offset within bar in px (positive = shift right)
-    const LoadingBarFillOffsetY = 5;   // fill vertical   offset within bar in px (positive = shift down)
+    const LoadingBarFillSizeX = 336;   // fill image width  in px (can be smaller than bar to inset from edges)
+    const LoadingBarFillSizeY = 33;    // fill image height in px
+    const LoadingBarFillOffsetX = 12;   // fill horizontal offset within bar in px (positive = shift right)
+    const LoadingBarFillOffsetY = 7.25;   // fill vertical   offset within bar in px (positive = shift down)
     const LoadingTextSizeX    = 170;   // text image width  in px
     const LoadingTextSizeY    = 30;    // text image height in px
     const LoadingTextOffsetX  = 0;     // horizontal offset from center in px
