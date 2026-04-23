@@ -1303,6 +1303,10 @@
       } else {
         updateAudio();
       }
+      // Fallback: if viewableChange never fired (e.g. some MRAID implementations),
+      // treat first user touch as proof the scene is visible.
+      if (!isFocused) { isFocused = true; updateAudio(); }
+      _maybeStartCoinSmallTableIntro();
     }
 
     function getAdElapsedMs() {
@@ -1390,7 +1394,7 @@
 
 
     var audioMuted = false;
-    var isFocused = true;
+    var isFocused = !window.mraid; // false in MRAID environments (not visible until viewableChange fires)
     var bgMusicFirstPlayDelay = 0.4;
 
     // Single function that decides: should audio play or not?
@@ -1418,8 +1422,18 @@
     document.addEventListener('visibilitychange', function () {
       isFocused = !document.hidden;
       updateAudio();
+      _maybeStartCoinSmallTableIntro();
     });
     window.addEventListener('pagehide', function () {
+      isFocused = false;
+      updateAudio();
+    });
+    window.addEventListener('focus', function () {
+      isFocused = true;
+      updateAudio();
+      _maybeStartCoinSmallTableIntro();
+    });
+    window.addEventListener('blur', function () {
       isFocused = false;
       updateAudio();
     });
@@ -1427,10 +1441,34 @@
     if (window.mraid) {
       whenMraidReady(function () {
         if (typeof window.mraid.addEventListener === 'function') {
+          if (typeof window.mraid.getState === 'function') {
+            _mraidState = window.mraid.getState();
+          }
+          window.mraid.addEventListener('stateChange', function (state) {
+            _mraidState = state;
+            updateAudio();
+            _maybeStartCoinSmallTableIntro();
+          });
           window.mraid.addEventListener('viewableChange', function (viewable) {
             isFocused = !!viewable;
             updateAudio();
+            _maybeStartCoinSmallTableIntro();
           });
+          // Poll isViewable() as a fallback for SDKs that have correct state
+          // but don't fire viewableChange events reliably.
+          if (typeof window.mraid.isViewable === 'function') {
+            setInterval(function () {
+              var _v = window.mraid.isViewable();
+              if (!_v && isFocused) {
+                isFocused = false;
+                updateAudio();
+              } else if (_v && !isFocused) {
+                isFocused = true;
+                updateAudio();
+                _maybeStartCoinSmallTableIntro();
+              }
+            }, 250);
+          }
         }
       });
     }
@@ -1724,6 +1762,7 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     const CoinSmallTableIntroMoveDuration = 600;            // ms for move/scale-down into table
     const CoinSmallTableIntroOpenDelay = 520;               // startup delay so intro begins after black screen opens
     const CoinSmallTableIntroRespawnDelay = 330;            // wait for new long slot to finish its pop-in before intro
+    const CoinSmallTableIntroMinDelay = 10500;              // hard delay to survive ad-network panels that auto-close after 10s
     const CoinSmallTableLandingPulseScale = 1.16;           // table pop scale when intro coin lands
     const CoinSmallTableLandingPulseUpDuration = 120;       // ms for table scale-up on landing
     const CoinSmallTableLandingPulseDownDuration = 180;     // ms for table scale-down after landing
@@ -2738,6 +2777,10 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     }
 
     function _stopCstIntro() {
+      if (_coinIntroTimerId !== null) {
+        clearTimeout(_coinIntroTimerId);
+        _coinIntroTimerId = null;
+      }
       for (var i = 0; i < _cstIntroTweens.length; i++) {
         if (_cstIntroTweens[i]) _cstIntroTweens[i].stop();
       }
@@ -3292,6 +3335,88 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       }, LongSlotSpawnDelay);
     }
 
+    var _coinIntroReady = false;
+    var _coinIntroStarted = false;
+    var _coinIntroTimerId = null;
+    var _coinIntroFrustum = new THREE.Frustum();
+    var _coinIntroProjMatrix = new THREE.Matrix4();
+    var _mraidState = null;
+    var _coinIntroNotBeforeMs = performance.now() + CoinSmallTableIntroMinDelay;
+
+    function _isCoinIntroBlocked() {
+      if (document.hidden) return true;
+      if (!isFocused) return true;
+      var mraidApi = window.mraid;
+      if (_mraidState && _mraidState !== 'default') return true;
+      if (mraidApi && typeof mraidApi.isViewable === 'function' && !mraidApi.isViewable()) return true;
+      return false;
+    }
+
+    function _isCanvasCovered() {
+      if (!canvas) return true;
+      var rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return true;
+      var x = rect.left + rect.width * 0.5;
+      var y = rect.top + rect.height * 0.5;
+      if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return true;
+      var el = document.elementFromPoint(x, y);
+      return !el || (el !== canvas && !canvas.contains(el));
+    }
+
+    function _isMuteBtnVisible() {
+      if (!muteBtn) return false;
+      var rect = muteBtn.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      var style = window.getComputedStyle(muteBtn);
+      if (!style || style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) <= 0.01) return false;
+      var x = rect.left + rect.width * 0.5;
+      var y = rect.top + rect.height * 0.5;
+      if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return false;
+      var el = document.elementFromPoint(x, y);
+      return !!el && (el === muteBtn || muteBtn.contains(el));
+    }
+
+    function _getCoinIntroTargetPoint() {
+      var _lsTopCornerZ = LongSlotOffsetZ - _longH / 2;
+      return new THREE.Vector3(
+        LongSlotOffsetX + CoinSmallTableOffset.x,
+        0.2,
+        _lsTopCornerZ + CoinSmallTableOffset.z
+      );
+    }
+
+    function _isCoinIntroTargetVisibleToCamera() {
+      if (!camera) return false;
+      camera.updateMatrixWorld(true);
+      _coinIntroProjMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      _coinIntroFrustum.setFromProjectionMatrix(_coinIntroProjMatrix);
+      return _coinIntroFrustum.containsPoint(_getCoinIntroTargetPoint());
+    }
+
+    function _canStartCoinSmallTableIntro() {
+      if (_isCoinIntroBlocked()) return false;
+      if (_isCanvasCovered()) return false;
+      return true;
+    }
+
+    function _maybeStartCoinSmallTableIntro() {
+      if (!_coinIntroReady || _coinIntroStarted) return;
+      if (!_canStartCoinSmallTableIntro()) return;
+      if (_coinIntroStarted) return;
+      if (_coinIntroTimerId !== null) return;
+      _coinIntroTimerId = setTimeout(function () {
+        _coinIntroTimerId = null;
+        if (!_coinIntroReady || _coinIntroStarted || !_canStartCoinSmallTableIntro()) return;
+        _coinIntroStarted = true;
+        _buildCoinSmallTable(LongSlotInitialCoinNumber, 0);
+      }, 0);
+    }
+
+    function _queueCoinSmallTableIntro() {
+      _coinIntroReady = true;
+      _maybeStartCoinSmallTableIntro();
+    }
+
     function startGame() {
       if (adStarted) return;
       adStarted = true;
@@ -3301,9 +3426,6 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
 
       spawnCoins();
       fillLongSlotInitialCoins();
-
-      // CoinSmallTable — plane facing camera, coin parented to it
-      _buildCoinSmallTable(LongSlotInitialCoinNumber, CoinSmallTableIntroOpenDelay);
 
       if (DebugShowAllSlotLids) showAllSlotLidsForTesting();
       refreshAllSlotCompletionStates(false);
@@ -3325,8 +3447,20 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         blockCoinInteractions = true;
         requestAnimationFrame(function() { startDealTutorial(); });
       }
+      // Black screen fade-out queues the CoinSmallTable intro.
+      // _queueCoinSmallTableIntro waits for the 10.5 s ad-panel gate + canvas-clear check
+      // before firing, so the animation always plays on a visible, unblocked scene.
       var blackScreen = document.getElementById('blackScreen');
-      if (blackScreen) blackScreen.classList.add('hidden');
+      if (blackScreen) {
+        var _onBlackScreenGone = function () {
+          blackScreen.removeEventListener('transitionend', _onBlackScreenGone);
+          _queueCoinSmallTableIntro();
+        };
+        blackScreen.addEventListener('transitionend', _onBlackScreenGone);
+        blackScreen.classList.add('hidden');
+      } else {
+        _queueCoinSmallTableIntro();
+      }
     }
 
     const tutorialHandEl = document.getElementById('tutorialHand');
@@ -3926,6 +4060,9 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
             .delay(fogDelay + j * spawnStagger)
             .start();
         }
+        setTimeout(function () {
+          checkBoardFull();
+        }, fogDelay + (CoinMergeResult - 1) * spawnStagger + popDuration + 20);
       }, totalShrinkDur);
     }
 
@@ -4226,8 +4363,12 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
 
     function checkBoardFull() {
       if (!adFirstInteraction) return;
-      if (TWEEN.getAll().length > 0) return;
-      if (getEligibleDealSlots([]).length > 0) return;
+      if (transferringSlots.size > 0 || mergingSlots.size > 0) return;
+      var allFull = slots.every(function(s, idx) {
+        if (idx === longSlotIndex || s.type === SlotType.LongSlot) return true;
+        return s.coins.length >= s.capacity;
+      });
+      if (!allFull) return;
       if (ctaRevealTimeoutId !== null) { clearTimeout(ctaRevealTimeoutId); ctaRevealTimeoutId = null; }
       showInstallCta();
     }
@@ -4247,11 +4388,11 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
       if (!dealButtonEnabled || eligible.length <= 0) {
         dealButton.classList.add('disabled');
         if (ctaInstallButton) ctaInstallButton.disabled = false;
-        checkBoardFull();
       } else {
         dealButton.classList.remove('disabled');
         if (ctaInstallButton) ctaInstallButton.disabled = true;
       }
+      checkBoardFull();
     }
 
     function getDealButtonWorldPosition() {
@@ -4563,9 +4704,33 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
     //  RENDER LOOP
     // ============================================================
     var wasAnimating = false;
+    var _rafPrevTime = 0;
     function animate() {
       requestAnimationFrame(animate);
+
+      // rAF frame-gap detection: when the OS suspends rendering (native ad-network
+      // panel covering the WebView), the gap between frames jumps >> 16 ms.
+      // This is duration-independent — works for 2 s, 5 s, 10 s panels alike.
+      var _rafNow = performance.now();
+      if (adStarted && _rafPrevTime > 0) {
+        var _rafGap = _rafNow - _rafPrevTime;
+        if (_rafGap > 300 && isFocused) {
+          // Large gap = rendering was suspended = panel is covering the scene
+          isFocused = false;
+          updateAudio();
+        } else if (_rafGap < 100 && !isFocused) {
+          // Normal frame rate restored = panel is gone
+          isFocused = true;
+          updateAudio();
+          _maybeStartCoinSmallTableIntro();
+        }
+      }
+      _rafPrevTime = _rafNow;
+
+      if (!isFocused) return; // pause everything while panel covers scene
+
       TWEEN.update();
+      _maybeStartCoinSmallTableIntro();
       isAnimating = TWEEN.getAll().length > 0;
       if (wasAnimating && !isAnimating && IsDealOpen) updateDealButtonState();
       wasAnimating = isAnimating;
