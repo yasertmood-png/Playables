@@ -45,7 +45,8 @@
       "Bash(node -e \"const fs=require\\(''fs''\\); fs.readdirSync\\(''c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV2''\\).filter\\(f=>f.endsWith\\(''.html''\\)\\).forEach\\(f=>console.log\\(f\\)\\)\")",
       "Bash(for f in \"Cos-LongSlotV2-2clk.html\" \"Cos-LongSlotV2-30sec.html\" \"Cos-LongSlotV2-60sec.html\" \"Cos-LongSlotV2-ByTransfer.html\")",
       "Bash(do node build.js \"$f\")",
-      "Bash(node build.js \"Cos-LongSlotV1-30sec.html\")"
+      "Bash(node build.js \"Cos-LongSlotV1-30sec.html\")",
+      "Bash(grep -v \"^[0-9]*:.*var\\\\|//\")"
     ]
   }
 }
