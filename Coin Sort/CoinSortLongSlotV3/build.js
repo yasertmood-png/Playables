@@ -57,7 +57,7 @@ const OUTPUT   = path.join(BASE, 'Obfuscated', outName);
       stringArray: true,
       stringArrayCallsTransform: true,
       stringArrayCallsTransformThreshold: 0.75,
-      stringArrayEncoding: ['base64'],
+      stringArrayEncoding: ['none'],
       stringArrayIndexShift: true,
       stringArrayRotate: true,
       stringArrayShuffle: true,

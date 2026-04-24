@@ -3785,7 +3785,7 @@
       } else {
         tutorialSubStep = 0;
         tutorialStepIndex++;
-        if (tutorialStepIndex >= TutorialSteps.length) {
+        if (Enable2ClickRedirection || tutorialStepIndex >= TutorialSteps.length) {
           endTutorial();
           return;
         }
@@ -3797,6 +3797,13 @@
     function endTutorial() {
       tutorialActive = false;
       tutorialHandEl.classList.remove('visible', 'pulsing');
+      // 2-click variant: skip deal tutorial, go straight to end card
+      if (Enable2ClickRedirection) {
+        if (ctaRevealTimeoutId !== null) { clearTimeout(ctaRevealTimeoutId); ctaRevealTimeoutId = null; }
+        showInstallCta();
+        openStore();
+        return;
+      }
       // If merges are disabled, onMergeComplete never fires — unlock deal button here instead.
       if (IsDealOpen && !EnableSlotMerge && !dealButtonUnlocked) {
         dealButtonUnlocked = true;
@@ -3810,12 +3817,6 @@
         requestAnimationFrame(function() { startDealTutorial(); });
       } else {
         scheduleDealHint(); // fallback: button not enabled yet, hint fires when merge happens
-      }
-      // 2-click variant: open store and show end card when tutorial completes
-      if (Enable2ClickRedirection) {
-        if (ctaRevealTimeoutId !== null) { clearTimeout(ctaRevealTimeoutId); ctaRevealTimeoutId = null; }
-        showInstallCta();
-        openStore();
       }
     }
 
