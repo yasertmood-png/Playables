@@ -2058,7 +2058,7 @@
     const CoinTextOutline = 4;       // black outline thickness in canvas pixels
     const CoinTextPlaneSize = 1;     // world-unit size of the text plane
     const CoinTextOffsetX = 0;       // text plane offset from coin center
-    const CoinTextOffsetY = 0;    // slightly above coin face
+    const CoinTextOffsetY = 0.04;    // slightly above coin face
     const CoinTextOffsetZ = 0.07;
     const CoinTextRotationX = 0; // face upward
     const CoinTextRotationY = 0;
@@ -2716,17 +2716,23 @@
       ctx.clearRect(0, 0, size, size);
       ctx.font = `800 ${CoinTextSize}px 'Baloo2'`;
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
+      ctx.textBaseline = 'alphabetic';
+
+      // Use actual glyph bounds for pixel-perfect vertical centering across all devices/WebViews
+      var m = ctx.measureText(text);
+      var ascent  = m.actualBoundingBoxAscent  != null ? m.actualBoundingBoxAscent  : CoinTextSize * 0.72;
+      var descent = m.actualBoundingBoxDescent != null ? m.actualBoundingBoxDescent : CoinTextSize * 0.08;
+      var textY = size / 2 + (ascent - descent) / 2;
 
       if (CoinTextOutline > 0) {
         ctx.strokeStyle = 'rgba(37, 37, 37, 0.4)';
         ctx.lineWidth = CoinTextOutline;
         ctx.lineJoin = 'round';
-        ctx.strokeText(text, size / 2, size / 2);
+        ctx.strokeText(text, size / 2, textY);
       }
 
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(text, size / 2, size / 2);
+      ctx.fillText(text, size / 2, textY);
 
       const tex = new THREE.CanvasTexture(canvas);
       tex.encoding = THREE.sRGBEncoding;
