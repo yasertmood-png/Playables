@@ -3,7 +3,7 @@ const path = require('path');
 const { minify } = require('html-minifier-terser');
 const JavaScriptObfuscator = require('javascript-obfuscator');
 
-const BASE     = 'c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/Salt';
+const BASE     = 'c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3';
 const filename = process.argv[2] || 'Cos-LongSlotV3-60sec.html';
 const outName  = filename.replace(/\.html$/i, '.obf.html');
 const INPUT    = path.join(BASE, filename);
