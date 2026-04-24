@@ -37,24 +37,30 @@ function findMatchingBrace(str, braceIdx) {
   console.log('\nStep 0 — Extracting ASSETS block...');
   const ASSETS_MARKER = 'const ASSETS = {';
   const assetsIdx = html.indexOf(ASSETS_MARKER);
-  if (assetsIdx === -1) { console.error('ERROR: const ASSETS = { not found'); process.exit(1); }
-  const braceOpen = html.indexOf('{', assetsIdx);
-  const braceClose = findMatchingBrace(html, braceOpen);
-  // Include the trailing semicolon if present
-  const afterClose = html[braceClose + 1] === ';' ? braceClose + 2 : braceClose + 1;
-  const assetsBody = html.slice(braceOpen, afterClose); // "{ ... };" or "{ ... }"
-  const assetsBlockKB = (assetsBody.length / 1024).toFixed(1);
+  const alreadyExtracted = assetsIdx === -1 && html.includes('window.__AD_ASSETS');
 
-  // Remove ASSETS from game script, replace with window reference
-  html = html.slice(0, assetsIdx) + 'const ASSETS=window.__AD_ASSETS;' + html.slice(afterClose);
+  if (!alreadyExtracted) {
+    if (assetsIdx === -1) { console.error('ERROR: const ASSETS = { not found'); process.exit(1); }
+    const braceOpen = html.indexOf('{', assetsIdx);
+    const braceClose = findMatchingBrace(html, braceOpen);
+    // Include the trailing semicolon if present
+    const afterClose = html[braceClose + 1] === ';' ? braceClose + 2 : braceClose + 1;
+    const assetsBody = html.slice(braceOpen, afterClose); // "{ ... };" or "{ ... }"
+    const assetsBlockKB = (assetsBody.length / 1024).toFixed(1);
 
-  // Insert a new <script> with the ASSETS data just before the game script tag
-  const refIdx   = html.indexOf('const ASSETS=window.__AD_ASSETS;');
-  const scriptTagIdx = html.lastIndexOf('<script', refIdx);
-  const loadingInitScript = `<script>!function(){var a=window.__AD_ASSETS;if(!a)return;var m={'loadingGameName':'gameNameImage','loadingBarBgImg':'loadingBarBg','loadingBarFillImg':'loadingBarFill','loadingTextImg':'loadingTextImg'};Object.keys(m).forEach(function(k){var el=document.getElementById(k);if(el&&a[m[k]])el.src=a[m[k]];});}();</script>\n`;
-  const assetsScript = `<script>window.__AD_ASSETS=${assetsBody}</script>\n`;
-  html = html.slice(0, scriptTagIdx) + assetsScript + loadingInitScript + html.slice(scriptTagIdx);
-  console.log(`  Extracted ${assetsBlockKB} KB — game script is now script #6`);
+    // Remove ASSETS from game script, replace with window reference
+    html = html.slice(0, assetsIdx) + 'const ASSETS=window.__AD_ASSETS;' + html.slice(afterClose);
+
+    // Insert a new <script> with the ASSETS data just before the game script tag
+    const refIdx   = html.indexOf('const ASSETS=window.__AD_ASSETS;');
+    const scriptTagIdx = html.lastIndexOf('<script', refIdx);
+    const loadingInitScript = `<script>!function(){var a=window.__AD_ASSETS;if(!a)return;var m={'loadingGameName':'gameNameImage','loadingBarBgImg':'loadingBarBg','loadingBarFillImg':'loadingBarFill','loadingTextImg':'loadingTextImg'};Object.keys(m).forEach(function(k){var el=document.getElementById(k);if(el&&a[m[k]])el.src=a[m[k]];});}();</script>\n`;
+    const assetsScript = `<script>window.__AD_ASSETS=${assetsBody}</script>\n`;
+    html = html.slice(0, scriptTagIdx) + assetsScript + loadingInitScript + html.slice(scriptTagIdx);
+    console.log(`  Extracted ${assetsBlockKB} KB — game script is now script #6`);
+  } else {
+    console.log('  ASSETS already extracted in source — skipping.');
+  }
 
   // ── Step 1: Minify HTML ────────────────────────────────────────────────────
   console.log('\nStep 1 — Minifying HTML...');
