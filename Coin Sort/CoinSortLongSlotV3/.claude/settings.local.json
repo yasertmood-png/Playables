@@ -51,7 +51,11 @@
       "Bash(node build.js Cos-LongSlotV3-ByTransfer.html)",
       "Bash(node build.js Cos-LongSlotV3-2clk.html)",
       "Bash(for f in \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/Salt/Cos-LongSlotV3-30sec.html\" \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/Salt/Cos-LongSlotV3-2clk.html\" \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/Salt/Cos-LongSlotV3-ByTransfer.html\")",
-      "Bash(node build.js Cos-LongSlotV3-60sec.html)"
+      "Bash(node build.js Cos-LongSlotV3-60sec.html)",
+      "Bash(awk 'NR>=1686 && NR<=1700' \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/Cos-LongSlotV3-60sec.html\")",
+      "Bash(node extract-assets.js Cos-LongSlotV3-60sec.html)",
+      "Bash(node inline-loading-assets.js Cos-LongSlotV3-60sec.html)",
+      "Bash(node optimize-loading-images.js Cos-LongSlotV3-60sec.html)"
     ]
   }
 }

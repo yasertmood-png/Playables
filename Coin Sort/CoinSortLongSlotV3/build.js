@@ -51,9 +51,10 @@ function findMatchingBrace(str, braceIdx) {
   // Insert a new <script> with the ASSETS data just before the game script tag
   const refIdx   = html.indexOf('const ASSETS=window.__AD_ASSETS;');
   const scriptTagIdx = html.lastIndexOf('<script', refIdx);
+  const loadingInitScript = `<script>!function(){var a=window.__AD_ASSETS;if(!a)return;var m={'loadingGameName':'gameNameImage','loadingBarBgImg':'loadingBarBg','loadingBarFillImg':'loadingBarFill','loadingTextImg':'loadingTextImg'};Object.keys(m).forEach(function(k){var el=document.getElementById(k);if(el&&a[m[k]])el.src=a[m[k]];});}();</script>\n`;
   const assetsScript = `<script>window.__AD_ASSETS=${assetsBody}</script>\n`;
-  html = html.slice(0, scriptTagIdx) + assetsScript + html.slice(scriptTagIdx);
-  console.log(`  Extracted ${assetsBlockKB} KB — game script is now script #5`);
+  html = html.slice(0, scriptTagIdx) + assetsScript + loadingInitScript + html.slice(scriptTagIdx);
+  console.log(`  Extracted ${assetsBlockKB} KB — game script is now script #6`);
 
   // ── Step 1: Minify HTML ────────────────────────────────────────────────────
   console.log('\nStep 1 — Minifying HTML...');
@@ -72,15 +73,15 @@ function findMatchingBrace(str, braceIdx) {
   console.log(`Minified: ${(minSize / 1024).toFixed(1)} KB  (saved ${((inSize - minSize) / 1024).toFixed(1)} KB)`);
 
   // ── Step 2: Obfuscate script #5 (game logic only, no ASSETS) ──────────────
-  console.log('\nStep 2 — Obfuscating game script (script #5)...');
+  console.log('\nStep 2 — Obfuscating game script (script #6)...');
   const SCRIPT_RE = /(<script(?:[^>]*)>)([\s\S]*?)(<\/script>)/g;
   let scriptIndex = 0;
 
   const result = minified.replace(SCRIPT_RE, (full, open, code, close) => {
     scriptIndex++;
-    if (scriptIndex !== 5) return full;
+    if (scriptIndex !== 6) return full;
 
-    console.log(`  script ${scriptIndex}: ${code.length} chars → obfuscating...`);
+    console.log(`  script ${scriptIndex} (game logic): ${code.length} chars → obfuscating...`);
 
     const obfuscated = JavaScriptObfuscator.obfuscate(code, {
       compact: true,
