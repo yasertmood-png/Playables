@@ -1263,12 +1263,11 @@
     let adTimerStartMs = null;
     let adStarted = false;
     let webglAvailable = true;
+    var _gamePreloaded = false; // set true after warmCoinPool/spawnCoins run during loading
     const CTA_SHOW_DELAY_MS = 60000;
 
     // ---- Loading bar image settings ----
-    const DebugLoadingScreen       = false; // true = keep loading screen visible at 60% fill for layout adjustment
-    const LoadingMinDurationMs     = 2500;  // minimum ms the loading screen is shown
-    const LoadingFakeProgressRatio = 0.85;  // bar fills to this fraction over LoadingMinDurationMs, then waits for real load
+    const DebugLoadingScreen  = false;  // true = keep loading screen visible at 60% fill for layout adjustment
     const LoadingUIVW_Portrait  = 55;     // loading bar width (vw) in portrait
     const LoadingUIVW_Landscape = 30;     // loading bar width (vw) in landscape
     const LoadingBarSizeX     = 360;   // bar background width  in px
@@ -3589,10 +3588,11 @@
       adStarted = true;
       if (!webglAvailable) return;
       onResize();
-      warmCoinPool();
-
-      spawnCoins();
-      fillLongSlotInitialCoins();
+      if (!_gamePreloaded) {
+        warmCoinPool();
+        spawnCoins();
+        fillLongSlotInitialCoins();
+      }
 
       if (DebugShowAllSlotLids) showAllSlotLidsForTesting();
       refreshAllSlotCompletionStates(false);
@@ -4932,41 +4932,28 @@
       });
 
       setLoadingProgress(0);
-      var _loadingStartMs  = performance.now();
-      var _realLoadDone    = false;
-      var _fakeRafId       = null;
 
-      // Smooth fake progress animation — fills to LoadingFakeProgressRatio over LoadingMinDurationMs
-      function _tickFakeProgress() {
-        var elapsed  = performance.now() - _loadingStartMs;
-        var t        = Math.min(1, elapsed / LoadingMinDurationMs);
-        // ease-out curve so it slows as it approaches the cap
-        var eased    = 1 - Math.pow(1 - t, 2);
-        setLoadingProgress(eased * LoadingFakeProgressRatio);
-        if (t < 1) {
-          _fakeRafId = requestAnimationFrame(_tickFakeProgress);
-        } else if (_realLoadDone) {
-          _finish();
-        }
-      }
-      _fakeRafId = requestAnimationFrame(_tickFakeProgress);
-
-      function _finish() {
-        if (_fakeRafId) { cancelAnimationFrame(_fakeRafId); _fakeRafId = null; }
-        setLoadingProgress(1);
-        whenMraidReady(function () {
-          hideLoadingScreen();
-          startGame();
-        });
-      }
-
+      // After network/decode tasks finish, run heavy sync init steps with progress updates.
+      // Each setTimeout(0) yields to the browser so the bar visually updates between steps.
       Promise.all(loadingTasks).then(function () {
-        _realLoadDone = true;
-        var elapsed = performance.now() - _loadingStartMs;
-        if (elapsed >= LoadingMinDurationMs) {
-          _finish(); // min duration already passed — go immediately
-        }
-        // otherwise _tickFakeProgress will call _finish() when animation completes
+        setLoadingProgress(0.35);
+        setTimeout(function () {           // step 1 — build coin textures + pool
+          warmCoinPool();
+          setLoadingProgress(0.60);
+          setTimeout(function () {         // step 2 — place coins in slots
+            spawnCoins();
+            setLoadingProgress(0.80);
+            setTimeout(function () {       // step 3 — fill long slot
+              fillLongSlotInitialCoins();
+              _gamePreloaded = true;
+              setLoadingProgress(1);
+              whenMraidReady(function () {
+                hideLoadingScreen();
+                startGame();
+              });
+            }, 0);
+          }, 0);
+        }, 0);
       });
     })();
 
