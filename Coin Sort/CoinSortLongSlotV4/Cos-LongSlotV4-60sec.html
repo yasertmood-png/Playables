@@ -1326,7 +1326,7 @@
     let adStarted = false;
     let webglAvailable = true;
     var _gamePreloaded = false; // set true after warmCoinPool/spawnCoins run during loading
-    const CTA_SHOW_DELAY_MS = 60000;
+    const CTA_SHOW_DELAY_MS = 600000;
 
     // ---- Loading bar image settings ----
     const DebugLoadingScreen  = false;  // true = keep loading screen visible at 60% fill for layout adjustment
@@ -1904,13 +1904,17 @@
     const LongSlotOffsetZ             = 0;      // vertical offset from board center (world units)
     const LongSlotSideSlotXAdjust     = 0.05;   // extra gap between long slot and side columns
     const LongSlotWidthPortrait       = 0.65;
-    const LongSlotHeightPortrait      = GRID_ROWS * SLOT_HEIGHT + (GRID_ROWS - 1) * SlotVerticallySpacing+0.1;
+    const LongSlotHeightPortrait      = GRID_ROWS * SLOT_HEIGHT + (GRID_ROWS - 1) * SlotVerticallySpacing -0.4;
     const LongSlotWidthLandscape      = 0.65;
-    const LongSlotHeightLandscape     = LS_GRID_ROWS * SLOT_HEIGHT + (LS_GRID_ROWS - 1) * SlotVerticallySpacing+0.1;
-    const LongSlotCapacityPortrait    = 52;
-    const LongSlotCapacityLandscape   = 38;
+    const LongSlotHeightLandscape     = LS_GRID_ROWS * SLOT_HEIGHT + (LS_GRID_ROWS - 1) * SlotVerticallySpacing-0.8;
+    const NormalSlotWidthPortrait     = 0.65;    // normal (source) slot width  — tune independently
+    const NormalSlotWidthLandscape    = 0.65;    // normal (source) slot width  — landscape
+    const NormalSlotHeightPortrait    = GRID_ROWS * SLOT_HEIGHT + (GRID_ROWS - 1) * SlotVerticallySpacing-0.4;   // normal slot height — portrait
+    const NormalSlotHeightLandscape   = LS_GRID_ROWS * SLOT_HEIGHT + (LS_GRID_ROWS - 1) * SlotVerticallySpacing-0.8; // normal slot height — landscape
+    const LongSlotCapacityPortrait    = 48;
+    const LongSlotCapacityLandscape   = 32;
     // Wave system: after each long slot fills, a new one spawns with these pre-fill counts (then CTA)
-    const LongSlotWaveCoins     = [5, 2, 4, 3 ,1,6]; // pre-filled coin counts for wave 1, 2, 3
+    const LongSlotWaveCoins     = [1, 2,3 ,5,4]; // pre-filled coin counts for wave 1, 2, 3
     const LongSlotExitDuration  = 1000;       // ms for exit animation (long enough to clear screen)
     const LongSlotExitOffsetY   = 150;        // world units to slide in -Z (screen-top direction)
     const LongSlotSpawnDelay    = 600;        // ms after exit STARTS before new slot spawns (independent of exit duration)
@@ -1958,7 +1962,10 @@
     const CoinSmallTableRenderOrder = 10000;                // render table coin above all board objects
     const LongSlotTopCapHeight        = 0.7;    // world units for top-cap image height (tune to match image)
     const LongSlotBotCapHeight        = 0.7;    // world units for bottom-cap image height (tune to match image)
+    const NormalSlotTopCapHeight      = 0.7;    // normal (source) slot top-cap height — tune independently
+    const NormalSlotBotCapHeight      = 0.7;    // normal (source) slot bottom-cap height — tune independently
     const LongSlotMidRepeatY          = 0;      // 0 = auto-tile (maintains image aspect ratio); >0 = force N tiles
+    const NormalSlotMidRepeatY        = 0;      // 0 = auto-tile (maintains image aspect ratio); >0 = force N tiles
     const BagLidOffset                = { x: -0.00225, y: 0.385, z: 0.0 };   // normal slot lid position offset
     const BagLidScale                 = { x: 0.83, y: 0.818 };           // normal slot lid size
     const BagLidPopStartY             = 0.26;
@@ -2008,22 +2015,24 @@
     const CameraPortraitRotation = { x: -1.0, y: 0, z: 0 };
 
     // Camera - landscape orientation
-    const CameraLandscapePosition = { x: 0, y: 12, z: 6.2 };
+    const CameraLandscapePosition = { x: 0, y: 10, z:5 };
     const CameraLandscapeRotation = { x: -1.0, y: 0, z: 0 };
 
     // Camera virtual FOV (degrees) per orientation — works like a perspective FOV.
     // Moving the camera closer zooms in; farther zooms out. Larger angle = more zoomed out.
     const CameraFOVPortrait  = 0.12;
-    const CameraFOVLandscape = 0.3;
+    const CameraFOVLandscape = 0.2;
+    const CameraVerticalOffsetPortrait  = 0;  // positive = shift view down, negative = up
+    const CameraVerticalOffsetLandscape = -0.2;  // positive = shift view down, negative = up
 
     // Coin number-to-color mapping
     const CoinColors = {
       1: 0xFFA200,   // yellow
       2: 0x009E00,   // green
-      3: 0x009DFF,   // blue
+      3: 0xFF2EBD,   // pink
       4: 0x6300DB,   // purple
       5: 0xDE1721,   // red
-      6: 0xFF2EBD,   // pink
+      6: 0x009DFF,   // blue
       7: 0xA52A2A,   // light green
     };
 
@@ -2040,8 +2049,10 @@
     const CoinStackStartZ = -0.72;
     const CoinStackStartY = 0.46;
     // Long slot coin stack start Z — tune independently per orientation
-    const LongSlotCoinStackStartZPortrait  = -4.07;
-    const LongSlotCoinStackStartZLandscape = -2.97;
+    const LongSlotCoinStackStartZPortrait  = -3.8;
+    const LongSlotCoinStackStartZLandscape = -2.5;
+    const NormalSlotCoinStackStartZPortrait  = -3.75;   // tune to align coins inside normal slots (portrait)
+    const NormalSlotCoinStackStartZLandscape = -2.5;   // tune to align coins inside normal slots (landscape)
     const LongSlotCoinStackStartY = CoinStackStartY;
 
     // Dynamic coin X offset: projects slot center through camera to coin Y plane
@@ -2142,47 +2153,46 @@
 
     // Portrait coin layout — visual left-to-right order: left0, left1, left2, TARGET, right0, right1, right2
 const DefaultCoinLayout = [
-  [1,1,1,1,1,1,1,1,3,3,3,3,3,3,3,3,6,6,6,6,4,4,4,4,6,6,6,6,6,6,6,6,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,2,2,2,2],
+  [3,3,3,3,3,3, 4,4,4,4,4,4, 3,3,3, 2,2,2, 5,5,5,5,5,5, 4,4,4,4,4,4, 2,2,2,2,2,2, 1,1,1,1,1,1, 2,2,2, 1,1,1],
 
-  [6,6,6,6,6,6,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,6,6,6,6,4,4,4,4,2,2,2,2,2,2,2,2,4,4,4,4,4,4],
+  [2,2,2,2,2,2, 5,5,5,5,5,5, 3,3,3,3,3,3, 4,4,4,4,4,4, 2,2,2, 5,5,5, 3,3,3,3,3,3, 1,1,1,1,1,1, 5,5,5,5,5,5],
+
+  
+  [4,4,4,4,4,4, 3,3,3, 2,2,2, 4,4,4,4,4,4, 2,2,2,2,2,2, 1,1,1,1,1,1, 3,3,3,3,3,3, 1,1,1, 2,2,2, 1,1,1,1,1,1],
+  [],
 
   [],
 
-  [5,5,5,5,5,5,5,5,5,5],
+  [3,3,3,3,3,3, 4,4,4,4,4,4, 5,5,5,5,5,5, 4,4,4, 5,5,5, 1,1,1,1,1,1, 4,4,4,4,4,4, 1,1,1,1,1,1, 2,2,2,2,2,2],
 
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,4,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,2,2,3,3,4,4,4,4],
-
-  [1,1,1,1,1,1,1,1,6,6,6,6,6,6,6,6,2,2,2,2,5,5,5,5,4,4,4,4,3,3,3,3,3,3,3,3,5,5,5,5,5,5,5,5,5,5,5,5,6,6,6,6],
-
-  [1,1,1,1,6,6,6,6,2,2,2,2,2,2,2,2,5,5,5,5,5,5,5,5,4,4,4,4,4,4,4,4,3,3,3,3,3,3,3,3,5,5,5,5,6,6,6,6,5,5,5,5]
+  [2,2,2, 5,5,5, 3,3,3,3,3,3, 2,2,2,2,2,2, 5,5,5,5,5,5, 3,3,3,3,3,3, 5,5,5, 4,4,4, 5,5,5,5,5,5, 1,1,1,1,1,1]
 ];
  
     // Landscape coin layout — visual left-to-right order: left0..left4, TARGET, right0..right4
-    const DefaultCoinLayoutLandscape = [
-      [1,1,1,1,1,1,3,3,3,3,3,3,6,6,6,4,4,4,6,6,6,6,6,6,2,2,2,2,2,2,3,3,3,3,3,3,2,2],
-      [6,6,6,6,6,1,1,1,1,1,1,2,2,2,2,2,2,3,3,3,3,3,3,6,6,6,4,4,4,2,2,2,2,2,2,4,4,4],
-      [1,1,1,1,1,5,5,5,2,2,2,2,5,5,5,5,5,4,4,4,4,4,4,3,3,3,3,3,3,5,5,5,6,6,5,5,5,5],       
-      [1,1,1,1,1,1,6,6,6,6,6,6,2,2,2,5,5,5,4,4,4,3,3,3,3,3,3,5,5,5,5,5,5,5,5,6,6,6],       
-      [6,6,6,6,6,1,1,1,1,1,1,2,2,2,2,2,2,3,3,3,3,3,3,6,6,6,4,4,4,2,2,2,2,2,2,4,4,4],       
-      [5,5,5,5,5,5],
-      [], 
-      [6,6,1,1,1,1,1,1,3,3,3,3,3,3,4,4,4,4],            // index 7 — right col 1
-      [1,1,1,1,1,1,1,1,3,3,3,3,6,6,6,4,4,4,6,6,6,6,6,6,2,2,2,2,2,2,2,2,3,3,3,3,3,3],       
-      [1,1,1,1,1,1,4,4,5,5,5,5,5,5,2,2,2,5,5,5,4,4,4,4,4,4,4,4,3,3,3,3,5,5,5,6,6,6],
-      [1,1,1,1,1,1,1,6,6,6,2,2,2,2,2,2,5,5,5,5,5,5,4,4,4,4,4,4,4,5,5,5,6,6,6,5,5,5],
-  
-    ];
+const DefaultCoinLayoutLandscape = [
+  [4,4,4,4, 3,3, 2,2, 3,3,3,3, 2,2,2,2, 3,3, 4,4, 5,5,5,5,4,4,4,4,4,4,2,2],
+  [4,4, 5,5, 3,3,3,3, 2,2,2,2, 5,5,5,5, 3,3,3,3, 2,2,2,2, 5,5,5,5, 3,3,3,3],
+  [3,3,3,3, 4,4,4,4, 3,3, 2,2, 5,5,5,5, 4,4,4,4, 2,2,2,2, 1,1,1,1, 2,2, 1,1],
+  [2,2,2,2, 5,5,5,5, 3,3,3,3, 4,4,4,4, 2,2, 5,5, 3,3,3,3, 1,1,1,1, 5,5,5,5],
+  [4,4,4,4, 3,3, 2,2, 4,4,4,4, 2,2,2,2, 1,1,1,1, 3,3,3,3, 1,1, 2,2, 1,1,1,1],
+  [],
+  [],
+  [3,3,3,3, 4,4,4,4, 5,5,5,5, 4,4, 5,5, 1,1,1,1, 4,4,4,4, 1,1,1,1, 2,2,2,2],
+  [2,2, 5,5, 3,3,3,3, 2,2,2,2, 5,5,5,5, 3,3,3,3, 5,5, 4,4, 5,5,5,5,1,1,1,1],
+  [2,2,2,2, 5,5,5,5, 4,4,3,3, 4,4,4,4, 2,2, 5,5,5,5, 3,3,3,3, 2,2, 5,5,5,5],
+  [3,3,3,3, 4,4,4,4, 5,5,5,5,3,3, 5,5, 2,2,2,2, 4,4,4,4, 2,2,4,4,2,2,4,4],
+];
 
 
     // ---- Tutorial Configuration ----
     // Each entry is [pickupSlotIndex, dropSlotIndex].
     // Use 'LONG_SLOT' so tutorial targets resolve correctly in both portrait and landscape.
     const TutorialStepsGroups = [
-      [[6, 'LONG_SLOT']],
+      [[2, 'LONG_SLOT']],
     ];
 
     const TutorialStepsGroupsLandscape = [
-      [[10, 'LONG_SLOT']],
+      [[4, 'LONG_SLOT']],
     ];
     var TutorialSteps = []; // resolved in startTutorial() based on orientation
     const TutorialEnabled = TutorialStepsGroups.flat().length > 0;
@@ -2282,6 +2292,7 @@ const DefaultCoinLayout = [
     function fitOrthoToBoard() {
       const isPortrait = window.innerWidth <= window.innerHeight;
       const fov = isPortrait ? CameraFOVPortrait : CameraFOVLandscape;
+      const vOffset = isPortrait ? CameraVerticalOffsetPortrait : CameraVerticalOffsetLandscape;
       camera.updateMatrixWorld();
       var aspect = window.innerWidth / window.innerHeight;
       var corners = _tableCornersWorld(0);
@@ -2297,8 +2308,8 @@ const DefaultCoinLayout = [
       var hs = Math.max(maxExtY, maxExtX / aspect) * (1 + fov);
       camera.left   = -hs * aspect + boardCenterCam.x;
       camera.right  =  hs * aspect + boardCenterCam.x;
-      camera.top    =  hs + boardCenterCam.y;
-      camera.bottom = -hs + boardCenterCam.y;
+      camera.top    =  hs + boardCenterCam.y - vOffset;
+      camera.bottom = -hs + boardCenterCam.y - vOffset;
       camera.updateProjectionMatrix();
     }
 
@@ -2422,40 +2433,59 @@ const DefaultCoinLayout = [
 
     // Build source long slots — single horizontal row, same visual as target but no CoinSmallTable
     function _makeSourceLongSlot(col, x) {
+      const _nsW = _initIsLandscape ? NormalSlotWidthLandscape  : NormalSlotWidthPortrait;
+      const _nsH = _initIsLandscape ? NormalSlotHeightLandscape : NormalSlotHeightPortrait;
       const _srcZ = LongSlotOffsetZ;
+      // Shift center so top edge stays fixed at _srcZ - _longH/2 regardless of _nsH
+      const _nsCenter = _srcZ - (_longH - _nsH) / 2;
       const _shadOX = _initIsLandscape ? LongSlotShadowOffsetXLandscape : LongSlotShadowOffsetXPortrait;
       const _shadOZ = _initIsLandscape ? LongSlotShadowOffsetZLandscape : LongSlotShadowOffsetZPortrait;
-      const _srcShadW    = _longW * LongSlotShadowScaleX;
+      const _srcShadW    = _nsW * LongSlotShadowScaleX;
       const _srcShadTopH = _lsTopH * LongSlotShadowScaleY;
       const _srcShadBotH = _lsBotH * LongSlotShadowScaleY;
       const _srcShadMidH = _lsMidH * LongSlotShadowScaleY;
       const _srcShadH    = _srcShadTopH + _srcShadMidH + _srcShadBotH;
+       const _nsTopH = NormalSlotTopCapHeight;
+       const _nsBotH = NormalSlotBotCapHeight;
+       const _nsMidH = _nsH - _nsTopH - _nsBotH;
+
 
       // Body: top cap
       const _topMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(_longW, _lsTopH),
+        new THREE.PlaneGeometry(_nsW, _nsTopH),
         new THREE.MeshBasicMaterial({ map: loadB64Texture(ASSETS.normalSlotTop), transparent: true, alphaTest: 0.01, side: THREE.FrontSide })
       );
       _topMesh.rotation.x = -Math.PI / 2;
-      _topMesh.position.set(x, 0.2, _srcZ - _longH / 2 + _lsTopH / 2);
+      _topMesh.position.set(x, 0.2, _nsCenter - _nsH / 2 + _nsTopH / 2);
       scene.add(_topMesh);
 
-      // Body: middle
+      // Body: middle (tiled — same approach as long slot target)
+      const _nsMidTex = loadB64Texture(ASSETS.normalSlotMid);
+      _nsMidTex.wrapT = THREE.RepeatWrapping;
       const _midMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(_longW, _lsMidH),
-        new THREE.MeshBasicMaterial({ map: loadB64Texture(ASSETS.normalSlotMid), transparent: true, alphaTest: 0.01, side: THREE.FrontSide })
+        new THREE.PlaneGeometry(_nsW, _nsMidH),
+        new THREE.MeshBasicMaterial({ map: _nsMidTex, transparent: true, alphaTest: 0.01, side: THREE.FrontSide })
       );
       _midMesh.rotation.x = -Math.PI / 2;
-      _midMesh.position.set(x, 0.2, _srcZ - _longH / 2 + _lsTopH + _lsMidH / 2);
+      _midMesh.position.set(x, 0.2, _nsCenter - _nsH / 2 + _nsTopH + _nsMidH / 2);
       scene.add(_midMesh);
-
+      (function(tex, midH) {
+        var img = new Image();
+        img.onload = function() {
+          var iW = img.naturalWidth || 1, iH = img.naturalHeight || 1;
+          var tileH = NormalSlotMidRepeatY > 0 ? midH / NormalSlotMidRepeatY : _nsW * iH / iW;
+          tex.repeat.set(1, midH / tileH);
+          tex.needsUpdate = true;
+        };
+        img.src = ASSETS.normalSlotMid;
+      })(_nsMidTex, _nsMidH);
       // Body: bottom cap
       const _botMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(_longW, _lsBotH),
+        new THREE.PlaneGeometry(_nsW, _nsBotH),
         new THREE.MeshBasicMaterial({ map: loadB64Texture(ASSETS.normalSlotBot), transparent: true, alphaTest: 0.01, side: THREE.FrontSide })
       );
       _botMesh.rotation.x = -Math.PI / 2;
-      _botMesh.position.set(x, 0.2, _srcZ + _longH / 2 - _lsBotH / 2);
+      _botMesh.position.set(x, 0.2, _nsCenter + _nsH / 2 - _nsBotH / 2);
       scene.add(_botMesh);
 
       // Shadow: top cap
@@ -2464,7 +2494,7 @@ const DefaultCoinLayout = [
         new THREE.MeshBasicMaterial({ map: loadB64Texture(ASSETS.longGrillShadowUpDown), color: 0x000000, transparent: true, opacity: LongSlotShadowOpacity, depthWrite: false })
       );
       _shadTopMesh.rotation.x = -Math.PI / 2;
-      _shadTopMesh.position.set(x + _shadOX, LongSlotShadowY, _srcZ - _srcShadH / 2 + _srcShadTopH / 2 + _shadOZ);
+      _shadTopMesh.position.set(x + _shadOX, LongSlotShadowY, _nsCenter - _srcShadH / 2 + _srcShadTopH / 2 + _shadOZ);
       scene.add(_shadTopMesh);
 
       // Shadow: middle (tiled)
@@ -2475,7 +2505,7 @@ const DefaultCoinLayout = [
         new THREE.MeshBasicMaterial({ map: _shadMidTex, color: 0x000000, transparent: true, opacity: LongSlotShadowOpacity, depthWrite: false })
       );
       _shadMidMesh.rotation.x = -Math.PI / 2;
-      _shadMidMesh.position.set(x + _shadOX, LongSlotShadowY, _srcZ - _srcShadH / 2 + _srcShadTopH + _srcShadMidH / 2 + _shadOZ);
+      _shadMidMesh.position.set(x + _shadOX, LongSlotShadowY, _nsCenter - _srcShadH / 2 + _srcShadTopH + _srcShadMidH / 2 + _shadOZ);
       scene.add(_shadMidMesh);
       (function(tex, shadMidH) {
         var img = new Image();
@@ -2495,16 +2525,16 @@ const DefaultCoinLayout = [
       );
       _shadBotMesh.rotation.x = -Math.PI / 2;
       _shadBotMesh.rotation.z = Math.PI;
-      _shadBotMesh.position.set(x + _shadOX, LongSlotShadowY, _srcZ + _srcShadH / 2 - _srcShadBotH / 2 + _shadOZ);
+      _shadBotMesh.position.set(x + _shadOX, LongSlotShadowY, _nsCenter + _srcShadH / 2 - _srcShadBotH / 2 + _shadOZ);
       scene.add(_shadBotMesh);
 
       // Lid: top cap
       const _lidTopMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(_longW, _lsTopH),
+        new THREE.PlaneGeometry(_nsW, _lsTopH),
         new THREE.MeshBasicMaterial({ map: loadB64Texture(ASSETS.longSlotLidTop), transparent: true, alphaTest: 0.01, side: THREE.FrontSide, depthWrite: false, depthTest: false })
       );
       _lidTopMesh.rotation.x = -Math.PI / 2;
-      _lidTopMesh.position.set(x + LongSlotLidOffset.x, LongSlotLidOffset.y, _srcZ - _longH / 2 + _lsTopH / 2 + LongSlotLidOffset.z);
+      _lidTopMesh.position.set(x + LongSlotLidOffset.x, LongSlotLidOffset.y, _nsCenter - _nsH / 2 + _lsTopH / 2 + LongSlotLidOffset.z);
       _lidTopMesh.userData.lidTargetScale = { x: LongSlotLidScale.x, y: LongSlotLidScale.y };
       _lidTopMesh.userData.lidTargetY = LongSlotLidOffset.y;
       _lidTopMesh.userData.lidPopStartY = LongSlotLidPopStartY;
@@ -2516,11 +2546,11 @@ const DefaultCoinLayout = [
 
       // Lid: middle
       const _lidMidMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(_longW, _lsMidH),
+        new THREE.PlaneGeometry(_nsW, _lsMidH),
         new THREE.MeshBasicMaterial({ map: loadB64Texture(ASSETS.longSlotLidMid), transparent: true, alphaTest: 0.01, side: THREE.FrontSide, depthWrite: false, depthTest: false })
       );
       _lidMidMesh.rotation.x = -Math.PI / 2;
-      _lidMidMesh.position.set(x + LongSlotLidOffset.x, LongSlotLidOffset.y, _srcZ - _longH / 2 + _lsTopH + _lsMidH / 2 + LongSlotLidOffset.z);
+      _lidMidMesh.position.set(x + LongSlotLidOffset.x, LongSlotLidOffset.y, _nsCenter - _nsH / 2 + _lsTopH + _lsMidH / 2 + LongSlotLidOffset.z);
       _lidMidMesh.userData.lidTargetScale = { x: LongSlotLidScale.x, y: 1.0 + (_lsTopH + _lsBotH) * (1.0 - LongSlotLidScale.y) / _lsMidH };
       _lidMidMesh.userData.lidTargetY = LongSlotLidOffset.y;
       _lidMidMesh.userData.lidPopStartY = LongSlotLidPopStartY;
@@ -2532,11 +2562,11 @@ const DefaultCoinLayout = [
 
       // Lid: bottom cap
       const _lidBotMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(_longW, _lsBotH),
+        new THREE.PlaneGeometry(_nsW, _lsBotH),
         new THREE.MeshBasicMaterial({ map: loadB64Texture(ASSETS.longSlotLidBottom), transparent: true, alphaTest: 0.01, side: THREE.FrontSide, depthWrite: false, depthTest: false })
       );
       _lidBotMesh.rotation.x = -Math.PI / 2;
-      _lidBotMesh.position.set(x + LongSlotLidOffset.x, LongSlotLidOffset.y, _srcZ + _longH / 2 - _lsBotH / 2 + LongSlotLidOffset.z);
+      _lidBotMesh.position.set(x + LongSlotLidOffset.x, LongSlotLidOffset.y, _nsCenter + _nsH / 2 - _lsBotH / 2 + LongSlotLidOffset.z);
       _lidBotMesh.userData.lidTargetScale = { x: LongSlotLidScale.x, y: LongSlotLidScale.y };
       _lidBotMesh.userData.lidTargetY = LongSlotLidOffset.y;
       _lidBotMesh.userData.lidPopStartY = LongSlotLidPopStartY;
@@ -2548,15 +2578,15 @@ const DefaultCoinLayout = [
 
       // Hit mesh (invisible, for raycasting)
       const _hitMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(_longW, _longH),
+        new THREE.PlaneGeometry(_nsW, _nsH),
         new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.FrontSide })
       );
       _hitMesh.rotation.x = -Math.PI / 2;
-      _hitMesh.position.set(x, 0.21, _srcZ);
+      _hitMesh.position.set(x, 0.21, _nsCenter);
       scene.add(_hitMesh);
 
       slots.push({
-        col, row: -1, x, z: _srcZ,
+        col, row: -1, x, z: _nsCenter,
         type: SlotType.LongSlot,
         coins: [], capacity: _longCap,
         mesh: _hitMesh,
@@ -3315,7 +3345,7 @@ const DefaultCoinLayout = [
           introCoin.visible = true;
           introCoin.position.copy(startPos);
           introCoin.quaternion.copy(startQuat);
-          introCoin.scale.copy(startScale);
+          introCoin.scale.set(0, 0, 0);
           _resetCstIntroTrailTracking();
           _updateCstIntroTrail(introCoin, coinNumber);
         })
@@ -3324,9 +3354,9 @@ const DefaultCoinLayout = [
           introCoin.position.copy(startPos).lerp(centerPos, t);
           introCoin.quaternion.copy(startQuat).slerp(centerQuat, t);
           introCoin.scale.set(
-            startScale.x + (peakScale.x - startScale.x) * t,
-            startScale.y + (peakScale.y - startScale.y) * t,
-            startScale.z + (peakScale.z - startScale.z) * t
+            peakScale.x * t,
+            peakScale.y * t,
+            peakScale.z * t
           );
           _updateCstIntroTrail(introCoin, coinNumber);
         })
@@ -3612,7 +3642,7 @@ const DefaultCoinLayout = [
         _coinIntroTimerId = null;
         if (!_coinIntroReady || _coinIntroStarted || !_canStartCoinSmallTableIntro()) return;
         _coinIntroStarted = true;
-        _buildCoinSmallTable(_longSlotCoinType, 0);
+        _buildCoinSmallTable(LongSlotWaveCoins[0], 0);
       }, 0);
     }
 
@@ -3973,7 +4003,10 @@ const DefaultCoinLayout = [
       var longSlotStackStartZ = _initIsLandscape
         ? LongSlotCoinStackStartZLandscape
         : LongSlotCoinStackStartZPortrait;
-      var stackStartZ = isLongSlot ? longSlotStackStartZ : CoinStackStartZ;
+      var normalSlotStackStartZ = _initIsLandscape
+        ? NormalSlotCoinStackStartZLandscape
+        : NormalSlotCoinStackStartZPortrait;
+      var stackStartZ = slot.isTargetLongSlot ? longSlotStackStartZ : normalSlotStackStartZ;
       var xOffset = getCoinXOffset(slot, stackStartY);
       return {
         x: slot.x + xOffset,
@@ -4290,7 +4323,7 @@ const DefaultCoinLayout = [
           }
           return;
         }
-        mergeSlot(slotIdx, countAsProgress);
+        if (EnableSlotMerge) mergeSlot(slotIdx, countAsProgress);
       }
     }
 
