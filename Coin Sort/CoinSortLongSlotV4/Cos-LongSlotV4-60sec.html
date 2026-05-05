@@ -3446,6 +3446,7 @@ const DefaultCoinLayoutLandscape = [
         new THREE.PlaneGeometry(CoinSmallTableScale, CoinSmallTableScale),
         new THREE.MeshBasicMaterial({
           map: loadB64Texture(ASSETS.coinSmallTable),
+          color: new THREE.Color(CoinColors[coinNumber] || 0xCCCCCC),
           transparent: true,
           alphaTest: 0.01,
           side: THREE.FrontSide,
