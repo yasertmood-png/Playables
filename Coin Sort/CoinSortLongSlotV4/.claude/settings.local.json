@@ -57,7 +57,10 @@
       "Bash(node inline-loading-assets.js Cos-LongSlotV3-60sec.html)",
       "Bash(node optimize-loading-images.js Cos-LongSlotV3-60sec.html)",
       "Bash(ls \"c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV3/\"*.html)",
-      "Bash(grep -v \"^[0-9]*:.*//.*ASSETS\\\\.\")"
+      "Bash(grep -v \"^[0-9]*:.*//.*ASSETS\\\\.\")",
+      "Bash(node build.js \"Cos-LongSlotV4-30sec.html\")",
+      "Bash(node build.js \"Cos-LongSlotV4-2clk.html\")",
+      "Bash(node build.js \"Cos-LongSlotV4-ByTransfer.html\")"
     ]
   }
 }
