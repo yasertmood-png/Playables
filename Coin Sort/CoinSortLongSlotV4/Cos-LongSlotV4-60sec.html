@@ -5206,6 +5206,11 @@
             _gamePreloaded = true;
             setLoadingProgress(1);
             whenMraidReady(function () {
+              // Sync isFocused with actual MRAID viewable state so the first
+              // frame renders immediately instead of showing a black screen.
+              if (window.mraid && typeof window.mraid.isViewable === 'function') {
+                if (window.mraid.isViewable()) isFocused = true;
+              }
               hideLoadingScreen();
               startGame();
             });
