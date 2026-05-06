@@ -60,7 +60,8 @@
       "Bash(grep -v \"^[0-9]*:.*//.*ASSETS\\\\.\")",
       "Bash(node build.js \"Cos-LongSlotV4-30sec.html\")",
       "Bash(node build.js \"Cos-LongSlotV4-2clk.html\")",
-      "Bash(node build.js \"Cos-LongSlotV4-ByTransfer.html\")"
+      "Bash(node build.js \"Cos-LongSlotV4-ByTransfer.html\")",
+      "Bash(node build.js \"Cos-LongSlotV4-60sec.html\")"
     ]
   }
 }

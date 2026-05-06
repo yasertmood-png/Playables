@@ -1386,7 +1386,7 @@
     let adStarted = false;
     let webglAvailable = true;
     var _gamePreloaded = false; // set true after warmCoinPool/spawnCoins run during loading
-    const CTA_SHOW_DELAY_MS = 600000;
+    const CTA_SHOW_DELAY_MS = 30000;
 
     // ---- Loading bar image settings ----
     const DebugLoadingScreen = false;  // true = keep loading screen visible at 60% fill for layout adjustment
@@ -1405,8 +1405,8 @@
     const LoadingTextOffsetX = 0;     // horizontal offset from center in px
     const LoadingTextOffsetY = 0;     // vertical offset in px
     const Enable2ClickRedirection = false;  // open store + end card when tutorial (2nd click) completes
-    const EnableTransferRedirection = true; // redirect to store after N transfers (ByTransfer behaviour)
-    const TransferRedirectionLimit = 10;     // number of transfers before store redirect (used when EnableTransferRedirection = true)
+    const EnableTransferRedirection = false; // redirect to store after N transfers (ByTransfer behaviour)
+    const TransferRedirectionLimit = 3;     // number of transfers before store redirect (used when EnableTransferRedirection = true)
     const CTA_PULSE_START_DELAY_MS = 260;
     const CTA_TEXT_WIDTH_MARGIN = 0.82; // fraction of button width available for text
     const CTA_TEXT_HEIGHT_RATIO = 0.72; // max fraction of button height for text
@@ -5206,6 +5206,9 @@
             _gamePreloaded = true;
             setLoadingProgress(1);
             whenMraidReady(function () {
+              // We're about to show the game — ensure rendering starts regardless
+              // of isFocused state. MRAID viewableChange will take over from here.
+              isFocused = true;
               hideLoadingScreen();
               startGame();
             });
