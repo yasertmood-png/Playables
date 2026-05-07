@@ -2022,6 +2022,7 @@
     const LongSlotCheckpointFlightEasing = TWEEN.Easing.Sinusoidal.Out;
     const LongSlotCheckpointArcPeakHeight = 2.5;
     const LongSlotCheckpointArcShapePower = 1; // jump arc shape; higher values flatten the apex
+    const LongSlotCheckpointFlightStartScale = 1.5;
     const LongSlotCheckpointFlightRotationEnabled = false;
     const LongSlotCheckpointSpinTurns = 1.35;
     const LongSlotCheckpointTriggerStagger = 110;
@@ -3970,6 +3971,8 @@
       var sx = coin.position.x, sy = coin.position.y, sz = coin.position.z;
       var rotNode = (coin.userData && coin.userData.qmMesh) ? coin.userData.qmMesh : coin;
       var startRotX = rotNode.rotation.x, startRotY = rotNode.rotation.y, startRotZ = rotNode.rotation.z;
+      var startScaleX = coin.scale.x, startScaleY = coin.scale.y, startScaleZ = coin.scale.z;
+      var baseScale = (coin.userData && coin.userData.flightBaseScale) ? coin.userData.flightBaseScale : new THREE.Vector3(startScaleX, startScaleY, startScaleZ);
       var peakBoost = LongSlotCheckpointArcPeakHeight - (sy + targetY) / 2;
       if (peakBoost < 1) peakBoost = 1;
       var spinDir = targetX >= sx ? 1 : -1;
@@ -3986,6 +3989,11 @@
           coin.position.x = sx + (targetX - sx) * t;
           coin.position.z = sz + (targetZ - sz) * t;
           coin.position.y = (1 - t) * sy + t * targetY + peakBoost * arcLift;
+          coin.scale.set(
+            THREE.MathUtils.lerp(startScaleX, baseScale.x, t),
+            THREE.MathUtils.lerp(startScaleY, baseScale.y, t),
+            THREE.MathUtils.lerp(startScaleZ, baseScale.z, t)
+          );
           if (LongSlotCheckpointFlightRotationEnabled) {
             rotNode.rotation.y = startRotY + spinDir * Math.PI * 2 * LongSlotCheckpointSpinTurns * t;
             var tiltPhase = arcLift;
@@ -3997,6 +4005,7 @@
         })
         .onComplete(function () {
           coin.position.set(targetX, targetY, targetZ);
+          coin.scale.copy(baseScale);
           rotNode.rotation.set(startRotX, startRotY, startRotZ);
           if (onComplete) onComplete();
         })
@@ -4030,6 +4039,8 @@
       flyer.position.copy(worldPos);
       flyer.quaternion.copy(worldQuat);
       flyer.scale.copy(worldScale);
+      flyer.userData.flightBaseScale = worldScale.clone();
+      flyer.scale.multiplyScalar(LongSlotCheckpointFlightStartScale);
       _setCoinRenderActive(flyer, true);
 
       _animateLongSlotCheckpointFlight(flyer, targetPos.x, targetPos.y, targetPos.z, function () {
