@@ -2033,11 +2033,12 @@
     const QuestionMarkBobPhaseStep = 0.5;        // radian phase offset between adjacent marks
     const CheckpointCircleColor = 0x35522d;
     const CheckpointCircleReachedColor = 0xcf9802;
+    const CheckpointCircleReachedRingColor = 0x07a832;
     const CheckpointCircleSize = { x: 1.5, y: 1.7, z: 1.7 };
     const CheckpointCircleRotation = { x: 90, y: 0, z: 0 };
     const CheckpointCirclePosition = { x: 0, y: -0.3, z: 0 };
     const CheckpointQuestionMarkColor = 0x464f59;
-    const CheckpointQuestionMarkSize = { x: 0.8, y: 0.8, z: 0.8 };
+    const CheckpointQuestionMarkSize = { x: 0.65, y: 0.65, z: 0.65 };
     const CheckpointQuestionMarkRotation = { x: -25, y: 0, z: 0 };
     const CheckpointQuestionMarkPosition = { x: 0, y: 0, z: 0.2 };
     const CheckpointQuestionMarkPreflightColorLerpDuration = 120;
@@ -3427,7 +3428,7 @@
 
     function _setCheckpointCircleReached(marker, reached) {
       if (!marker || !marker.userData || !marker.userData._coinMat) return;
-      marker.userData._coinMat.color.setHex(reached ? CheckpointCircleReachedColor : CheckpointCircleColor);
+      marker.userData._coinMat.color.setHex(reached ? CheckpointCircleReachedRingColor : CheckpointCircleColor);
     }
 
     function _setCheckpointMarkerReached(marker, reached) {
@@ -4298,9 +4299,7 @@
       flyer.userData.flightBaseScale = worldScale.clone();
       _setCoinRenderActive(flyer, true);
 
-      var preflightTargetColor = (marker.userData && marker.userData._coinMat)
-        ? marker.userData._coinMat.color.getHex()
-        : CheckpointCircleReachedColor;
+      var preflightTargetColor = CheckpointCircleReachedColor;
       _animateCheckpointFlyerPreflightColor(flyer, preflightTargetColor, function () {
         _animateLongSlotCheckpointFlight(flyer, targetPos.x, targetPos.y, targetPos.z, function () {
           _setCoinRenderActive(flyer, false);
