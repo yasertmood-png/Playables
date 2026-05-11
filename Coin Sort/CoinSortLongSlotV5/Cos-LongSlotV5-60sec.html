@@ -2024,6 +2024,9 @@
     const NormalSlotCoinStackStartZLandscape = -(GridSlotHeightLandscape / 2 - NormalSlotCoinInsetFromTop);
     const LongSlotCoinStackStartZPortrait = -(LongSlotHeightPortrait / 2 - LongSlotCoinInsetFromTopPortrait)-0.02;
     const LongSlotCoinStackStartZLandscape = -(LongSlotHeightLandscape / 2 - LongSlotCoinInsetFromTopLandscape)+0.04;
+    // Middle long slot stacks from the bottom upward (mirrored from top constants)
+    const LongSlotCoinStackEndZPortrait = (LongSlotHeightPortrait / 2 - LongSlotCoinInsetFromTopPortrait)+0.02;
+    const LongSlotCoinStackEndZLandscape = (LongSlotHeightLandscape / 2 - LongSlotCoinInsetFromTopLandscape)-0.04;
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Question mark (long-slot placeholder coins) ──────────────────────────
@@ -4131,7 +4134,7 @@
     //   threshold — real-coin count trigger (percent × real fillable capacity)
     function _getLongSlotCheckpoints(slot) {
       var slotHeight = _initIsLandscape ? LongSlotHeightLandscape : LongSlotHeightPortrait;
-      var slotTop    = slot.z - slotHeight / 2;   // top (near) edge of slot in world Z
+      var slotBottom = slot.z + slotHeight / 2;   // bottom (far) edge of slot in world Z
       var coinPos0   = getCoinPosition(slot, 0);
       // Real-fill capacity: slots the player can actually fill (total minus the QM pre-fill).
       var realCapacity = Math.max(1, slot.capacity - _longSlotFillCount);
@@ -4142,8 +4145,8 @@
         var threshold = Math.max(1, Math.min(realCapacity, Math.round(pct * realCapacity)));
         if (seen[threshold]) continue;
         seen[threshold] = true;
-        // 0.0 = top of slot, 1.0 = bottom of slot — purely based on physical height
-        var posZ = slotTop + pct * slotHeight;
+        // 0.0 = bottom of slot, 1.0 = top of slot — reversed for bottom-up coin stacking
+        var posZ = slotBottom - pct * slotHeight;
         results.push({ threshold: threshold, posZ: posZ, posX: coinPos0.x, posY: coinPos0.y });
       }
       return results;
@@ -4925,14 +4928,25 @@
     function getCoinPosition(slot, index) {
       var isLongSlot = slot.type === SlotType.LongSlot;
       var stackStartY = isLongSlot ? LongSlotCoinStackStartY : CoinStackStartY;
-      var longSlotStackStartZ = _initIsLandscape
-        ? LongSlotCoinStackStartZLandscape
-        : LongSlotCoinStackStartZPortrait;
+      var xOffset = getCoinXOffset(slot, stackStartY);
+      if (slot.isTargetLongSlot) {
+        // Middle long slot: stack from bottom upward
+        var stackEndZ = _initIsLandscape
+          ? LongSlotCoinStackEndZLandscape
+          : LongSlotCoinStackEndZPortrait;
+        return {
+          x: slot.x + xOffset,
+          y: stackStartY,
+          z: slot.z + stackEndZ - index * CoinSpacing,
+        };
+      }
       var normalSlotStackStartZ = _initIsLandscape
         ? NormalSlotCoinStackStartZLandscape
         : NormalSlotCoinStackStartZPortrait;
-      var stackStartZ = slot.isTargetLongSlot ? longSlotStackStartZ : normalSlotStackStartZ;
-      var xOffset = getCoinXOffset(slot, stackStartY);
+      var longSlotStackStartZ = _initIsLandscape
+        ? LongSlotCoinStackStartZLandscape
+        : LongSlotCoinStackStartZPortrait;
+      var stackStartZ = isLongSlot ? longSlotStackStartZ : normalSlotStackStartZ;
       return {
         x: slot.x + xOffset,
         y: stackStartY,
