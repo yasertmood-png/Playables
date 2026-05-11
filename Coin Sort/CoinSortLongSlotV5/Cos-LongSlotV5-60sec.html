@@ -2412,7 +2412,7 @@
       [coinGroup(4, 4, false)], // 3
       [coinGroup(3, 6, false)], // 4
       [coinGroup(6, 4, false), coinGroup(4, 3, false)], // 5
-      [ coinGroup(4, 1, false),coinGroup(5, 2, false),coinGroup(2, 1, false)], // 6
+      [ coinGroup(4, 1, false),coinGroup(2, 1, false),coinGroup(5, 2, false)], // 6
       [coinGroup(5, 4, false)], // 7
       [coinGroup(6, 3, false), coinGroup(4, 2, false)], // 8
       [ coinGroup(4, 4, false)], // 9
@@ -3062,6 +3062,8 @@
     var _qmPool = [];            // reuse pool for question-mark objects
     var _checkpointCirclePool = [];
     var _activeQuestionMarks = []; // currently live question marks (for bob animation)
+    var _dbgQmFlyColor = null;           // debug override for flying QM color (null = use default)
+    var _dbgCircleReachedColor = null;   // debug override for checkpoint reached color
 
     // Pre-bake one text texture per coin number so createCoin never allocates.
     function _warmCoinTextures() {
@@ -3389,7 +3391,7 @@
         );
       }
       if (_qmMatRef) {
-        _qmMatRef.color.setHex(CheckpointQuestionMarkColor);
+        _qmMatRef.color.setHex(_dbgQmFlyColor !== null ? _dbgQmFlyColor : CheckpointQuestionMarkColor);
       }
       if (group.userData.qmBobber) {
         group.userData.qmBobber.position.set(0, 0, 0);
@@ -3422,7 +3424,8 @@
 
     function _setCheckpointCircleReached(marker, reached) {
       if (!marker || !marker.userData || !marker.userData._coinMat) return;
-      marker.userData._coinMat.color.setHex(reached ? CheckpointCircleReachedColor : CheckpointCircleColor);
+      var reachedCol = _dbgCircleReachedColor !== null ? _dbgCircleReachedColor : CheckpointCircleReachedColor;
+      marker.userData._coinMat.color.setHex(reached ? reachedCol : CheckpointCircleColor);
     }
 
     function _setCheckpointMarkerReached(marker, reached) {
@@ -4522,6 +4525,171 @@
       _maybeStartCoinSmallTableIntro();
     }
 
+    // ── Debug color panel ──────────────────────────────────────────────────────
+    function _initDebugPanel() {
+      var _toCSS = function(hex) { return '#' + ('000000' + hex.toString(16)).slice(-6); };
+      var _fromCSS = function(s) { return parseInt(s.slice(1), 16); };
+
+      // Read actual live color from first matching object, or fall back to constant
+      function _matColor(mat) { return '#' + mat.color.getHexString(); }
+      function _liveQmLongSlotColor() {
+        for (var qi = 0; qi < _activeQuestionMarks.length; qi++) {
+          var qm = _activeQuestionMarks[qi];
+          if (qm.userData.isCheckpointCircle && qm.userData.checkpointQuestionMarkMat)
+            return _matColor(qm.userData.checkpointQuestionMarkMat);
+          if (qm.userData.isQuestionMark && !qm.userData.isHiddenSlotQuestionMark && qm.userData._coinMat)
+            return _matColor(qm.userData._coinMat);
+        }
+        return _toCSS(CheckpointQuestionMarkColor);
+      }
+      function _liveQmHiddenSlotColor() {
+        for (var si = 0; si < slots.length; si++) {
+          var sl = slots[si];
+          if (sl && sl.hiddenSlotQuestionMark && sl.hiddenSlotQuestionMark.userData._coinMat)
+            return _matColor(sl.hiddenSlotQuestionMark.userData._coinMat);
+        }
+        return _toCSS(CheckpointQuestionMarkColor);
+      }
+      function _liveCircleColor() {
+        for (var qi = 0; qi < _activeQuestionMarks.length; qi++) {
+          var qm = _activeQuestionMarks[qi];
+          if (qm.userData.isCheckpointCircle && qm.userData._coinMat)
+            return _matColor(qm.userData._coinMat);
+        }
+        return _toCSS(CheckpointCircleColor);
+      }
+
+      function _copy(text, btn) {
+        try { navigator.clipboard.writeText(text); } catch(e) {
+          var ta = document.createElement('textarea');
+          ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;';
+          document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        if (btn) { var _t = btn.textContent; btn.textContent = '✓'; btn.style.color = '#6f6'; setTimeout(function(){ btn.textContent = _t; btn.style.color = ''; }, 700); }
+      }
+
+      function _applyCoinColor(n, hex) {
+        CoinColors[n] = hex;
+        for (var si = 0; si < slots.length; si++) {
+          var sl = slots[si]; if (!sl || !sl.coins) continue;
+          for (var ci = 0; ci < sl.coins.length; ci++) {
+            var c = sl.coins[ci];
+            if (c.userData.isQuestionMark || c.userData.isCheckpointCircle) continue;
+            if ((c.userData.layoutCoinNumber || c.userData.coinNumber) === n && !c.userData.hidden && c.userData._coinMat)
+              c.userData._coinMat.color.setHex(hex);
+          }
+        }
+        for (var hi = 0; hi < heldCoins.length; hi++) {
+          var hc = heldCoins[hi];
+          if ((hc.userData.layoutCoinNumber || hc.userData.coinNumber) === n && !hc.userData.hidden && hc.userData._coinMat)
+            hc.userData._coinMat.color.setHex(hex);
+        }
+      }
+
+      function _applyQmLongSlotColor(hex) {
+        for (var qi = 0; qi < _activeQuestionMarks.length; qi++) {
+          var qm = _activeQuestionMarks[qi];
+          if (qm.userData.isQuestionMark && !qm.userData.isHiddenSlotQuestionMark && qm.userData._coinMat)
+            qm.userData._coinMat.color.setHex(hex);
+          if (qm.userData.isCheckpointCircle && qm.userData.checkpointQuestionMarkMat)
+            qm.userData.checkpointQuestionMarkMat.color.setHex(hex);
+        }
+      }
+
+      function _applyQmHiddenSlotColor(hex) {
+        for (var si = 0; si < slots.length; si++) {
+          var sl = slots[si];
+          if (sl && sl.hiddenSlotQuestionMark && sl.hiddenSlotQuestionMark.userData._coinMat)
+            sl.hiddenSlotQuestionMark.userData._coinMat.color.setHex(hex);
+        }
+      }
+
+      function _applyCircleColor(hex) {
+        for (var qi = 0; qi < _activeQuestionMarks.length; qi++) {
+          var qm = _activeQuestionMarks[qi];
+          if (qm.userData.isCheckpointCircle && qm.userData._coinMat && !qm.userData.longSlotCheckpointLaunched)
+            qm.userData._coinMat.color.setHex(hex);
+        }
+      }
+
+      function _liveCircleReachedColor() {
+        for (var qi = 0; qi < _activeQuestionMarks.length; qi++) {
+          var qm = _activeQuestionMarks[qi];
+          if (qm.userData.isCheckpointCircle && qm.userData.longSlotCheckpointLaunched && qm.userData._coinMat)
+            return _matColor(qm.userData._coinMat);
+        }
+        return _toCSS(CheckpointCircleReachedColor);
+      }
+
+      function _applyCircleReachedColor(hex) {
+        _dbgCircleReachedColor = hex;
+        for (var qi = 0; qi < _activeQuestionMarks.length; qi++) {
+          var qm = _activeQuestionMarks[qi];
+          if (qm.userData.isCheckpointCircle && qm.userData.longSlotCheckpointLaunched && qm.userData._coinMat)
+            qm.userData._coinMat.color.setHex(hex);
+        }
+      }
+
+      var _coinNames = ['', 'Yellow', 'Green', 'Pink', 'Purple', 'Red', 'Blue', 'Brown'];
+      var SS = 'margin:8px 0 3px;font-size:10px;color:#666;border-bottom:1px solid #222;padding-bottom:2px;text-transform:uppercase;letter-spacing:.06em;';
+      var RS = 'display:flex;align-items:center;gap:5px;margin:3px 0;';
+      var IS = 'width:32px;height:20px;border:none;padding:0;cursor:pointer;border-radius:3px;flex-shrink:0;';
+      var BS = 'background:none;border:1px solid #3a3a3a;color:#888;border-radius:3px;cursor:pointer;font-size:10px;padding:1px 3px;flex-shrink:0;line-height:1;';
+
+      function _row(label, id, val) {
+        return '<div style="' + RS + '">' +
+          '<button style="' + BS + '" data-for="' + id + '">⎘</button>' +
+          '<span style="flex:1;font-size:11px;">' + label + '</span>' +
+          '<input type="color" id="' + id + '" value="' + val + '" style="' + IS + '">' +
+          '</div>';
+      }
+
+      var html = '<div style="font-weight:bold;font-size:13px;margin-bottom:5px;color:#eee;">Colors</div>';
+      html += '<div style="' + SS + '">Coins</div>';
+      for (var n = 1; n <= 7; n++) html += _row(_coinNames[n], 'dbg_coin_' + n, _toCSS(CoinColors[n]));
+      html += '<div style="' + SS + '">Question Marks</div>';
+      html += _row('Flying QM',      'dbg_qm_fly', _toCSS(CheckpointQuestionMarkColor));
+      html += _row('Long Slot QM',   'dbg_qm_ls',  _liveQmLongSlotColor());
+      html += _row('Hidden Slot QM', 'dbg_qm_hid', _liveQmHiddenSlotColor());
+      html += '<div style="' + SS + '">Circle</div>';
+      html += _row('Circle',         'dbg_circle',         _liveCircleColor());
+      html += _row('Circle Reached', 'dbg_circle_reached', _liveCircleReachedColor());
+
+      var panel = document.createElement('div');
+      panel.id = 'debugColorPanel';
+      panel.style.cssText = 'position:fixed;top:8px;right:8px;background:rgba(10,10,10,0.96);color:#ddd;padding:10px 12px;font:12px/1.5 monospace;z-index:100001;border-radius:8px;max-height:calc(100vh - 16px);overflow-y:auto;box-shadow:0 2px 20px rgba(0,0,0,0.9);min-width:200px;border:1px solid #2a2a2a;';
+      panel.innerHTML = html;
+      document.body.appendChild(panel);
+
+      var inputs = panel.getElementsByTagName('input');
+      for (var i = 0; i < inputs.length; i++) {
+        (function(inp) {
+          inp.addEventListener('input', function() {
+            var hex = _fromCSS(this.value);
+            var id = this.id;
+            if (id === 'dbg_qm_fly')              _dbgQmFlyColor = hex;
+            else if (id === 'dbg_qm_ls')          _applyQmLongSlotColor(hex);
+            else if (id === 'dbg_qm_hid')         _applyQmHiddenSlotColor(hex);
+            else if (id === 'dbg_circle')         _applyCircleColor(hex);
+            else if (id === 'dbg_circle_reached') _applyCircleReachedColor(hex);
+            else { var cn = parseInt(id.replace('dbg_coin_', ''), 10); if (!isNaN(cn)) _applyCoinColor(cn, hex); }
+          });
+        })(inputs[i]);
+      }
+
+      var btns = panel.getElementsByTagName('button');
+      for (var b = 0; b < btns.length; b++) {
+        (function(btn) {
+          btn.addEventListener('click', function() {
+            var inp = document.getElementById(this.getAttribute('data-for'));
+            if (inp) _copy(inp.value, this);
+          });
+        })(btns[b]);
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
     function startGame() {
       if (adStarted) return;
       adStarted = true;
@@ -4542,6 +4710,12 @@
         if (ctaInstallButton) ctaInstallButton.disabled = false;
       }
       animate();
+      try { _initDebugPanel(); } catch(e) {
+        var _dbgErr = document.createElement('div');
+        _dbgErr.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;z-index:999999;padding:8px;font:11px monospace;white-space:pre-wrap;';
+        _dbgErr.textContent = 'DEBUG PANEL ERROR: ' + e.message + '\n' + e.stack;
+        document.body.appendChild(_dbgErr);
+      }
       startTutorial();
       // If no slot tutorial and merges disabled, unlock deal button immediately.
       if (IsDealOpen && !EnableSlotMerge && !TutorialEnabled) {
@@ -6034,6 +6208,7 @@
           }, 0);
         }, 0);
       });
+
     })();
 
   </script>
