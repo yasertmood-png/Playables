@@ -2118,7 +2118,6 @@
     const CoinSmallTableRenderOrder = 10000;                // render table coin above all board objects
     const LongSlotTopCapHeight = 0.7;    // world units for top-cap image height (tune to match image)
     const LongSlotBotCapHeight = 0.7;    // world units for bottom-cap image height (tune to match image)
-    const LongSlotMidRepeatY = 0;      // 0 = auto-tile (maintains image aspect ratio); >0 = force N tiles
     const NormalSlotMidRepeatY = 0;      // 0 = auto-tile (maintains image aspect ratio); >0 = force N tiles
     const BagLidOffset = { x: -0.00225, y: 0.385, z: 0.0 };   // normal slot lid position offset
     const BagLidScale = { x: 0.83, y: 0.818 };           // normal slot lid size
@@ -2841,24 +2840,13 @@
     const _lsTopMesh = _makeLSMesh(ASSETS.normalSlotTop, _longW, _lsTopH,
       _lsZ - _longH / 2 + _lsTopH / 2);
 
-    // Middle section: tile to preserve natural image aspect ratio (like 3-slice)
+    // Middle section: stretch to fill (no tiling)
     const _midTex = loadB64Texture(ASSETS.normalSlotMid, { unique: true });
-    _midTex.wrapT = THREE.RepeatWrapping;
     const _midMat = new THREE.MeshBasicMaterial({ map: _midTex, transparent: true, alphaTest: 0.01, side: THREE.FrontSide });
     const _midMesh = new THREE.Mesh(new THREE.PlaneGeometry(_longW, _lsMidH), _midMat);
     _midMesh.rotation.x = -Math.PI / 2;
     _midMesh.position.set(LongSlotOffsetX, 0.2, _lsZ - _longH / 2 + _lsTopH + _lsMidH / 2);
     _lsGroup.add(_midMesh);
-    // Use a plain Image to read natural dimensions then apply tiling (data URLs load synchronously)
-    const _midDimImg = new Image();
-    _midDimImg.onload = function () {
-      const iW = _midDimImg.naturalWidth || 1;
-      const iH = _midDimImg.naturalHeight || 1;
-      const tileH = NormalSlotMidRepeatY > 0 ? _lsMidH / NormalSlotMidRepeatY : _longW * iH / iW;
-      _midTex.repeat.set(1, _lsMidH / tileH);
-      _midTex.needsUpdate = true;
-    };
-    _midDimImg.src = ASSETS.normalSlotMid;
 
     const _lsBotMesh = _makeLSMesh(ASSETS.normalSlotBot, _longW, _lsBotH,
       _lsZ + _longH / 2 - _lsBotH / 2);
