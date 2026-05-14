@@ -63,7 +63,10 @@
       "Bash(node build.js \"Cos-LongSlotV4-ByTransfer.html\")",
       "Bash(node build.js \"Cos-LongSlotV4-60sec.html\")",
       "Bash(node --input-type=module 2)",
-      "Bash(1:*)"
+      "Bash(1:*)",
+      "Bash(node build.js Cos-LongSlotV5-30sec.html)",
+      "Bash(node build.js Cos-LongSlotV5-2clk.html)",
+      "Bash(node build.js Cos-LongSlotV5-ByTransfer.html)"
     ]
   }
 }
