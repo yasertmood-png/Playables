@@ -2058,6 +2058,8 @@
     const LongSlotCheckpointPercents = [0.10,0.20, 0.30, 0.35, 0.45,0.55,0.65,0.75, 0.9];
     const LongSlotCheckpointCount = LongSlotCheckpointPercents.length;
     const LongSlotCheckpointScale = 1;
+    const LongSlotCheckpointOffsetPortrait  = { x: 0, y: 0, z: -0.2 };
+    const LongSlotCheckpointOffsetLandscape = { x: 0, y: 0, z: 0 };
     const LongSlotCheckpointYOffset = 0.2;
     const LongSlotCheckpointHitYOffset = 0.24;
     const LongSlotCheckpointFlightDuration = 800;
@@ -2181,7 +2183,9 @@
       4: 0x6300DB,   // purple
       5: 0xDE1721,   // red
       6: 0x009DFF,   // blue
-      7: 0x0c46bb,   // light green
+      7: 0x0c46bb,
+      8: 0xf836ff,
+      9: 0xffff3b   // light green
     };
 
     // Coin size (scale on each axis)
@@ -4380,7 +4384,8 @@
         marker.userData.qmPhase = i * QuestionMarkBobPhaseStep;
         _setCheckpointMarkerReached(marker, marker.userData.longSlotCheckpointLaunched);
         marker.scale.set(LongSlotCheckpointScale, LongSlotCheckpointScale, LongSlotCheckpointScale);
-        marker.position.set(cp.posX, cp.posY + LongSlotCheckpointYOffset, cp.posZ);
+        var _cpOff = _initIsLandscape ? LongSlotCheckpointOffsetLandscape : LongSlotCheckpointOffsetPortrait;
+        marker.position.set(cp.posX + _cpOff.x, cp.posY + LongSlotCheckpointYOffset + _cpOff.y, cp.posZ + _cpOff.z);
         _lsGroup.add(marker);
         _longSlotCheckpointMarkers.push(marker);
       }
