@@ -4,7 +4,8 @@
       "Bash(git -C \"c:/MoodGames/Playable Ads/Bitbucket\" show HEAD:\"Playables/Coin Sort/CoinSortLongSlotV6/Cos-LongSlotV6-60sec.html\")",
       "Read(//c/MoodGames/Playable Ads/**)",
       "Bash(while IFS=: read num rest)",
-      "Bash(do echo \"Line $num: $rest\")"
+      "Bash(do echo \"Line $num: $rest\")",
+      "Bash(node -e \":*)"
     ],
     "additionalDirectories": [
       "c:\\MoodGames\\Playable Ads\\Bitbucket\\Playables\\Coin Sort\\CoinSortLongSlotV6"
