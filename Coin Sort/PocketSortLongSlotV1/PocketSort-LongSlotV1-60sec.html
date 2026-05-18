@@ -2626,21 +2626,71 @@ sndDeal:"data:audio/mpeg;base64,SUQzBAAAAAACH1RFTkMAAAALAAADTG9naWMgUHJvAFREUkMA
         _lsTopCornerZ + CoinSmallTableOffset.z
       );
 
+      // Display coin starts hidden — flies in after the initial wave finishes
       var _cstDisplayCoin = createCoin(6);
       _cstDisplayCoin.scale.set(CoinSmallTableCoinScale, CoinSmallTableCoinScale, CoinSmallTableCoinScale);
-      _cstDisplayCoin.position.set(0, 0, CoinSmallTableCoinOffsetY); // local Z = toward camera (table normal)
-      _cstDisplayCoin.rotation.set(0, 0, 0); // inherits table's camera-facing rotation
-      var _cstTextMesh = _cstDisplayCoin.children[1]; // text plane
-      if (_cstTextMesh) {
-        _cstTextMesh.position.x += CoinSmallTableCoinTextOffset.x;
-        _cstTextMesh.position.y += CoinSmallTableCoinTextOffset.y;
-        _cstTextMesh.position.z += CoinSmallTableCoinTextOffset.z;
-      }
+      _cstDisplayCoin.position.set(0, 0, CoinSmallTableCoinOffsetY);
+      _cstDisplayCoin.rotation.set(0, 0, 0);
+      _cstDisplayCoin.visible = false;
       _cstMesh.add(_cstDisplayCoin);
       scene.add(_cstMesh);
 
       spawnCoins();
       fillLongSlotInitialCoins();
+
+      // After the wave finishes, fly a coin from the long slot entrance to the table
+      (function () {
+        var _waveDelay  = 200, _waveStagger = 30, _popDur = 130;
+        var _coinCount  = _initIsLandscape ? LongSlotInitialCoinCountLandscape : LongSlotInitialCoinCountPortrait;
+        var _waveDone   = _waveDelay + Math.max(0, _coinCount - 1) * _waveStagger + _popDur;
+
+        // World-space target (table position)
+        var _tX = LongSlotOffsetX + CoinSmallTableOffset.x;
+        var _tY = 0.2;
+        var _tZ = _lsTopCornerZ + CoinSmallTableOffset.z;
+
+        // Start position: entrance of long slot (top edge, centred)
+        var _sX = LongSlotOffsetX;
+        var _sY = 0.2;
+        var _sZ = _lsTopCornerZ;
+
+        setTimeout(function () {
+          var _fc = createCoin(6);
+          _fc.scale.set(CoinSmallTableCoinScale, CoinSmallTableCoinScale, CoinSmallTableCoinScale);
+          _fc.position.set(_sX, _sY, _sZ);
+          scene.add(_fc);
+
+          // Phase 1 — rise toward camera
+          var _arc = { t: 0 };
+          var _peakY = 3.0;
+          var _ph1 = 380;
+          new TWEEN.Tween(_arc)
+            .to({ t: 1 }, _ph1)
+            .easing(TWEEN.Easing.Cubic.Out)
+            .onUpdate(function () {
+              var t = _arc.t;
+              _fc.position.x = _sX + (_tX - _sX) * t;
+              _fc.position.z = _sZ + (_tZ - _sZ) * t;
+              _fc.position.y = _sY + (_peakY - _sY) * (1 - (1 - t) * (1 - t)); // ease-out rise
+            })
+            .onComplete(function () {
+              // Phase 2 — descend onto table
+              new TWEEN.Tween(_fc.position)
+                .to({ x: _tX, y: _tY, z: _tZ }, 280)
+                .easing(TWEEN.Easing.Cubic.In)
+                .onComplete(function () {
+                  scene.remove(_fc);
+                  _fc.traverse(function (c) {
+                    if (c.geometry) c.geometry.dispose();
+                    if (c.material) c.material.dispose();
+                  });
+                  _cstDisplayCoin.visible = true;
+                })
+                .start();
+            })
+            .start();
+        }, _waveDone);
+      })();
       if (DebugShowAllSlotLids) showAllSlotLidsForTesting();
       refreshAllSlotCompletionStates(false);
       if (IsDealOpen) {
