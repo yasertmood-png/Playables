@@ -2280,7 +2280,7 @@ hammerGoldTexture:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAi0AAAIuCAYAAAB
     const FrozenSmokeSpeed  = 0.2;  // cycles per second (lower = slower drift)
     const FrozenSmokeWave   = 0.08; // horizontal sway amplitude
     const FrozenSmokeSpread  = 0.25; // random X spread of spawn points
-    const FrozenSmokeSpreadZ = 1;  // random Z spread to cover ice height
+    const FrozenSmokeSpreadZ = 0.75;  // random Z spread to cover ice height
 
     // Coin rotation in the slot (degrees, converted to radians on use)
     const CoinRotation = { x: 0, y: 0, z: 0 };
@@ -3776,7 +3776,7 @@ hammerGoldTexture:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAi0AAAIuCAYAAAB
         sprite.scale.set(FrozenSmokeSize, FrozenSmokeSize * 1.8, 1);
         sprite.userData.smokePhase  = i / FrozenSmokeCount;
         sprite.userData.smokeXBase  = (Math.random() - 0.5) * FrozenSmokeSpread * 2;
-        sprite.userData.smokeZBase  = (Math.random() - 0.5) * FrozenSmokeSpreadZ * 2;
+        sprite.userData.smokeZBase  = (Math.random() - 0.8) * FrozenSmokeSpreadZ * 2;
         sprite.userData.smokeXPhase = Math.random() * Math.PI * 2;
         smokeGroup.add(sprite);
         sprites.push(sprite);
