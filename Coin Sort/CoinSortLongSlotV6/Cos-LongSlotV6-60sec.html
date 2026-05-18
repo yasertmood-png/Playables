@@ -6438,17 +6438,140 @@ hammerGoldTexture:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAi0AAAIuCAYAAAB
     <label>PO Units  <input type="range" id="fd_polyUnits"  min="-10" max="0" step="0.5" value="-1" style="width:100px;"> <span id="fd_polyUnitsVal">-1</span></label>
 
     <hr style="border-color:#444;margin:6px 0;">
-    <button id="fd_print" style="width:100%;padding:4px;cursor:pointer;">Print Values</button>
+    <button id="fd_print" style="width:100%;padding:4px;cursor:pointer;">Copy Changed Values</button>
   </div>
 
   <script>
   (function() {
     function hexToInt(hex) { return parseInt(hex.replace('#',''), 16); }
     function intToHex(n) { return '#' + ('000000' + n.toString(16)).slice(-6); }
+    function formatNumber(val, digits) { return parseFloat(val).toFixed(digits); }
 
     function getMats() {
       // Access materials exposed on window by the game scope
       return window._frozenDebugMats;
+    }
+
+    var defaultPrintButtonLabel = 'Copy Changed Values';
+    var printButtonResetTimer = null;
+    var initialPanelState = null;
+
+    function getPanelState() {
+      return {
+        baseColor: document.getElementById('fd_baseColor').value.toLowerCase(),
+        baseOpacity: parseFloat(document.getElementById('fd_baseOpacity').value),
+        shadowColor: document.getElementById('fd_shadowColor').value.toLowerCase(),
+        shadowOpacity: parseFloat(document.getElementById('fd_shadowOpacity').value),
+        texColor: document.getElementById('fd_texColor').value.toLowerCase(),
+        texOpacity: parseFloat(document.getElementById('fd_texOpacity').value),
+        texOffsetX: parseFloat(document.getElementById('fd_texOffsetX').value),
+        texOffsetY: parseFloat(document.getElementById('fd_texOffsetY').value),
+        matcapColor: document.getElementById('fd_matcapColor').value.toLowerCase(),
+        matcapOpacity: parseFloat(document.getElementById('fd_matcapOpacity').value),
+        depthTest: document.getElementById('fd_depthTest').checked,
+        depthWrite: document.getElementById('fd_depthWrite').checked,
+        polyOffset: document.getElementById('fd_polyOffset').checked,
+        polyFactor: parseFloat(document.getElementById('fd_polyFactor').value),
+        polyUnits: parseFloat(document.getElementById('fd_polyUnits').value),
+      };
+    }
+
+    function setPrintButtonLabel(text, delay) {
+      var btn = document.getElementById('fd_print');
+      btn.textContent = text;
+      if (printButtonResetTimer) clearTimeout(printButtonResetTimer);
+      if (delay) {
+        printButtonResetTimer = setTimeout(function() {
+          btn.textContent = defaultPrintButtonLabel;
+          printButtonResetTimer = null;
+        }, delay);
+      }
+    }
+
+    function buildChangedSettingsText() {
+      if (!initialPanelState) return '';
+
+      var current = getPanelState();
+      var groups = [
+        {
+          label: 'Base',
+          items: [
+            { key: 'baseColor', format: function(v) { return 'color:0x' + v.replace('#', ''); } },
+            { key: 'baseOpacity', format: function(v) { return 'opacity:' + formatNumber(v, 2); } },
+          ],
+        },
+        {
+          label: 'Shadow',
+          items: [
+            { key: 'shadowColor', format: function(v) { return 'color:0x' + v.replace('#', ''); } },
+            { key: 'shadowOpacity', format: function(v) { return 'opacity:' + formatNumber(v, 2); } },
+          ],
+        },
+        {
+          label: 'Tex',
+          items: [
+            { key: 'texColor', format: function(v) { return 'color:0x' + v.replace('#', ''); } },
+            { key: 'texOpacity', format: function(v) { return 'opacity:' + formatNumber(v, 2); } },
+            { key: 'texOffsetX', format: function(v) { return 'offsetX:' + formatNumber(v, 4); } },
+            { key: 'texOffsetY', format: function(v) { return 'offsetY:' + formatNumber(v, 4); } },
+          ],
+        },
+        {
+          label: 'Matcap',
+          items: [
+            { key: 'matcapColor', format: function(v) { return 'color:0x' + v.replace('#', ''); } },
+            { key: 'matcapOpacity', format: function(v) { return 'opacity:' + formatNumber(v, 2); } },
+          ],
+        },
+        {
+          label: 'Depth',
+          items: [
+            { key: 'depthTest', format: function(v) { return 'depthTest:' + v; } },
+            { key: 'depthWrite', format: function(v) { return 'depthWrite:' + v; } },
+            { key: 'polyOffset', format: function(v) { return 'polygonOffset:' + v; } },
+            { key: 'polyFactor', format: function(v) { return 'factor:' + v; } },
+            { key: 'polyUnits', format: function(v) { return 'units:' + v; } },
+          ],
+        },
+      ];
+      var lines = [];
+
+      groups.forEach(function(group) {
+        var changedItems = [];
+        group.items.forEach(function(item) {
+          if (current[item.key] !== initialPanelState[item.key]) {
+            changedItems.push(item.format(current[item.key]));
+          }
+        });
+        if (changedItems.length) lines.push('// ' + group.label + ': ' + changedItems.join(' '));
+      });
+
+      return lines.join('\n');
+    }
+
+    function copyTextToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function(resolve, reject) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        ta.style.pointerEvents = 'none';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+          if (!document.execCommand('copy')) throw new Error('Copy command failed');
+          resolve();
+        } catch (err) {
+          reject(err);
+        } finally {
+          document.body.removeChild(ta);
+        }
+      });
     }
 
     function applyAll() {
@@ -6555,22 +6678,25 @@ hammerGoldTexture:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAi0AAAIuCAYAAAB
         document.getElementById('fd_polyUnits').value    = anyMat.polygonOffsetUnits;
         updateLabel('fd_polyUnitsVal', anyMat.polygonOffsetUnits);
       }
+      initialPanelState = getPanelState();
     }
     syncFromMats();
 
     document.getElementById('fd_print').addEventListener('click', function() {
-      var v = function(id) { return document.getElementById(id).value; };
-      console.log(
-        '// Base:   color:0x' + v('fd_baseColor').replace('#','')   + ' opacity:' + parseFloat(v('fd_baseOpacity')).toFixed(2) + '\n' +
-        '// Shadow: color:0x' + v('fd_shadowColor').replace('#','') + ' opacity:' + parseFloat(v('fd_shadowOpacity')).toFixed(2) + '\n' +
-        '// Tex:    color:0x' + v('fd_texColor').replace('#','')    + ' opacity:' + parseFloat(v('fd_texOpacity')).toFixed(2)    +
-          ' offsetX:' + parseFloat(v('fd_texOffsetX')).toFixed(4) + ' offsetY:' + parseFloat(v('fd_texOffsetY')).toFixed(4) + '\n' +
-        '// Matcap: color:0x' + v('fd_matcapColor').replace('#','') + ' opacity:' + parseFloat(v('fd_matcapOpacity')).toFixed(2) + '\n' +
-        '// depthTest:' + document.getElementById('fd_depthTest').checked +
-          ' depthWrite:' + document.getElementById('fd_depthWrite').checked +
-          ' polygonOffset:' + document.getElementById('fd_polyOffset').checked +
-          ' factor:' + v('fd_polyFactor') + ' units:' + v('fd_polyUnits')
-      );
+      var changedText = buildChangedSettingsText();
+      if (!changedText) {
+        setPrintButtonLabel('No Changes', 1200);
+        return;
+      }
+
+      copyTextToClipboard(changedText).then(function() {
+        console.log(changedText);
+        setPrintButtonLabel('Copied Changed Values', 1500);
+      }).catch(function(err) {
+        console.warn('Failed to copy frozen debug settings:', err);
+        console.log(changedText);
+        setPrintButtonLabel('Copy Failed', 1500);
+      });
     });
   })();
   </script>
