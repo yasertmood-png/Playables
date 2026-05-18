@@ -3,8 +3,8 @@ const path = require('path');
 const { minify } = require('html-minifier-terser');
 const JavaScriptObfuscator = require('javascript-obfuscator');
 
-const BASE     = 'c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV5';
-const filename = process.argv[2] || 'Cos-LongSlotV5-60sec.html';
+const BASE     = 'c:/MoodGames/Playable Ads/Playables/Coin Sort/CoinSortLongSlotV6';
+const filename = process.argv[2] || 'Cos-LongSlotV6-60sec.html';
 const outName  = filename.replace(/\.html$/i, '.obf.html');
 const INPUT    = path.join(BASE, filename);
 const OUTPUT   = path.join(BASE, 'Obfuscated', outName);
@@ -66,14 +66,17 @@ function findMatchingBrace(str, braceIdx) {
   console.log('\nStep 1 — Minifying HTML...');
   const minified = await minify(html, {
     collapseWhitespace: true,
+    collapseInlineTagWhitespace: true,
+    conservativeCollapse: false,
     removeComments: true,
     removeRedundantAttributes: true,
+    removeAttributeQuotes: true,
     removeScriptTypeAttributes: true,
     removeStyleLinkTypeAttributes: true,
+    removeOptionalTags: true,
     useShortDoctype: true,
     minifyCSS: true,
-    minifyJS: true,
-    conservativeCollapse: false,
+    minifyJS: { compress: { passes: 2, drop_console: false }, mangle: true },
   });
   const minSize = Buffer.byteLength(minified, 'utf8');
   console.log(`Minified: ${(minSize / 1024).toFixed(1)} KB  (saved ${((inSize - minSize) / 1024).toFixed(1)} KB)`);
@@ -90,29 +93,38 @@ function findMatchingBrace(str, braceIdx) {
     console.log(`  script ${scriptIndex} (game logic): ${code.length} chars → obfuscating...`);
 
     const obfuscated = JavaScriptObfuscator.obfuscate(code, {
+      // ── Output ──────────────────────────────────────────────────
       compact: true,
-      controlFlowFlattening: false,
-      deadCodeInjection: false,
-      debugProtection: false,
-      disableConsoleOutput: false,
+      // ── Identifiers ─────────────────────────────────────────────
       identifierNamesGenerator: 'hexadecimal',
-      log: false,
-      numbersToExpressions: false,
       renameGlobals: false,
-      selfDefending: false,
-      simplify: true,
-      splitStrings: false,
+      // ── Control flow (medium — avoids excessive size bloat) ─────
+      controlFlowFlattening: true,
+      controlFlowFlatteningThreshold: 0.3,
+      // ── Dead code ────────────────────────────────────────────────
+      deadCodeInjection: false,
+      // ── Numbers ──────────────────────────────────────────────────
+      numbersToExpressions: true,
+      // ── Strings ──────────────────────────────────────────────────
       stringArray: true,
-      stringArrayCallsTransform: false,
-      stringArrayEncoding: ['none'],
-      stringArrayIndexShift: false,
+      stringArrayThreshold: 0.85,
+      stringArrayEncoding: ['base64'],
+      stringArrayIndexShift: true,
       stringArrayRotate: true,
       stringArrayShuffle: true,
-      stringArrayWrappersCount: 1,
-      stringArrayWrappersChained: false,
-      stringArrayWrappersParametersMaxCount: 2,
+      stringArrayCallsTransform: true,
+      stringArrayCallsTransformThreshold: 0.75,
+      stringArrayWrappersCount: 2,
+      stringArrayWrappersChained: true,
+      stringArrayWrappersParametersMaxCount: 4,
       stringArrayWrappersType: 'function',
-      stringArrayThreshold: 0.75,
+      splitStrings: false,
+      // ── Misc ─────────────────────────────────────────────────────
+      simplify: true,
+      selfDefending: false,
+      debugProtection: false,
+      disableConsoleOutput: false,
+      log: false,
       unicodeEscapeSequence: false,
     }).getObfuscatedCode();
 
